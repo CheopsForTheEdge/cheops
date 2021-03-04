@@ -21,7 +21,7 @@ After completion, the master node will yield an output similar to :
 
 ``` kubeadm join 172.16.97.1:6443 --token ars98w.h4gr6g7d6y54l6ky \ --discovery-token-ca-cert-hash [TRUNCATED]```
 
-Run your command on each worker node. Wait a little. On your master node, run the following command :
+**Copy the command you got on your master node** and run it on each worker node. Wait a little. On your master node, run the following command :
 
 ``` kubectl get nodes ```
 
