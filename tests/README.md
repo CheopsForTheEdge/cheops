@@ -2,7 +2,7 @@
 
 This part is to test the endpoints (from main.go). 
 
-I used pyresttest to allow REST requests easily and tried it with testingAPI.
+I used [pyresttest](https://github.com/svanoort/pyresttest): to allow REST requests easily and tried it with testingAPI.
 yaml with fake classes, didn't try with our classes except for get all 
 replicants, which doesn't work at that time...
 
