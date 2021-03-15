@@ -1,0 +1,12 @@
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+create-benchmark.json
+delete-benchmark.json
+target/
+.idea/

@@ -1,0 +1,88 @@
+---
+- config:
+    - testset: "Test Cheops API"
+    - generators:
+        - 'id': {type: 'number_sequence', start: 3}
+        - 'site': {type: 'random_text'}
+        - 'adress': {type: 'random_text'}
+        - 'service': {type: 'random_text'}
+
+- test:
+    - group: "home"
+    - name: "Basic"
+    - url: "/"
+
+
+#
+#- test:
+#    - group: "methods"
+#    - name: "Create an event"
+#    - url: "/event"
+#    - method: "POST"
+#    - body: '{"ID": "2", "Title": "Predator", "Description": "A movie"}'
+#    - headers: {'Content-Type': 'application/json'}
+#    - expected_status: [201]
+#    - extract_binds:
+#        - 'id': {'jsonpath_mini': 'ID'}
+#    - validators:
+#        - compare: {jsonpath_mini: 'Title', expected: 'Predator'}
+#
+#- test:
+#    - group: "methods"
+#    - name: "Make sure the movie is there"
+#    - url: {'template': "/event/$id"}
+#    - method: "GET"
+#    - expected_status: [200]
+#
+#
+#- benchmark:
+#    - generator_binds: {event_id: id, event_name: name, event_desc: description}
+#    - name: "Create event"
+#    - url: {template: "event"}
+#    - warmup_runs: 0
+#    - method: "POST"
+#    - headers: {'Content-Type': 'application/json'}
+#    - body: {template: '{"Title": "$event_name", "ID": "$event_id", "Description": "$event_desc"}'}
+#    - 'benchmark_runs': '10'
+#    - output_format: json
+#    - output_file: 'create-benchmark.json'
+#    - metrics: {total_time: mean}
+#
+#- test:
+#    - group: "methods"
+#    - name: "Get events"
+#    - url: "/events"
+#    - method: "GET"
+#
+#- test:
+#    - group: "methods"
+#    - name: "Create an event"
+#    - url: "/event/2"
+#    - method: "PUT"
+#    - body: '{"ID": "2", "Title": "Arrival", "Description": "Another movie}'
+#    - headers: {'Content-Type': 'application/json'}
+#
+#- test:
+#    - group: "methods"
+#    - name: "Get rid of this movie"
+#    - url: "/event/2"
+#    - method: "DELETE"
+#
+#- test:
+#    - group: "methods"
+#    - name: "Make sure the movie has been deleted"
+#    - url: "/event/2"
+#    - method: "GET"
+#    - expected_status: [404]
+#
+#
+#- benchmark:
+#    - generator_binds: {event_id: idbis}
+#    - name: "Delete event"
+#    - url: {template: "/event/$event_id"}
+#    - warmup_runs: 0
+#    - method: "DELETE"
+#    - benchmark_runs: '10'
+#    - output_format: json
+#    - output_file: 'delete-benchmark.json'
+#    - metrics: {total_time: mean}
