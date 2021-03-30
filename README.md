@@ -116,7 +116,14 @@ and adds the replicant to its database. When receiving the response, they
 add the local ID to the replicant and transfer the information to all 
 involved Cheops again.
 
+## How to contribute
 
+- Please follow usual [Golang conventions]. If you find some infractions, 
+  please report (or edit) them.
+- When adding, removing or change the use of a file, please change the 
+  corresponding entry in the README.md.
+- Don't hesitate to report an issue!
+- Thanks for any contribution :)
 
 ## Some other sources
 
@@ -134,3 +141,4 @@ name [Cheops](https://www.esa.int/Science_Exploration/Space_Science/Cheops).
 [Cure]: https://pages.lip6.fr/Marc.Shapiro/papers/Cure-final-ICDCS16.pdf
 [Sagas]: http://www.amundsen.com/downloads/sagas.pdf
 [envoy]: https://www.consul.io/docs/connect/proxies/envoy
+[Golang conventions]: (https://medium.com/@kdnotes/golang-naming-rules-and-conventions-8efeecd23b68)

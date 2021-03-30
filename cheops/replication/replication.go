@@ -18,10 +18,8 @@ type Replicant struct {
 	Replicas	[]Replica `json:"replicas"`
 }
 
+// Test replicants (allReplicants and Replicants)
 type allReplicants []Replicant
-
-// var replicaParis = Replica{site: "Paris", ID: "65"}
-// var replicaNantes = Replica{site: "Nantes", ID: "42"}
 
 var Replicants = allReplicants{
 	{
@@ -33,14 +31,16 @@ var Replicants = allReplicants{
 	},
 }
 
+// Creates a replicant with a meta ID, probably needs to add also the locations
 func CreateReplicant(w http.ResponseWriter, r *http.Request) {
 	rep := new(Replicant)
-	rep.MetaID = string(42) // generate MetaUID
+	rep.MetaID = string(42) // TODO: generate MetaUID
 	rep.Replicas = []Replica{}
 	Replicants = append(Replicants, *rep)
 	json.NewEncoder(w).Encode(Replicants)
 }
 
+// Creates a replicant with given information
 func CreateReplicantFromUID(w http.ResponseWriter, r *http.Request)  {
 	var newReplicant Replicant
 	reqBody, _ := ioutil.ReadAll(r.Body)
@@ -52,6 +52,7 @@ func CreateReplicantFromUID(w http.ResponseWriter, r *http.Request)  {
 	json.NewEncoder(w).Encode(newReplicant)
 }
 
+// Gets a specific replicant from its meta ID
 func GetReplicant(w http.ResponseWriter, r *http.Request) {
 	metaID := mux.Vars(r)["metaID"]
 
@@ -64,13 +65,12 @@ func GetReplicant(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(404)
 }
 
-// this doesn't even work...
+// Gets all replicants
 func GetAllReplicants(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(Replicants)
-	// fmt.Println(json.NewEncoder(w).Encode(Replicants))
-	// fmt.Fprintf(w, "replicants : %v", Replicants)
 }
 
+// Add a replica to a replicant
 func AddReplica(w http.ResponseWriter, r *http.Request) {
 	metaID := mux.Vars(r)["metaID"]
 	var updatedReplicant Replicant
@@ -94,7 +94,7 @@ func AddReplica(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-
+// Deletes a replicant given a meta ID
 func DeleteReplicant(w http.ResponseWriter, r *http.Request) {
 	metaID := mux.Vars(r)["metaID"]
 	for i, rep := range Replicants {

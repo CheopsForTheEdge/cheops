@@ -10,7 +10,11 @@ import(
 	"../replication"
 )
 
-
+/*
+This function creates a router with no care for trailing slash.
+It adds handlers and routes to the router. Finally,
+it runs the listening on defined port with those routes.
+*/
 func Routing() {
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/", homeLink)
@@ -25,7 +29,7 @@ func Routing() {
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
 
-
+// Checks if the request has data
 func CheckRequestFilledHandler(next http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		_, err := ioutil.ReadAll(r.Body)
@@ -41,7 +45,7 @@ func CheckRequestFilledHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(fn)
 }
 
-
+// Default route
 func homeLink(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Welcome home!")
 }
