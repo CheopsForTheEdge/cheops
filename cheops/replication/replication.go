@@ -33,14 +33,17 @@ var Replicants = allReplicants{
 	},
 }
 
-
 func CreateReplicant(w http.ResponseWriter, r *http.Request) {
+	rep := new(Replicant)
+	rep.MetaID = string(42) // generate MetaUID
+	rep.Replicas = []Replica{}
+	Replicants = append(Replicants, *rep)
+	json.NewEncoder(w).Encode(Replicants)
+}
+
+func CreateReplicantFromUID(w http.ResponseWriter, r *http.Request)  {
 	var newReplicant Replicant
-	reqBody, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		fmt.Fprintf(w, "Kindly enter data")
-		return
-	}
+	reqBody, _ := ioutil.ReadAll(r.Body)
 
 	json.Unmarshal(reqBody, &newReplicant)
 	Replicants = append(Replicants, newReplicant)

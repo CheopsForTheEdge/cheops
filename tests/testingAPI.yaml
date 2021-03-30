@@ -1,6 +1,6 @@
 ---
 - config:
-    - testset: "Test Cheops API"
+    - testset: "Test Cheops api"
     - generators:
         - 'id': {type: 'number_sequence', start: 3}
         - 'site': {type: 'random_text'}
@@ -12,6 +12,15 @@
     - name: "Basic"
     - url: "/"
 
+- test:
+    - group: "replication"
+    - name: "Create a replicant"
+    - url: "/replication"
+    - method: "POST"
+    - headers: {'Content-Type': 'application/json'}
+    - expected_status: [200]
+    - extract_binds:
+        - 'id': {'jsonpath_mini': 'MetaID'}
 
 #
 #- test:
