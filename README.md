@@ -68,33 +68,33 @@ In more details:
 
 ```
 .
-├── .gitignore            # Specify which file to ignore in git versioning
-├── README.md             # This file
-├── todo.org              # What remains to do
-├── cheops                # Where replication is done
-│   ├── api               # API package
-│   │   └── api.go        # Defines the router and routes
-│   ├── database          # Database package
-│   │   └── database.go   # Glue to the database
-│   ├── endpoint          # Endpoint package
-│   │   └── endpoint.go   # Manage different endpoints
-│   ├── main              # Main package
-│   │   └── main.go       # Only the main function
-│   ├── replication       # Replication package
-│   │   └── main.go       # Replicants and replicas management
-│   ├── request.go        # Request package
-│   │   └── request.go    # Get the request and transfer it to the driver
+├── .gitignore             # Specify which file to ignore in git versioning
+├── README.md              # This file
+├── todo.org               # What remains to do
+├── cheops                 # Where replication is done
+│   ├── api                # API package
+│   │   └── api.go         # Defines the router and routes
+│   ├── database           # Database package
+│   │   └── database.go    # Glue to the database
+│   ├── endpoint           # Endpoint package
+│   │   └── endpoint.go    # Manage different endpoints
+│   ├── main               # Main package
+│   │   └── main.go        # Only the main function
+│   ├── replication        # Replication package
+│   │   └── replication.go # Replicants and replicas management
+│   ├── request            # Request package
+│   │   └── request.go     # Get the request and transfer it to the driver
 ├── drivers
-│   └── googleboutique    # Page used for jobs (see _layouts -> category.html)
-│   └── k8s               # Favicon displayed in the tab
-│   └── openstack         # Favicon displayed in the tab
-│   │   ├── openstack.go  #
-│   │   └── scope.go      # Contact page
-├── tests                 # Most html pages
-│   ├── .gitignore        #
-│   ├── README.md         #
-│   ├── requirements.txt  # Page for publications
-│   └──testingAPI.yaml    # Page for platforms and softwares
+│   └── googleboutique    # Driver for Google Boutique
+│   └── k8s               # Driver for Kubernetes
+│   └── openstack         # Driver for OpenStack
+│   │   ├── openstack.go  # Interpreter for the request
+│   │   └── scope.go      # Interprets the scope (might inherit from a scope)
+├── tests                 # Where are the tests
+│   ├── .gitignore        # Gitignore for the tests
+│   ├── README.md         # README for the tests
+│   ├── requirements.txt  # Requirements file for the tests (cf README)
+│   └──testingAPI.yaml    # API tests
 ```
 
 ## Functioning
