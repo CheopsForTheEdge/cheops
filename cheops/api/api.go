@@ -1,13 +1,14 @@
 package api
 
-import(
+import (
+	"awesomeProject/cheops-master/cheops/replication"
+	"awesomeProject/cheops-master/cheops/request"
 	"fmt"
+	"github.com/gorilla/mux"
+	"github.com/justinas/alice"
 	"io/ioutil"
 	"log"
 	"net/http"
-	"github.com/gorilla/mux"
-	"github.com/justinas/alice"
-	"../replication"
 )
 
 /*
@@ -26,6 +27,8 @@ func Routing() {
 	router.HandleFunc("/replicant/{metaID}", replication.DeleteReplicant).Methods("DELETE")
 	router.Handle("/replicants", commonHandlers.ThenFunc(replication.
 		GetAllReplicants)).Methods("GET")
+	router.HandleFunc("/scope",request.ExtractScope).Methods("GET")
+	router.HandleFunc("/scope/forward",request.RedirectRequest).Methods("POST")
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
 
