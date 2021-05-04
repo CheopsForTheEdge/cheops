@@ -1,5 +1,8 @@
 ## General
 
+ServiceB has a default resource created (cf [app.py](../app.py#52)) to be used by serviceA.
+
+
 Works on run (either with an IDE such as Pycharm or with the python command) or in a docker container.
 
 From command:
