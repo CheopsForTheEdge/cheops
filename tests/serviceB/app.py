@@ -1,10 +1,9 @@
 from flask import Flask
 from flask import request
 import json
-import requests
 
 from database.database import db, init_database
-from database.models import ResourceA
+from database.models import ResourceB
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "good_pwd"
@@ -15,6 +14,9 @@ db.init_app(app) # (1) flask prend en compte la base de donnee
 
 with app.test_request_context(): # (2) bloc execute a l'initialisation de Flask
     init_database()
+    rsc_b = ResourceB(resource="Resource b")
+    db.session.add(rsc_b)
+    db.session.commit()
 
 
 def save_object_to_db(db_object):
@@ -28,38 +30,24 @@ def remove_object_from_db(db_object):
 
 
 def find_resource_by_id(rsc_id):
-    return ResourceA.query.filter_by(id=rsc_id).first()
+    return ResourceB.query.filter_by(id=rsc_id).first()
 
 
 @app.route('/')
 def home():
-    return "Service a"
+    return "Service b"
 
 
-@app.route("/resourcea", methods=["POST"])
-def create_resource_a():
+@app.route("/resourceb", methods=["POST"])
+def create_resource_b():
     rq = request.json
-    rsc_a = ResourceA(resource=rq['resource'])
-    save_object_to_db(rsc_a)
-    return rsc_a.serialize()
+    rsc_b = ResourceB(resource=rq['resource'])
+    save_object_to_db(rsc_b)
+    return rsc_b.serialize()
 
 
-@app.route("/resourceafromb/<string:mode>", methods=["POST"])
-def create_resource_a_from_b(mode):
-    if mode == "run":
-        r = requests.get('http://0.0.0.0:5002/resourceb/1')
-    elif mode == "docker":
-        r = requests.get('http://serviceb.app1:5002/resourceb/1')
-    else:
-        return 'Either run or docker', 405
-    rsc = r.json()['resource']
-    rsc_a = ResourceA(resource=rsc)
-    save_object_to_db(rsc_a)
-    return rsc_a.serialize()
-
-
-@app.route("/resourcea/<int:resource_id>", methods=["GET", "PUT", "DELETE"])
-def modify_resource_a(resource_id):
+@app.route("/resourceb/<int:resource_id>", methods=["GET", "PUT", "DELETE"])
+def modify_resource_b(resource_id):
     if request.method == 'GET':
         rsc = find_resource_by_id(resource_id)
         if rsc is not None:
@@ -67,10 +55,10 @@ def modify_resource_a(resource_id):
         else:
             return 'Resource not found', 404
     if request.method == 'PUT':
-        rsc_a_json = json.loads(request.data)
+        rsc_b_json = json.loads(request.data)
         rsc = find_resource_by_id(resource_id)
         if rsc is not None:
-            rsc.resource = (rsc_a_json['resource'])
+            rsc.resource = (rsc_b_json['resource'])
             save_object_to_db(rsc)
             return rsc.serialize()
         else:
@@ -85,4 +73,4 @@ def modify_resource_a(resource_id):
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    app.run(host='0.0.0.0', port=5002, debug=True)

@@ -94,7 +94,9 @@ In more details:
 │   ├── .gitignore        # Gitignore for the tests
 │   ├── README.md         # README for the tests
 │   ├── requirements.txt  # Requirements file for the tests (cf README)
-│   └──testingAPI.yaml    # API tests
+│   └── testingAPI.yaml   # API tests
+│   └── serviceA          # Mock service to test Cheops
+│   └── serviceB          # Mock service to test Cheops
 ```
 
 ## Functioning
