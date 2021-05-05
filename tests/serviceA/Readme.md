@@ -114,10 +114,15 @@ curl -X POST http://0.0.0.0:5001/resourceafromb/run
 
 ## Thanks to these resources:
 https://pythonbasics.org/flask-rest-api/
+
 https://stackoverflow.com/questions/4315111/how-to-do-http-request-call-with-json-payload-from-command-line
+
 https://www.geeksforgeeks.org/dockerize-your-flask-app/
+
 https://www.datacamp.com/community/tutorials/making-http-requests-in-python
+
 https://stackoverflow.com/questions/45481943/connecting-two-docker-containers
+
 https://flask.palletsprojects.com/en/1.1.x/api/?highlight=route#url-route-registrations
 
 
