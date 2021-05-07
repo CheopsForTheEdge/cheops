@@ -154,7 +154,7 @@ You should see the consul service and the mesh gateway service.
 Now let's see the services available on the remote cluster :
 
 ```bash
-curl -k https://127.0.0.1/v1/catalog/services?dc=YOUR_DC_NAME
+curl -k https://127.0.0.1:8501/v1/catalog/services?dc=YOUR_DC_NAME
 ```
 
 Replace YOUR_DC_NAME with the name of a remote cluster. 
