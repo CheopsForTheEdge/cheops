@@ -8,6 +8,8 @@ On a g5k frontend :
 
 ### First install only
 
+First, git clone the project. Then setup the basics :
+
 ```bash
 virtualenv -p python3 venv 
 source venv/bin/activate
@@ -24,13 +26,26 @@ EOF
 chmod 600 ~/.python-grid5000.yaml
 ```
 
+Move to the working directory : 
+
+```bash
+cd cheops/tutorials/02_TUTO_Federated_consul/
+```
+
 ### Deploy first cluster
 
-Copy the enos-consul.py file on the frontend.
 By default we make a reservation on site Rennes and nodes parasilo. Launch with :
 
 ```bash
 python enos-consul.py
+```
+
+**If this is your first launch, you might get stuck with this message from 10 to 15min, just wait :**
+
+```
+The Vagrant executable cannot be found. Please check if it is in the system path.
+Note: Openstack clients not installed
+Unverified HTTPS request is being made. Make sure to do this on purpose or set verify_ssl in the configuration file
 ```
 
 ### Deploy second cluster
@@ -43,13 +58,45 @@ Now we have two fonctionnal k8s clusters. Lets deploy Consul on each cluster wit
 
 ### Primary cluster
 
-To achieve federation, we need to chose one cluster as the primary. On the master node of that cluster, copy the primary-consul-values.yaml file (available in the assets above) and run it with the command :
+To achieve federation, we need to chose one cluster as the primary. Connect as **root** on the master node of that cluster. To find the master node, juste look at which node is listed under this task (here it is ecotype-44) : 
+
+```
+TASK [enoslib_adhoc_command] *******************************************************************************************
+ [started TASK: enoslib_adhoc_command on ecotype-44.nantes.grid5000.fr]
+changed: [ecotype-44.nantes.grid5000.fr]
+```
+
+Once you are connected as root on that node, apply the primary-consul-values.yaml with the command :
 
 ```bash
 helm install -f primary-consul-values.yaml hashicorp hashicorp/consul
 ```
 
-Then copy the proxydefault.yaml file and apply it :
+You should see some warnings, don't mind them and wait until you have this confirmation message :
+
+```
+NAME: hashicorp
+LAST DEPLOYED: Fri May  7 22:23:14 2021
+NAMESPACE: default
+STATUS: deployed
+REVISION: 1
+NOTES:
+Thank you for installing HashiCorp Consul!
+
+Now that you have deployed Consul, you should look over the docs on using
+Consul with Kubernetes available here:
+
+https://www.consul.io/docs/platform/k8s/index.html
+
+
+Your release is named hashicorp.
+
+To learn more about the release, run:
+
+  $ helm status hashicorp
+  $ helm get all hashicorp
+  ```
+Then apply the proxydefault.yaml file :
 
 ```bash
 kubectl apply -f proxydefault.yaml
@@ -63,20 +110,27 @@ kubectl get secret consul-federation -o yaml > consul-federation-secret.yaml
 
 ### Joining clusters
 
-For all other clusters (on the master node), copy the secret you got from the primary in a file named consul-federation-secret.yaml and apply it : 
+For all other secondary clusters (on their respective master node), copy the secret you just got from the primary in a file named consul-federation-secret.yaml and apply it : 
 
 ```bash
 kubectl apply -f consul-federation-secret.yaml
 ```
 
-Then copy the consul-values.yaml file (in the assets above) and run it with the command :
+Then apply the consul-values.yaml file with the command :
 
 ```bash
 helm install -f consul-values.yaml hashicorp hashicorp/consul
 ```
 
+Finally, apply the proxydefault.yaml file :
+
+```bash
+kubectl apply -f proxydefault.yaml
+```
+
 ## Check everything is running 
 
+Wait a few seconds in order to let the remote discovery feature to finish. 
 Open a terminal on the master node of any one of your clusters. Run the following command : 
 
 ```bash
