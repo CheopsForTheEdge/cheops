@@ -65,10 +65,14 @@ with play_on(pattern_hosts="k8s-master", roles=roles) as yaml:
         creates="/tmp/ap-done")
     yaml.copy(src="pv.yaml", dest="/consul/data/pv.yaml")
     yaml.shell(command="kubectl apply -f /consul/data/pv.yaml && touch /tmp/pv-done", creates ="/tmp/pv-done")
-    yaml.shell(command="curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3", creates="./get_helm.sh")
+    yaml.shell(command="curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 && touch /tmp/get-helm-done",
+               creates="/tmp/get-helm-done")
     yaml.file(path="get_helm.sh", mode='0700')
     yaml.shell(command="./get_helm.sh && touch /tmp/helm-done", creates="/tmp/helm-done")
     yaml.shell(command="helm repo add hashicorp https://helm.releases.hashicorp.com && touch /tmp/repo-done", creates="/tmp/repo-done")
+    yaml.copy(src="primary-consul-values.yaml", dest="primary-consul-values.yaml")
+    yaml.copy(src="consul-values.yaml", dest="consul-values.yaml")
+    yaml.copy(src="proxydefault.yaml", dest="proxydefault.yaml")
 
 # Get the command to join the cluster
 output = run("kubeadm token create --print-join-command", hosts=roles['k8s-master'])
