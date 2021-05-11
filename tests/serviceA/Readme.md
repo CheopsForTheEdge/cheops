@@ -28,6 +28,41 @@ sudo docker run -d --net app1 --name servicea -p 5001:5001 servicea
 sudo docker run -d --net app1 --name serviceb -p 5002:5002 serviceb
 ```
 
+On a G5K machine:
+
+```
+sudo apt-get update
+
+ sudo apt-get install \
+    apt-transport-https \
+    ca-certificates \
+    curl \
+    gnupg \
+    lsb-release
+
+curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+
+echo \
+  "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian \
+  $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+sudo apt-get install docker-ce docker-ce-cli containerd.io
+
+docker pull mariedonnie/servicea
+docker pull mariedonnie/serviceb
+
+docker network create app1
+
+docker run -d --net app1 --name servicea -p 5001:5001 mariedonnie/servicea
+docker run -d --net app1 --name serviceb -p 5002:5002 mariedonnie/serviceb
+
+curl -X POST http://0.0.0.0:5001/resourcea -d '{"resource":"lol"}' -H "Content-Type: application/json"
+curl -X GET http://0.0.0.0:5001/resourcea/1
+curl -X PUT http://0.0.0.0:5001/resourcea/1 -d '{"resource":"lil"}' -H "Content-Type: application/json"
+curl -X DELETE http://0.0.0.0:5001/resourcea/1
+curl -X POST http://0.0.0.0:5001/resourceafromb/docker
+```
+
 
 ## API
 
