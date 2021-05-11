@@ -44,14 +44,10 @@ def create_resource_a():
     return rsc_a.serialize()
 
 
-@app.route("/resourceafromb/<string:mode>", methods=["POST"])
-def create_resource_a_from_b(mode):
-    if mode == "run":
-        r = requests.get('http://0.0.0.0:5002/resourceb/1')
-    elif mode == "docker":
-        r = requests.get('http://serviceb.app1:5002/resourceb/1')
-    else:
-        return 'Either run or docker', 405
+@app.route("/resourceafromb/<string:address>", methods=["POST"])
+def create_resource_a_from_b(address):
+    r = requests.get('http://%s/resourceb/1' % (address))
+    print(r)
     rsc = r.json()['resource']
     rsc_a = ResourceA(resource=rsc)
     save_object_to_db(rsc_a)

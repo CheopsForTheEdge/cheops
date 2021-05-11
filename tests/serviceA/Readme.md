@@ -61,7 +61,7 @@ curl -X POST http://0.0.0.0:5001/resourcea -d '{"resource":"lol"}' -H "Content-T
 curl -X GET http://0.0.0.0:5001/resourcea/1
 curl -X PUT http://0.0.0.0:5001/resourcea/1 -d '{"resource":"lil"}' -H "Content-Type: application/json"
 curl -X DELETE http://0.0.0.0:5001/resourcea/1
-curl -X POST http://0.0.0.0:5001/resourceafromb/docker
+curl -X POST http://0.0.0.0:5001/resourceafromb/0.0.0.0:5002
 ```
 
 
@@ -74,11 +74,11 @@ curl -X POST http://0.0.0.0:5001/resourceafromb/docker
   **Request:** A string *resource* in body, as JSON.
   
   **Response:** A JSON of the created resourcea, with an integer *id* and the string *resource*.
-- POST /resourceafromb/{mode}
+- POST /resourceafromb/{address}
   
   Creates a resourcea given a resourceb[1].
 
-  **Request:** A string *mode*, either run or docker, respectively if run without or with docker.
+  **Request:** A string *address*, with the correspond port. For example, "0.0.0.0:5002".
   
   **Response:** A JSON of the created resourcea, with an integer *id* and the string *resource*.
 - GET /resourcea/{resourcea_id}
@@ -139,9 +139,9 @@ curl -X DELETE http://0.0.0.0:5001/resourcea/1
 
 ---
 
-5. Create a resourcea from a resourceb
+5. Create a resourcea from a resourceb, where 0.0.0.0:5002 is serviceB's address
 ```
-curl -X POST http://0.0.0.0:5001/resourceafromb/run
+curl -X POST http://0.0.0.0:5001/resourceafromb/0.0.0.0:5002
 ```
 {
   "id": 1, 
