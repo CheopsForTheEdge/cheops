@@ -64,7 +64,7 @@ func RedirectRequest (w http.ResponseWriter, req *http.Request) {
 	defer resp.Body.Close()
 
 	//Test to see if forward is working
-	bodyt, err := io.ReadAll(resp.Body)
+	bodyt, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
