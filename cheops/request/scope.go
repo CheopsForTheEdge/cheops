@@ -31,6 +31,7 @@ func ExtractScope(w http.ResponseWriter, req *http.Request) {
 
 	json.NewEncoder(w).Encode(Myscope)
 	fmt.Fprint(w, bodyString)
+	fmt.Fprint(w, req.Header)
 
 
 }
