@@ -57,6 +57,8 @@ func TestAppC (w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Fprint(w, resp.Body)
+	fmt.Fprint(w,req.Header)
 	defer resp.Body.Close()
 }
 
