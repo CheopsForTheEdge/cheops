@@ -35,6 +35,32 @@ func ExtractScope(w http.ResponseWriter, req *http.Request) {
 
 }
 
+func TestAppC (w http.ResponseWriter, req *http.Request) {
+	body, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	client := http.Client{}
+
+	// create a new url with the good scope
+	ScopeAddr := "http://10.244.1.8:5002/resourceb/1"
+	url := fmt.Sprintf("%s", ScopeAddr)
+	proxyReq, err := http.NewRequest("GET", url, bytes.NewReader(body))
+	proxyReq.Header = req.Header
+	if err  != nil{
+		log.Fatal(err)
+	}
+
+	//Do the Request to the good service
+	resp , err := client.Do(proxyReq)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+}
+
+
 func RedirectRequest (w http.ResponseWriter, req *http.Request) {
 	//Check if the incoming body is nil or not
 	body, err := ioutil.ReadAll(req.Body)
