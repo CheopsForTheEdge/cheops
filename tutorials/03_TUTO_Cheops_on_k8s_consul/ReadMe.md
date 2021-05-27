@@ -30,7 +30,8 @@ You should see something like this (mind the 3/3, this means we have three conta
 TBD => INSERT IMAGE OF RESULT (g5k not working properly ATM)
 
 Try to test the two services with the instructions in cheops/test/serviceA (resp. serviceB). 
-IMPORTANT : you will have to change the IP address used in the instructions for the one k8s assigned. To find it, use :
+
+**IMPORTANT :** you will have to change the IP address used in the instructions for the one k8s assigned. To find it, use :
 
 ```bash
 kubectl get pods -o wide
