@@ -29,7 +29,7 @@ You should see something like this (mind the 3/3, this means we have three conta
 
 TBD => INSERT IMAGE OF RESULT (g5k not working properly ATM)
 
-Try to test the two services with the instructions in cheops/test/serviceA.
+Try to test the two services with the instructions in cheops/test/serviceA. 
 
 ## Deploy Cheops
 
@@ -39,9 +39,44 @@ You can either use the current image of cheops we have on dockerhub :
 kubectl run cheops --image=juzdzewski/juzdzew:latest --port=8080
 ```
 
-Or you can make your own image if you wish to change the code (cheops is still a work in progress and is not 100% functional) :
+Or you can make your own image if you wish to change the code (cheops is still a work in progress and is not 100% functional). Here is one possible way to do so :
 
 ```bash
-git clone
+git clone https://gitlab.inria.fr/discovery/cheops.git
+cd cheops/cheops
+```
+
+From there you have access to all the classes and you can change the code (cheops is written in go). We provide a dockerfile located in cheops/cheops. When you are ready to build, go to that directory and build the image with :
+
+```bash
+docker build -t yourAccountName/yourRepoName:latest .
+docker login
+```
+
+You will be prompted to enter your docker credentials. After successfully login in :
+
+```bash
+docker push yourAccountName/yourRepoName:latest
+```
+
+You can now deploy your own image with :
+
+```bash
+kubectl run cheops --image=yourAccountName/yourRepoName:latest --port=8080
+```
+
+Check that everything went as intended :
+
+```bash
+kubectl get pods
+```
+
+Just like for the services, you should see cheops being ready and 3/3. You can quickly test to curl the root :
+
+```bash
+curl 
+
+
+
 
 
