@@ -1,8 +1,8 @@
 package api
 
 import (
-	"awesomeProject/cheops-master/cheops/replication"
-	"awesomeProject/cheops-master/cheops/request"
+	"../replication"
+	"../request"
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
