@@ -144,8 +144,9 @@ func TestR (w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	fmt.Fprint(w,Textblock)
-	json.NewEncoder(w).Encode(Textblock)
+	Textblockstring := string(Textblock)
+
+	json.NewEncoder(w).Encode(Textblockstring)
 
 
 
