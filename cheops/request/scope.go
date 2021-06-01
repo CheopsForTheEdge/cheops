@@ -186,4 +186,5 @@ func GetAddr(w http.ResponseWriter, req *http.Request){
 	json.NewEncoder(w).Encode(resp.Header)
 
 	json.NewEncoder(w).Encode(resp)
+	fmt.Fprint(w,resp)
 }
