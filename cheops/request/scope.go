@@ -118,6 +118,8 @@ func TestAppC (w http.ResponseWriter, req *http.Request) {
 }
 func TestR (w http.ResponseWriter, req *http.Request) {
 
+	client := http.Client{}
+
 	bodyBytes, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -129,44 +131,63 @@ func TestR (w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(req.Header)
 	json.NewEncoder(w).Encode(bodyString)
 
-	json.NewEncoder(w).Encode(GetAddr("10.244.4.3", "app-b"))
+	testaddr, err := http.NewRequest("GET", "http://localhost:8080/GetAddr", bytes.NewReader(bodyBytes))
+	testaddr.Header.Add("consulip", "10.244.4.3")
+	testaddr.Header.Add("servicename", "app-b")
+	resp , err := client.Do(testaddr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	Textblock, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	fmt.Fprint(w,Textblock)
+	json.NewEncoder(w).Encode(Textblock)
 
 
 
 }
 
 
-func GetAddr(consulip string, servicename string) string {
-
-
-	var w http.ResponseWriter
-	var req *http.Request
-	client := http.Client{}
-
-
+func GetAddr(w http.ResponseWriter, req *http.Request){
 	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return ""
-	}
-	url := fmt.Sprintf("%s:8500/v1/catalog/service/%s", consulip, servicename)
-	curlReq, err := http.NewRequest("GET", url,bytes.NewReader(body))
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return ""
+		return
 	}
 
-	resp , err := client.Do(curlReq)
+	client := http.Client{}
+
+	// create a new url with the good scope
+
+	url := fmt.Sprintf("http://%s:8500/v1/catalog/service/%s", req.Header.Get("consulip"), req.Header.Get("servicename"))
+	proxyReq, err := http.NewRequest("GET", url, bytes.NewReader(body))
+	if err  != nil{
+		log.Fatal(err)
+	}
+
+	//Do the Request to the good service
+	resp , err := client.Do(proxyReq)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer resp.Body.Close()
 
-	bodyresp, err := ioutil.ReadAll(resp.Body)
+	defer resp.Body.Close()
+	bodyBytes, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return ""
+		return
 	}
-	bodyString := string(bodyresp)
-	return bodyString
+	bodyString := string(bodyBytes)
+
+	json.NewEncoder(w).Encode(req.Host)
+
+	json.NewEncoder(w).Encode(req.URL)
+
+	json.NewEncoder(w).Encode(resp.Header)
+
+	json.NewEncoder(w).Encode(bodyString)
 }
