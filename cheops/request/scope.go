@@ -73,6 +73,20 @@ func TestAppC (w http.ResponseWriter, req *http.Request) {
 
 }
 
+func TestR (w http.ResponseWriter, req *http.Request) {
+
+	bodyBytes, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	bodyString := string(bodyBytes)
+	json.NewEncoder(w).Encode(bodyString)
+	json.NewEncoder(w).Encode(req.Header)
+
+
+
+}
 
 func RedirectRequest (w http.ResponseWriter, req *http.Request) {
 	//Check if the incoming body is nil or not
