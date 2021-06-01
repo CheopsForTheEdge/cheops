@@ -57,9 +57,20 @@ func TestAppC (w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Fprint(w, resp.Body)
-	fmt.Fprint(w,req.Header)
+	//fmt.Fprint(w, resp.Body)
+	//fmt.Fprint(w,req.Header)
 	defer resp.Body.Close()
+	bodyBytes, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	bodyString := string(bodyBytes)
+	json.NewEncoder(w).Encode(bodyString)
+	json.NewEncoder(w).Encode(resp.Header)
+
+
+
 }
 
 
