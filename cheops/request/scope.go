@@ -80,8 +80,10 @@ func TestR (w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	bodyString := string(bodyBytes)
-	json.NewEncoder(w).Encode(bodyString)
+	json.NewEncoder(w).Encode(req.Host)
+	json.NewEncoder(w).Encode(req.URL)
 	json.NewEncoder(w).Encode(req.Header)
+	json.NewEncoder(w).Encode(bodyString)
 
 
 
