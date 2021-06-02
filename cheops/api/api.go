@@ -29,6 +29,7 @@ func Routing() {
 		GetAllReplicants)).Methods("GET")
 	router.HandleFunc("/scope",request.ExtractScope).Methods("GET")
 	router.HandleFunc("/scope/forward",request.RedirectRequest).Methods("POST")
+	router.HandleFunc("/Appb", request.Appb).Method("GET")
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
 
