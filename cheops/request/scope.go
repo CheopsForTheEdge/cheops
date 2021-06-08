@@ -14,11 +14,9 @@ type Scope struct {
 	Sites []string `json:sites`
 }
 
-//the IP 10.244.3.3 was the consul-server-0 IP at the time of this test, it needs to be changed according to the current setup
-// ## NOTE : for now this function is just printing the IP address of a service called "app-b" by consulting the consul catalog.
-// To conclude the POCpoc, the final step is to forward the source request "r" to the IP
+//the IP 10.244.3.5 was the consul-server-0 IP at the time of this test, it needs to be changed according to the current setup
 func Appb (w http.ResponseWriter, r *http.Request) {
-        url := "http://10.244.3.3:8500/v1/catalog/service/app-b"
+        url := "http://10.244.3.5:8500/v1/catalog/service/app-b"
         req, _ := http.NewRequest("GET", url, nil)
         req.Header.Add("User-Agent", "curl/7.64.0")
         req.Header.Add("Accept", "*/*")
@@ -26,10 +24,23 @@ func Appb (w http.ResponseWriter, r *http.Request) {
         res, _ := client.Do(req)
         body, _ := ioutil.ReadAll(res.Body)
         str := string(body)
-        start := strings.Index(str, "ServiceAddress") + 17
-        slice := str[start : ]
-        end := strings.Index(slice, "\"") + start
-        json.NewEncoder(w).Encode(str[start : end])
+        startAdd := strings.Index(str, "ServiceAddress") + 17
+        sliceAdd := str[startAdd : ]
+        endAdd := strings.Index(sliceAdd, "\"") + startAdd
+        serviceAdd := str[startAdd : endAdd]
+        startPort := strings.Index(str, "ServicePort") + 13
+        slicePort := str[startPort : ]
+        endPort := strings.Index(slicePort, ",") + startPort
+        servicePort := str[startPort : endPort]
+        myHeader := r.Header.Get("x-envoy-original-path")
+
+        finalURL := "http://" + serviceAdd + ":" + servicePort + myHeader
+        finalReq, _ := http.NewRequest("GET", finalURL, nil)
+        finalClient := &http.Client{}
+        finalRes, _ := finalClient.Do(finalReq)
+        finalBody, _ := ioutil.ReadAll(finalRes.Body)
+        finalStr := string(finalBody)
+        json.NewEncoder(w).Encode(finalStr)
 }
 
 func ExtractScope(w http.ResponseWriter, req *http.Request) {
