@@ -39,8 +39,9 @@ func Appb (w http.ResponseWriter, r *http.Request) {
         finalClient := &http.Client{}
         finalRes, _ := finalClient.Do(finalReq)
         finalBody, _ := ioutil.ReadAll(finalRes.Body)
-        finalStr := string(finalBody)
-        json.NewEncoder(w).Encode(finalStr)
+        //finalStr := string(finalBody)
+        //json.NewEncoder(w).Encode(finalStr)
+		w.Write(finalBody)
 }
 
 func ExtractScope(w http.ResponseWriter, req *http.Request) {
