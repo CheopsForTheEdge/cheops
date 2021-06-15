@@ -53,6 +53,18 @@ func Appb (w http.ResponseWriter, r *http.Request) {
         w.Write(finalBody)
 }
 
+// IP 172.16.97.1 is the IP of remote master node, must be changed to match setup
+func SendRemote(w http.ResponseWriter, r *http.Request) {
+        url := "http://172.16.97.1:8081/HandleRemote"
+        req, _ := http.NewRequest("GET", url, nil)
+        req.Header.Add("service", r.Header.Get("service"))
+        req.Header.Add("destPath", r.Header.Get("destPath"))
+        client := &http.Client{}
+        res, _ := client.Do(req)
+        body, _ := ioutil.ReadAll(res.Body)
+        w.Write(body)
+}
+
 func ExtractScope(w http.ResponseWriter, req *http.Request) {
 	//Get the scope in the request Header : x-request-id
 	var scopes = req.Header.Get("x-request-id")
