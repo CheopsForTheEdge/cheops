@@ -34,13 +34,22 @@ func Appb (w http.ResponseWriter, r *http.Request) {
         servicePort := str[startPort : endPort]
         myHeader := r.Header.Get("x-envoy-original-path")
 
+        if false {
         finalURL := "http://" + serviceAdd + ":" + servicePort + myHeader
         finalReq, _ := http.NewRequest("GET", finalURL, nil)
         finalClient := &http.Client{}
         finalRes, _ := finalClient.Do(finalReq)
         finalBody, _ := ioutil.ReadAll(finalRes.Body)
-        //finalStr := string(finalBody)
-        //json.NewEncoder(w).Encode(finalStr)
+        w.Write(finalBody)
+        }
+        finalURL := "http://127.0.0.1:8080/SendRemote"
+        finalReq, _ := http.NewRequest("GET", finalURL, nil)
+        finalReq.Header.Add("service", "Appb")
+        finalReq.Header.Add("destPath", myHeader)
+        finalClient := &http.Client{}
+        finalRes, _ := finalClient.Do(finalReq)
+        finalBody, _ := ioutil.ReadAll(finalRes.Body)
+
         w.Write(finalBody)
 }
 
