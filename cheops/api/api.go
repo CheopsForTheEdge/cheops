@@ -31,6 +31,8 @@ func Routing() {
 	router.HandleFunc("/scope/forward",request.RedirectRequest).Methods("POST")
 	router.HandleFunc("/Appb/{flexible:.*}", request.Appb).Methods("GET")
 	router.HandleFunc("/SendRemote", request.SendRemote).Methods("GET")
+	router.HandleFunc("/RegisterRemoteSite", request.RegisterRemoteSite).Methods("POST")
+    router.HandleFunc("/GetRemoteSite/{site}", request.GetRemoteSite).Methods("GET")
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
 
