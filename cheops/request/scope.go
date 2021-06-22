@@ -35,7 +35,7 @@ func GetRemoteSite(w http.ResponseWriter, r *http.Request) {
 
 func IsPresent(arr []string, it string) bool {
         for i := 0; i < len(arr ); i++ {
-                if strings.Contains(arr[i], it+":") {
+                if strings.Contains(arr[i], it) {
                         return true
                 }
         }
@@ -44,8 +44,8 @@ func IsPresent(arr []string, it string) bool {
 
 func GetRemoteIP(arr []string, it string) string {
         for i := 0; i < len(arr ); i++ {
-                if strings.Contains(arr[i], it+":") {
-                        start := strings.Index(arr[i], ":")
+                if strings.Contains(arr[i], it) {
+                        start := strings.Index(arr[i], "/") + 1
                         val := arr[i][start : ]
                         return m[val]
                 }
@@ -55,7 +55,7 @@ func GetRemoteIP(arr []string, it string) string {
 
 //the IP 10.244.3.5 was the consul-server-0 IP at the time of this test, it needs to be changed according to the current setup
 func Appb (w http.ResponseWriter, r *http.Request) {
-        url := "http://10.244.1.3:8500/v1/catalog/service/app-b"
+        url := "http://10.244.2.2:8500/v1/catalog/service/app-b"
         req, _ := http.NewRequest("GET", url, nil)
         req.Header.Add("User-Agent", "curl/7.64.0")
         req.Header.Add("Accept", "*/*")
@@ -74,7 +74,7 @@ func Appb (w http.ResponseWriter, r *http.Request) {
         myHeader := r.Header.Get("x-envoy-original-path")
 
         headers := r.Header
-        scope, remote := headers["scope"]
+        scope, remote := headers["Scope"]
         if remote {
                 remote = IsPresent(scope, "app-b")
         }
