@@ -34,7 +34,7 @@ var Replicants = allReplicants{
 // Creates a replicant with a meta ID, probably needs to add also the locations
 func CreateReplicant(w http.ResponseWriter, r *http.Request) {
 	rep := new(Replicant)
-	rep.MetaID = string(42) // TODO: generate MetaUID
+	rep.MetaID = Utils.CreateMetaId()
 	rep.Replicas = []Replica{}
 	Replicants = append(Replicants, *rep)
 	json.NewEncoder(w).Encode(Replicants)
