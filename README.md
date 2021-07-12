@@ -1,7 +1,11 @@
-# cheops
+# Cheops
 
-Generic prototype to manage collaboration of different edge sites.
+Generic service to manage geo-distributed resources.
 
+Cheops is a follow-up from the original PoC for scope-lang's sharing,
+which can be found [here](https://github.com/BeyondTheClouds/openstackoid).
+The goal of Cheops is to make it more generic, and with more
+functionalities.
 
 Cheops work is supported by [Inria](https://www.inria.fr/),
 [IMT Atlantique](https://www.imt-atlantique.fr/) and
@@ -149,8 +153,8 @@ involved Cheops again.
 
 This project has been envisionned in the context of the [Discovery
 Initiative](https://beyondtheclouds.github.io/).
-To go *beyond the clouds* and to also stay close to the scope, I chose the
-name [Cheops](https://www.esa.int/Science_Exploration/Space_Science/Cheops).
+To go *beyond the clouds* and to also stay close to the scope, the
+name [Cheops](https://cheops.unibe.ch/) was chosen.
 
 [Cure]: https://pages.lip6.fr/Marc.Shapiro/papers/Cure-final-ICDCS16.pdf
 [Sagas]: http://www.amundsen.com/downloads/sagas.pdf
