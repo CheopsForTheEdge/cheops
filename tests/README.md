@@ -1,3 +1,7 @@
+# serviceA and serviceB
+
+Cf respective README to use them.
+
 # Execute API tests
 
 This part is to test the endpoints (from main.go). 
