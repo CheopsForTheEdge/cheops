@@ -4,7 +4,7 @@
 
 To test forwarding on distant sites, we need at least two different clusters. Follow the readme on this [gitlab repository](https://gitlab.inria.fr/aszymane/enos-consul/-/tree/master). 
 
-**IMPORTANT :** for the secondary cluster, don't forget to change the job's name in the file *consul-values.yaml* (because of idempotence).
+**IMPORTANT :** for the secondary cluster, don't forget to change the job's name in the file *enos-consul.py* (because of idempotence).
 
 ## Deploy test services A and B
 
