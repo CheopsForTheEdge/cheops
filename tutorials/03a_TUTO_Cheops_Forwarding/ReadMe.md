@@ -29,7 +29,7 @@ You should see *app-a* and *app-b* READY 2/2. If not, wait and retry the ``` kub
 
 ## Install Cheops
 
-Cheops is composed of two sperate components : the **core** and the **connector**. We will deploy them individually.
+Cheops is composed of two distinct components : the **core** and the **connector**. We will deploy them individually.
 
 ### Deploy and configure the core
 
@@ -126,7 +126,8 @@ func HandleRemote(w http.ResponseWriter, r *http.Request) {
 
 Save the change. We are ready to build, but first we need a dockerfile. Make sure your current directory is **connector** and then :
 
-```cat > dockerfile <<EOF
+```bash
+cat > dockerfile <<EOF
 FROM golang:1.12.0-alpine3.9
 
 RUN mkdir /app
