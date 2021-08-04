@@ -1,6 +1,7 @@
 package replication
 
 import (
+       "../utils"
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
@@ -23,7 +24,7 @@ type allReplicants []Replicant
 
 var Replicants = allReplicants{
 	{
-		MetaID:      "33344596",
+		MetaID:      Utils.CreateMetaId(),
 		Replicas:     []Replica{
 			Replica{Site: "Paris", ID: "65"},
 			Replica{Site: "Nantes", ID: "42"},
@@ -34,7 +35,7 @@ var Replicants = allReplicants{
 // Creates a replicant with a meta ID, probably needs to add also the locations
 func CreateReplicant(w http.ResponseWriter, r *http.Request) {
 	rep := new(Replicant)
-	rep.MetaID = string(42) // TODO: generate MetaUID
+	rep.MetaID = Utils.CreateMetaId()
 	rep.Replicas = []Replica{}
 	Replicants = append(Replicants, *rep)
 	json.NewEncoder(w).Encode(Replicants)

@@ -1,8 +1,8 @@
-# Install & test Cheops on a kubernetes/consul environment 
+# Install & test Cheops on a kubernetes/consul environment
 
-## Deploy a kubernetes cluster with consul 
+## Deploy a kubernetes cluster with consul
 
-Follow the readme on this [gitlab repository](https://gitlab.inria.fr/aszymane/enos-consul/-/tree/master) 
+Follow the readme on this [gitlab repository](https://gitlab.inria.fr/aszymane/enos-consul/-/tree/master)
 
 ## Deploy test services
 
@@ -32,9 +32,9 @@ kubectl get pods
 ```
 You should see something like this (mind the 3/3, this means we have three containers running inside the pod, one for the app itself, one for the envoy sidecar proxy and one for the consul agent) :
 
-TBD => INSERT IMAGE OF RESULT (g5k not working properly ATM)
+![Test services](app-a-b.png)
 
-Try to test the two services with the instructions in cheops/test/serviceA (resp. serviceB). 
+Try to test the two services with the instructions in cheops/test/serviceA (resp. serviceB).
 
 **IMPORTANT :** you will have to change the IP address used in the instructions for the one k8s assigned. To find it, use :
 
@@ -155,7 +155,7 @@ Apply this config entry :
 kubectl apply -f proxydefaults.yaml
 ```
 
-We are now ready to define a service router entry. For now, we will ask the Envoy around app-b to re-route incoming traffic towards Cheops. Several points before we go forward : 
+We are now ready to define a service router entry. For now, we will ask the Envoy around app-b to re-route incoming traffic towards Cheops. Several points before we go forward :
 
 - if you have followed this tutorial, then your Cheops connector is not deployed yet (coming soon) and so you can't properly test forwarding.
 
