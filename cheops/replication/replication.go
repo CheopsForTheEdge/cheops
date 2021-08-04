@@ -1,6 +1,7 @@
 package replication
 
 import (
+       "../utils"
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
@@ -23,7 +24,7 @@ type allReplicants []Replicant
 
 var Replicants = allReplicants{
 	{
-		MetaID:      "33344596",
+		MetaID:      Utils.CreateMetaId(),
 		Replicas:     []Replica{
 			Replica{Site: "Paris", ID: "65"},
 			Replica{Site: "Nantes", ID: "42"},
