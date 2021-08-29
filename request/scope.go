@@ -1,14 +1,14 @@
 package request
 
 import (
-        "bytes"
-        "encoding/json"
-        "github.com/gorilla/mux"
-        "fmt"
-        "io/ioutil"
-        "log"
-        "net/http"
-        "strings"
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"github.com/gorilla/mux"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"strings"
 )
 
 var m = make(map[string]string)

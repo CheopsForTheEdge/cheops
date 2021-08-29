@@ -1,8 +1,8 @@
 package api
 
 import (
-	"../replication"
-	"../request"
+	"cheops/replication"
+	"cheops/request"
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
