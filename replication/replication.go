@@ -18,13 +18,13 @@ type Replica struct {
 type Replicant struct {
 	MetaID      string    `json:"ID"`
 	Replicas	[]Replica `json:"replicas"`
-	isLeader	bool      `json:"isLeader"`
-	logs        []Log	  `json:"logs"`
+	IsLeader	bool      `json:"isLeader"`
+	Logs        []Log	  `json:"logs"`
 }
 
 type Log struct {
 	Operation string    `json:"operation"`
-	date time.Time		`json:"date"`
+	Date time.Time		`json:"date"`
 }
 
 // Test replicants (allReplicants and Replicants)
@@ -36,7 +36,7 @@ var Replicants = allReplicants{
 		Replicas:     []Replica{
 			Replica{Site: "Paris", ID: "65"},
 			Replica{Site: "Nantes", ID: "42"},
-			},
+		},
 	},
 }
 
@@ -45,7 +45,7 @@ func CreateReplicant(w http.ResponseWriter, r *http.Request) {
 	rep := new(Replicant)
 	rep.MetaID = utils.CreateMetaId()
 	rep.Replicas = []Replica{}
-	rep.isLeader = true
+	rep.IsLeader = true
 	Replicants = append(Replicants, *rep)
 	json.NewEncoder(w).Encode(Replicants)
 }
