@@ -2,7 +2,7 @@ package main
 
 import (
         "log"
-        "cheops.com/k8s"
+        "cheops.com/openstack"
 //        "math/rand"
          amqp "github.com/rabbitmq/amqp091-go"
 	 "encoding/json"
@@ -63,7 +63,7 @@ func main() {
 			log.Println(d.Body)
 			temp := int(d.Body[0])
 			if temp == 48 {
-                        	response = k8s.Get()
+                        	response = openstack.Get()
                         	log.Printf("%s", response)
 			} else{
 				var result map[string]interface{}
@@ -76,7 +76,7 @@ func main() {
     				}
 				_ = ioutil.WriteFile("deployment.json", jsonString, 0755)
 			       // log.Println(byteValue)
-				response = k8s.Deploy()
+				response = openstack.Deploy()
 				log.Printf("%s", response)
 
 

@@ -100,7 +100,7 @@ func deployHandler(w http.ResponseWriter, r *http.Request) {
             fmt.Println(err)
     }
 	byteValue, _ := ioutil.ReadAll(jsonFile)
-	res1 := Broker_Client("amqp://guest:guest@172.16.192.21:5672/", byteValue)
+	res1 := Broker_Client("amqp://guest:guest@10.44.61.255:5672/", byteValue)
         log.Printf("%s", res1)
 
 
@@ -110,10 +110,10 @@ func deployHandler(w http.ResponseWriter, r *http.Request) {
 
 func getHandler(w http.ResponseWriter, r *http.Request) {
         //fmt.Fprintf(w, "Hello!")
-        res1 := Broker_Client("amqp://guest:guest@172.16.192.21:5672/", []byte("0"))
+        res1 := Broker_Client("amqp://guest:guest@10.44.61.255:5672/", []byte("0"))
         log.Printf("%s", res1)
 
-        res2 := Broker_Client("amqp://guest:guest@172.16.192.21:5672/", []byte("0"))
+        res2 := Broker_Client("amqp://guest:guest@10.44.61.255:5672/", []byte("0"))
         log.Printf("%s", res2)
 
         Final_res := res1 + res2
