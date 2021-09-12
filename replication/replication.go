@@ -1,13 +1,14 @@
 package replication
 
 import (
-	"cheops/utils"
-	"encoding/json"
+	"time"
 	"fmt"
-	"github.com/gorilla/mux"
+	"encoding/json"
 	"io/ioutil"
 	"net/http"
-	"time"
+	"github.com/gorilla/mux"
+	"cheops/utils"
+	"cheops/database"
 )
 
 type Replica struct {
@@ -40,15 +41,21 @@ var Replicants = allReplicants{
 	},
 }
 
+// Collection name variable
+var colname = "replication"
+
 // CreateReplicant Creates a replicant with a meta ID, probably needs to add also the locations
-func CreateReplicant(w http.ResponseWriter, r *http.Request) {
+func CreateReplicant() string {
 	rep := new(Replicant)
 	rep.MetaID = utils.CreateMetaId()
 	rep.Replicas = []Replica{}
 	rep.IsLeader = true
-	Replicants = append(Replicants, *rep)
-	json.NewEncoder(w).Encode(Replicants)
+	rep.Logs = []Log{
+		Log{Operation: "creation", Date: (time.Now())}}
+	key := database.CreateResource(colname, rep)
+	return key
 }
+
 
 // CreateReplicantFromUID Creates a replicant with given information
 func CreateReplicantFromUID(w http.ResponseWriter, r *http.Request)  {
@@ -115,4 +122,10 @@ func DeleteReplicant(w http.ResponseWriter, r *http.Request) {
 				metaID)
 		}
 	}
+}
+
+// DeleteReplicant Deletes a replicant given a meta ID
+func DeleteReplicantWithKey(key string) {
+	database.DeleteResource(colname, key)
+	fmt.Printf("The event with ID %s has been deleted successfully \n", key)
 }

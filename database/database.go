@@ -10,6 +10,7 @@ import (
 	"time"
 )
 
+var dbcheops = "cheops"
 
 func LaunchDatabase() {
 	out, err := exec.Command("/bin/sh", "database/launch_db.sh").Output()
@@ -40,9 +41,9 @@ func Connection() driver.Client {
 }
 
 
-func CreateDatabase(client driver.Client, dbname string) driver.Database {
+func CreateDatabase(client driver.Client) driver.Database {
 	ctx := context.Background()
-	exists, err := client.DatabaseExists(ctx, dbname)
+	exists, err := client.DatabaseExists(ctx, dbcheops)
 	if err != nil {
 		// handle error
 		log.Fatal(err)
@@ -53,7 +54,7 @@ func CreateDatabase(client driver.Client, dbname string) driver.Database {
 			Password:"cheops"}
 		options := &driver.CreateDatabaseOptions{Users:[]driver.CreateDatabaseUserOptions{user},
 			Options: dbdefault}
-		db, err := client.CreateDatabase(ctx, dbname, options)
+		db, err := client.CreateDatabase(ctx, dbcheops, options)
 		if err != nil {
 			// handle error
 			log.Fatal(err)
@@ -64,16 +65,17 @@ func CreateDatabase(client driver.Client, dbname string) driver.Database {
 }
 
 
-func ConnectToDatabase(client driver.Client, dbname string) driver.Database {
+func ConnectToDatabase(client driver.Client) driver.Database {
 	ctx := context.Background()
-	exists, err := client.DatabaseExists(ctx, dbname)
+	exists, err := client.DatabaseExists(ctx, dbcheops)
 	if err != nil {
 		// handle error
 		log.Fatal(err)
 	}
 	if exists {
-		db, err := client.Database(ctx, dbname)
+		db, err := client.Database(ctx, dbcheops)
 		if err != nil {
+			fmt.Println("Can't connect to database")
 			// handle error
 			log.Fatal(err)
 		}
@@ -88,15 +90,20 @@ func ConnectToCollection(db driver.Database, colName string) driver.Collection  
 	exists, err := db.CollectionExists(ctx, colName)
 	if err != nil {
 		// handle error
+		fmt.Println("Can't check if collection exists")
 		log.Fatal(err)
 	}
 	if exists {
 		col, err := db.Collection(ctx, colName)
 		if err != nil {
 			// handle error
+			fmt.Println("Can't connect to collection")
 			log.Fatal(err)
 		}
 		return col
+	} else {
+		fmt.Println("Collection does not exists")
+		log.Fatal(err)
 	}
 	return nil
 }
@@ -114,10 +121,14 @@ func CreateCollection(db driver.Database, colName string) driver.Collection {
 		col, err := db.CreateCollection(ctx, colName, options)
 		if err != nil {
 			// handle error
+			fmt.Println("Can't create collection")
 			log.Fatal(err)
 		}
 		return col
+	} else {
+		fmt.Println("Collection already exists")
 	}
+
 	return nil
 }
 
@@ -126,11 +137,18 @@ func PrepareForExecution(dbname string, colname string) (driver.Database, driver
 	LaunchDatabase()
 	time.Sleep(15 * time.Second)
 	c := Connection()
-	CreateDatabase(c, dbname)
-	db := ConnectToDatabase(c, dbname)
+	CreateDatabase(c)
+	db := ConnectToDatabase(c)
 	col := CreateCollection(db, colname)
-	ExecuteQuery(db)
 	return db, col
+}
+
+
+func ConnectionToCorrectCollection(colname string) (driver.Collection){
+	c := Connection()
+	db := ConnectToDatabase(c)
+	col := ConnectToCollection(db, colname)
+	return col
 }
 
 
@@ -141,24 +159,45 @@ func ExecuteQuery(db driver.Database) bool {
 	return true
 }
 
-func CreateResource(col driver.Collection, doc interface{}) string {
+func CreateResource(colname string, doc interface{}) string {
 	ctx := context.Background()
+	col := ConnectionToCorrectCollection(colname)
 	meta, err := col.CreateDocument(ctx, doc)
 	if err != nil {
+		fmt.Println("Can't create the resource")
+		log.Fatal(err)
 		// handle error
 	}
 	return meta.Key
 }
 
 
-func ReadResource(col driver.Collection, key string, doc interface{}) {
+func ReadResource(colname string, key string, doc interface{}) {
 	ctx := context.Background()
+	col := ConnectionToCorrectCollection(colname)
 	_, err := col.ReadDocument(ctx, key, doc)
 	if err != nil {
+		fmt.Println("Can't access the resource")
 		log.Fatal(err)
 	}
 }
 
-func UpdateResource() {}
+func UpdateResource(colname string, key string, doc interface{}) {
+	ctx := context.Background()
+	col := ConnectionToCorrectCollection(colname)
+	_, err := col.UpdateDocument(ctx, key, doc)
+	if err != nil {
+		fmt.Println("Can't access the resource")
+		log.Fatal(err)
+	}
+}
 
-func DeleteResource() {}
+func DeleteResource(colname string, key string) {
+	ctx := context.Background()
+	col := ConnectionToCorrectCollection(colname)
+	_, err := col.RemoveDocument(ctx, key)
+	if err != nil {
+		fmt.Println("Can't remove the resource")
+		log.Fatal(err)
+	}
+}
