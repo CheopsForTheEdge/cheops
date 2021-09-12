@@ -11,20 +11,20 @@ import (
 )
 
 type Replica struct {
-	Site 	string `json:"site"`
+	Site 	string `json:"Site"`
 	ID 		string `json:"ID"`
 }
 
 type Replicant struct {
-	MetaID      string    `json:"ID"`
-	Replicas	[]Replica `json:"replicas"`
-	IsLeader	bool      `json:"isLeader"`
-	Logs        []Log	  `json:"logs"`
+	MetaID      string        `json:"MetaID"`
+	Replicas	[]Replica `json:"Replicas"`
+	IsLeader	bool      `json:"IsLeader"`
+	Logs        []Log	  `json:"Logs"`
 }
 
 type Log struct {
-	Operation string    `json:"operation"`
-	Date time.Time		`json:"date"`
+	Operation string    `json:"Operation"`
+	Date time.Time		`json:"Date"`
 }
 
 // Test replicants (allReplicants and Replicants)
@@ -64,7 +64,7 @@ func CreateReplicantFromUID(w http.ResponseWriter, r *http.Request)  {
 
 // GetReplicant Gets a specific replicant from its meta ID
 func GetReplicant(w http.ResponseWriter, r *http.Request) {
-	metaID := mux.Vars(r)["metaID"]
+	metaID := mux.Vars(r)["MetaID"]
 
 	for _, rep := range Replicants {
 		if rep.MetaID == metaID {
@@ -82,7 +82,7 @@ func GetAllReplicants(w http.ResponseWriter, r *http.Request) {
 
 // AddReplica Add a replica to a replicant
 func AddReplica(w http.ResponseWriter, r *http.Request) {
-	metaID := mux.Vars(r)["metaID"]
+	metaID := mux.Vars(r)["MetaID"]
 	var updatedReplicant Replicant
 
 	reqBody, err := ioutil.ReadAll(r.Body)
@@ -106,7 +106,7 @@ func AddReplica(w http.ResponseWriter, r *http.Request) {
 
 // DeleteReplicant Deletes a replicant given a meta ID
 func DeleteReplicant(w http.ResponseWriter, r *http.Request) {
-	metaID := mux.Vars(r)["metaID"]
+	metaID := mux.Vars(r)["MetaID"]
 	for i, rep := range Replicants {
 		if rep.MetaID == metaID {
 			Replicants = append(Replicants[:i], Replicants[i+1:]...)

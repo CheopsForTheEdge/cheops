@@ -1,7 +1,8 @@
 package main
 
 import (
-	//	"fmt"
+	"os"
+	"fmt"
 	"time"
 	"cheops/database"
 	"cheops/replication"
@@ -11,7 +12,12 @@ import (
 
 func main() {
 	//	api.Routing()
-	//	database.PrepareForExecution("cheops", "cheopsmodel")
+	// https://chriswiegman.com/2019/01/ensuring-the-file-path-is-present-to-create-a-file-in-golang/
+	check_file := "/root/arango"
+	if _, err := os.Stat(check_file); os.IsNotExist(err) {
+		database.PrepareForExecution("cheops", "cheopsmodel")
+		os.MkdirAll(check_file, 0700)
+	}
 	c := database.Connection()
 	db := database.ConnectToDatabase(c, "cheops")
 	col := database.ConnectToCollection(db , "cheopsmodel")
@@ -22,6 +28,10 @@ func main() {
 			replication.Replica{Site: "Nantes", ID: "42"}},
 		IsLeader: true,
 		Logs:  []replication.Log {
-			replication.Log{Operation: (time.Now()).String()}}}
-	database.CreateResource(col, doc)
+			replication.Log{Operation: "incredible operation",
+				Date: (time.Now())}}}
+	key := database.CreateResource(col, doc)
+	doci := replication.Replicant{}
+	database.ReadResource(col, key, &doci)
+	fmt.Println(doci)
 }

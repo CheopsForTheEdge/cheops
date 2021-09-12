@@ -141,16 +141,23 @@ func ExecuteQuery(db driver.Database) bool {
 	return true
 }
 
-func CreateResource(col driver.Collection, doc interface{}) {
+func CreateResource(col driver.Collection, doc interface{}) string {
 	ctx := context.Background()
 	meta, err := col.CreateDocument(ctx, doc)
 	if err != nil {
 		// handle error
 	}
-	fmt.Printf("Created document with key '%s', revision '%s'\n", meta.Key, meta.Rev)
+	return meta.Key
 }
 
-func ReadResource() {}
+
+func ReadResource(col driver.Collection, key string, doc interface{}) {
+	ctx := context.Background()
+	_, err := col.ReadDocument(ctx, key, doc)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
 
 func UpdateResource() {}
 
