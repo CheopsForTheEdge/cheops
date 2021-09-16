@@ -48,15 +48,16 @@ func main() {
 	// col.EnsurePersistentIndex(nil, []string{"Service", "Address"}, nil)
 	sitea := endpoint.CreateEndpoint("sitea", "0.0.0.0")
 	siteb := endpoint.CreateEndpoint("siteb", "0.0.0.1")
-	query := "FOR end IN endpoint FILTER end.Service == @name RETURN end"
-	bindvars := map[string]interface{}{ "name": "sitea", }
-	cursor, err := db.Query(nil, query, bindvars)
+	query := "FOR end IN replication FILTER end.MetaID == '42' RETURN end"
+	// bindvars := map[string]interface{}{ "name": "sitea", }
+	cursor, err := db.Query(nil, query, nil)
 	if err != nil {
 		// handle error
 	}
 	fmt.Println(sitea)
 	fmt.Println(siteb)
-	var result endpoint.Endpoint
+	// fmt.Println(cursor)
+	var result replication.Replicant
 	cursor.ReadDocument(nil, result)
 	fmt.Println(result)
 	defer cursor.Close()
