@@ -1,14 +1,15 @@
 package replication
 
 import (
-	"time"
-	"fmt"
+	"cheops/database"
+	"cheops/operation"
+	"cheops/utils"
 	"encoding/json"
+	"fmt"
+	"github.com/gorilla/mux"
 	"io/ioutil"
 	"net/http"
-	"github.com/gorilla/mux"
-	"cheops/utils"
-	"cheops/database"
+	"time"
 )
 
 type Replica struct {
@@ -17,10 +18,10 @@ type Replica struct {
 }
 
 type Replicant struct {
-	MetaID      string        `json:"MetaID"`
+	MetaID      string    `json:"MetaID"`
 	Replicas	[]Replica `json:"Replicas"`
 	IsLeader	bool      `json:"IsLeader"`
-	Logs        []Log	  `json:"Logs"`
+	Logs        []Log     `json:"Logs"`
 }
 
 type Log struct {
@@ -52,6 +53,21 @@ func CreateReplicant() string {
 	rep.IsLeader = true
 	rep.Logs = []Log{
 		Log{Operation: "creation", Date: (time.Now())}}
+	key := database.CreateResource(colname, rep)
+	return key
+}
+
+//CreateLeaderFromOperation Creates the first Replicant for the replicas
+func CreateLeaderFromOperation(op operation.Operation) string {
+	rep := new(Replicant)
+	rep.MetaID = utils.CreateMetaId()
+	rep.Replicas = []Replica{}
+	for _, site := range op.Sites{
+		rep.Replicas = append(rep.Replicas, Replica{Site: site, ID:""})
+	}
+	rep.IsLeader = true
+	rep.Logs = []Log{
+		Log{Operation: op.Request, Date: (time.Now())}}
 	key := database.CreateResource(colname, rep)
 	return key
 }

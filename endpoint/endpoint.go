@@ -1,20 +1,28 @@
 package endpoint
 
-import "net/http"
+import (
+	"net/http"
+	"cheops/database"
+)
+
 
 type Endpoint struct {
-	service		string  `json:"service"`
-	address 	string  `json:"address"`
+	Service string `json:"Service"`
+	Address string `json:"Address"`
 }
 
+// Collection name variable
+var colname = "endpoint"
+
 // Constructor
-func NewEndpoint(service string, address string) *Endpoint {
-	return &Endpoint{service: service, address: address}
+func CreateEndpoint(service string, address string) string {
+
+	end := Endpoint{Service: service, Address: address}
+	return database.CreateResource(colname, end)
 }
 
 // Contact an endpoint with a GET
-func contactEndpoint(endpoint Endpoint) *http.Response  {
-	response,_ := http.Get(endpoint.address)
+func ContactEndpoint(endpoint Endpoint) *http.Response  {
+	response,_ := http.Get(endpoint.Address)
 	return response
 }
-

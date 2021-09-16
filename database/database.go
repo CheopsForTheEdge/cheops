@@ -153,11 +153,11 @@ func ConnectionToCorrectCollection(colname string) (driver.Collection){
 
 
 
-func ExecuteQuery(db driver.Database) bool {
-	// ctx := context.Background()
-	fmt.Println("test")
-	return true
-}
+// func ExecuteQuery(query string, bindVars map[string]interface{}) bool {
+// 	ctx := context.Background()
+// 	fmt.Println("test")
+// 	return true
+// }
 
 func CreateResource(colname string, doc interface{}) string {
 	ctx := context.Background()
