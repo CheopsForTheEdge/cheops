@@ -44,21 +44,22 @@ func main() {
 	// fmt.Println(doci)
 	// fmt.Println(doci.Logs)
 	// replication.DeleteReplicantWithKey(doc)
-	// col := database.CreateCollection(db, "endpoint")
-	// col.EnsurePersistentIndex(nil, []string{"Service", "Address"}, nil)
+	// coli := database.CreateCollection(db, "endpoint")
+	// coli.EnsurePersistentIndex(nil, []string{"Service", "Address"}, nil)
 	sitea := endpoint.CreateEndpoint("sitea", "0.0.0.0")
 	siteb := endpoint.CreateEndpoint("siteb", "0.0.0.1")
-	query := "FOR end IN replication FILTER end.MetaID == '42' RETURN end"
-	// bindvars := map[string]interface{}{ "name": "sitea", }
-	cursor, err := db.Query(nil, query, nil)
+	query := "FOR end IN endpoint FILTER end.MetaID == @name RETURN end"
+	bindvars := map[string]interface{}{ "name": "sitea", }
+	cursor, err := db.Query(nil, query, bindvars)
 	if err != nil {
 		// handle error
 	}
 	fmt.Println(sitea)
 	fmt.Println(siteb)
 	// fmt.Println(cursor)
-	var result replication.Replicant
-	cursor.ReadDocument(nil, result)
+	result := endpoint.Endpoint{}
+	cursor.ReadDocument(nil, &result)
+	// fmt.Println(database
 	fmt.Println(result)
 	defer cursor.Close()
 }
