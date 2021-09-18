@@ -1,6 +1,10 @@
 package operation
 
-import "cheops/database"
+import (
+//	"net/http"
+	"cheops/database"
+	"cheops/endpoint"
+)
 
 type Operation struct {
 	Operation  			string    	`json:"Operation"`
@@ -10,7 +14,7 @@ type Operation struct {
 	Resource   			string  	`json:"Resource"`
 	PlatformOperation	string		`json:"PlatformOperation"`
 	ExtraArgs			[]string	`json:"ExtraArgs"`
-	Request		        string    `json:"Request"`
+	Request		        string      `json:"Request"`
 }
 
 // Collection name variable
@@ -28,12 +32,15 @@ func CreateOperation(operation string,
 	return database.CreateResource(colname, op)
 	}
 
-
-
 func SearchEndpoints(op Operation) []string {
 	var addresses []string
 	for _, site := range op.Sites{
-		addresses = append(addresses, site)
+		address := endpoint.GetAddress(site)
+		addresses = append(addresses, address)
 	}
 	return addresses
+}
+
+func SendRequestToBroker(op Operation) {
+	// call to Broker API with address and the op jsonified
 }
