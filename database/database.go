@@ -144,6 +144,12 @@ func PrepareForExecution(dbname string, colname string) (driver.Database, driver
 }
 
 
+func ConnectionToCheopsDatabase() (driver.Database){
+	c := Connection()
+	db := ConnectToDatabase(c)
+	return db
+}
+
 func ConnectionToCorrectCollection(colname string) (driver.Collection){
 	c := Connection()
 	db := ConnectToDatabase(c)
@@ -151,13 +157,20 @@ func ConnectionToCorrectCollection(colname string) (driver.Collection){
 	return col
 }
 
-
-
-// func ExecuteQuery(query string, bindVars map[string]interface{}) bool {
-// 	ctx := context.Background()
-// 	fmt.Println("test")
-// 	return true
-// }
+ func ExecuteQuery(query string, bindVars map[string]interface{},
+ result interface{}) (
+ 	cursor driver.Cursor) {
+ 	ctx := context.Background()
+ 	db := ConnectionToCheopsDatabase()
+ 	cursor, err := db.Query(ctx, query, bindVars)
+ 	if err != nil {
+		 fmt.Println("Can't execute the query")
+		 log.Fatal(err)
+		 // handle error
+ 	}
+	cursor.ReadDocument(ctx, &result)
+ 	return cursor
+}
 
 func CreateResource(colname string, doc interface{}) string {
 	ctx := context.Background()
