@@ -20,7 +20,7 @@ func CreateEndpoint(service string, address string) string {
 }
 
 func GetAddress(site string) string {
-	query := "FOR end IN endpoint FILTER end.MetaID == @name RETURN end"
+	query := "FOR end IN endpoint FILTER end.Service == @name RETURN end"
 	bindvars := map[string]interface{}{ "name": site }
 	result := Endpoint{}
 	database.ExecuteQuery(query, bindvars, &result)
