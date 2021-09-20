@@ -44,6 +44,9 @@ var Replicants = allReplicants{
 // Collection name variable
 var colnamerep = "replication"
 
+
+
+
 // CreateReplicant Creates a replicant with a meta ID, probably needs to add also the locations
 func CreateReplicant() string {
 	rep := new(Replicant)
@@ -61,6 +64,7 @@ func CreateLeaderFromOperation(op Operation) string {
 	rep := new(Replicant)
 	rep.MetaID = utils.CreateMetaId()
 	rep.Replicas = []Replica{}
+	fmt.Println(op.Sites)
 	for _, site := range op.Sites{
 		rep.Replicas = append(rep.Replicas, Replica{Site: site, ID:""})
 	}
@@ -69,6 +73,15 @@ func CreateLeaderFromOperation(op Operation) string {
 		Log{Operation: op.Request, Date: (time.Now())}}
 	key := database.CreateResource(colnamerep, rep)
 	return key
+}
+
+func CreateLeaderFromOperationAPI(w http.ResponseWriter, r *http.Request) {
+	var op Operation
+	reqBody, _ := ioutil.ReadAll(r.Body)
+	json.Unmarshal(reqBody, &op)
+	fmt.Println(op)
+	key := CreateLeaderFromOperation(op)
+	json.NewEncoder(w).Encode(key)
 }
 
 

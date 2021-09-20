@@ -1,18 +1,17 @@
 package main
 
 import (
-	replication "cheops.com/operation"
 	"fmt"
 	"os"
 	"time"
 	"cheops.com/database"
 	"cheops.com/endpoint"
-	//	"cheops/api"
+	"cheops.com/api"
+	replication "cheops.com/operation"
 )
 
 
 func main() {
-	//	api.Routing()
 	// https://chriswiegman.com/2019/01/ensuring-the-file-path-is-present-to-create-a-file-in-golang/
 	check_file := "/root/arango"
 	if _, err := os.Stat(check_file); os.IsNotExist(err) {
@@ -61,4 +60,5 @@ func main() {
 	// defer cursor.Close()
 	add := endpoint.GetAddress("sitea")
 	fmt.Println(add)
+	api.Routing()
 }

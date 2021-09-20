@@ -7,6 +7,7 @@ replace (
 	cheops.com/openstack => ./glue/openstack
 	cheops.com/database => ./database
 	cheops.com/operation => ./operation
+	cheops.com/api => ./api
 )
 
 require (
