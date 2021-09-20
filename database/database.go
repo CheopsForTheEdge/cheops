@@ -132,6 +132,35 @@ func CreateCollection(db driver.Database, colName string) driver.Collection {
 	return nil
 }
 
+func CreateCollectionWithIndexes(db driver.Database, colName string, fields []string) driver.Collection {
+	ctx := context.Background()
+	exists, err := db.CollectionExists(ctx, colName)
+	if err != nil {
+		// handle error
+		log.Fatal(err)
+	}
+	if !(exists) {
+		options := &driver.CreateCollectionOptions{}
+		col, err := db.CreateCollection(ctx, colName, options)
+		if err != nil {
+			// handle error
+			fmt.Println("Can't create collection")
+			log.Fatal(err)
+		}
+		_, _, error := col.EnsurePersistentIndex(ctx, fields, nil)
+		if error != nil {
+			// handle error
+			fmt.Println("Can't create index")
+			log.Fatal(err)
+		}
+		return col
+	} else {
+		fmt.Println("Collection already exists")
+	}
+
+	return nil
+}
+
 
 func PrepareForExecution(dbname string, colname string) (driver.Database, driver.Collection) {
 	LaunchDatabase()

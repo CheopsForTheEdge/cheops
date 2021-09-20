@@ -1,12 +1,12 @@
 package main
 
 import (
-	"cheops/operation/replication"
+	replication "cheops.com/operation"
 	"fmt"
 	"os"
 	"time"
-	"cheops/database"
-	"cheops/endpoint"
+	"cheops.com/database"
+	"cheops.com/endpoint"
 	//	"cheops/api"
 )
 
@@ -19,10 +19,10 @@ func main() {
 		database.PrepareForExecution("cheops", "replication")
 		os.MkdirAll(check_file, 0700)
 	}
-	c := database.Connection()
-	db := database.ConnectToDatabase(c)
-	col := database.ConnectionToCorrectCollection("replication")
-	col.EnsurePersistentIndex(nil, []string{"MetaID", "IsLeader"}, nil)
+	// c := database.Connection()
+	// db := database.ConnectToDatabase(c)
+	// col := database.ConnectionToCorrectCollection("replication")
+	// col.EnsurePersistentIndex(nil, []string{"MetaID", "IsLeader"}, nil)
 	doca := replication.Replicant{
 		MetaID: "42",
 		Replicas: []replication.Replica{
@@ -33,9 +33,9 @@ func main() {
 			replication.Log{Operation: "incredible operation",
 				Date: (time.Now())}}}
 	key := database.CreateResource("replication", doca)
-	// doci := replication.Replicant{}
-	// database.ReadResource("replication", key, &doci)
-	fmt.Println(key)
+	doci := replication.Replicant{}
+	database.ReadResource("replication", key, &doci)
+	// fmt.Println(key)
 	// doc := replication.CreateReplicant()
 	// // log = replication.Log{Operation: "incredible operation", Date: (time.Now())}
 	// // database.UpdateReplicant(doc)
@@ -46,20 +46,19 @@ func main() {
 	// replication.DeleteReplicantWithKey(doc)
 	// coli := database.CreateCollection(db, "endpoint")
 	// coli.EnsurePersistentIndex(nil, []string{"Service", "Address"}, nil)
-	sitea := endpoint.CreateEndpoint("sitea", "0.0.0.0")
-	siteb := endpoint.CreateEndpoint("siteb", "0.0.0.1")
-	query := "FOR end IN endpoint FILTER end.MetaID == @name RETURN end"
-	bindvars := map[string]interface{}{ "name": "sitea", }
-	cursor, err := db.Query(nil, query, bindvars)
-	if err != nil {
-		// handle error
-	}
-	fmt.Println(sitea)
-	fmt.Println(siteb)
-	// fmt.Println(cursor)
-	result := endpoint.Endpoint{}
-	cursor.ReadDocument(nil, &result)
-	// fmt.Println(database
-	fmt.Println(result)
-	defer cursor.Close()
+	// sitea := endpoint.CreateEndpoint("sitea", "0.0.0.0")
+	// siteb := endpoint.CreateEndpoint("siteb", "0.0.0.1")
+	// query := "FOR end IN endpoint FILTER end.Site == @name RETURN end"
+	// bindvars := map[string]interface{}{ "name": "sitea", }
+	// cursor, _ := db.Query(nil, query, bindvars)
+	// fmt.Println(sitea)
+	// fmt.Println(siteb)
+	// // fmt.Println(cursor)
+	// result := endpoint.Endpoint{}
+	// cursor.ReadDocument(nil, &result)
+	// // fmt.Println(database
+	// fmt.Println(result)
+	// defer cursor.Close()
+	add := endpoint.GetAddress("sitea")
+	fmt.Println(add)
 }

@@ -1,7 +1,7 @@
 package endpoint
 
 import (
-	"cheops/database"
+	"cheops.com/database"
 	"net/http"
 )
 

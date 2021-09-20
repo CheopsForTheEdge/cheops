@@ -2,8 +2,8 @@ package operation
 
 import (
 //	"net/http"
-	"cheops/database"
-	"cheops/endpoint"
+	"cheops.com/database"
+	"cheops.com/endpoint"
 )
 
 type Operation struct {

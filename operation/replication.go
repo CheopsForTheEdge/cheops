@@ -1,9 +1,8 @@
-package replication
+package operation
 
 import (
-	"cheops/database"
-	"cheops/operation"
-	"cheops/utils"
+	"cheops.com/database"
+	"cheops.com/utils"
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
@@ -43,7 +42,7 @@ var Replicants = allReplicants{
 }
 
 // Collection name variable
-var colname = "replication"
+var colnamerep = "replication"
 
 // CreateReplicant Creates a replicant with a meta ID, probably needs to add also the locations
 func CreateReplicant() string {
@@ -53,12 +52,12 @@ func CreateReplicant() string {
 	rep.IsLeader = true
 	rep.Logs = []Log{
 		Log{Operation: "creation", Date: (time.Now())}}
-	key := database.CreateResource(colname, rep)
+	key := database.CreateResource(colnamerep, rep)
 	return key
 }
 
 //CreateLeaderFromOperation Creates the first Replicant for the replicas
-func CreateLeaderFromOperation(op operation.Operation) string {
+func CreateLeaderFromOperation(op Operation) string {
 	rep := new(Replicant)
 	rep.MetaID = utils.CreateMetaId()
 	rep.Replicas = []Replica{}
@@ -68,7 +67,7 @@ func CreateLeaderFromOperation(op operation.Operation) string {
 	rep.IsLeader = true
 	rep.Logs = []Log{
 		Log{Operation: op.Request, Date: (time.Now())}}
-	key := database.CreateResource(colname, rep)
+	key := database.CreateResource(colnamerep, rep)
 	return key
 }
 
@@ -142,6 +141,6 @@ func DeleteReplicant(w http.ResponseWriter, r *http.Request) {
 
 // DeleteReplicant Deletes a replicant given a meta ID
 func DeleteReplicantWithKey(key string) {
-	database.DeleteResource(colname, key)
+	database.DeleteResource(colnamerep, key)
 	fmt.Printf("The event with ID %s has been deleted successfully \n", key)
 }
