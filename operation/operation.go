@@ -1,7 +1,9 @@
 package operation
 
 import (
-//	"net/http"
+	"net/http"
+	"encoding/json"
+	"io/ioutil"
 	"cheops.com/database"
 	"cheops.com/endpoint"
 )
@@ -30,7 +32,16 @@ func CreateOperation(operation string,
 		PlatformOperation: platformOperation, ExtraArgs: extraArgs,
 		Request: request}
 	return database.CreateResource(colname, op)
-	}
+}
+
+func CreateOperationAPI(w http.ResponseWriter, r *http.Request) {
+	var op Operation
+	reqBody, _ := ioutil.ReadAll(r.Body)
+	json.Unmarshal([]byte(reqBody), &op)
+	key := database.CreateResource(colname, op)
+	json.NewEncoder(w).Encode(key)
+}
+
 
 func SearchEndpoints(op Operation) []string {
 	var addresses []string
@@ -40,6 +51,7 @@ func SearchEndpoints(op Operation) []string {
 	}
 	return addresses
 }
+
 
 func SendRequestToBroker(op Operation) {
 	// call to Broker API with address and the op jsonified

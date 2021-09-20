@@ -64,7 +64,6 @@ func CreateLeaderFromOperation(op Operation) string {
 	rep := new(Replicant)
 	rep.MetaID = utils.CreateMetaId()
 	rep.Replicas = []Replica{}
-	fmt.Println(op.Sites)
 	for _, site := range op.Sites{
 		rep.Replicas = append(rep.Replicas, Replica{Site: site, ID:""})
 	}
@@ -78,8 +77,7 @@ func CreateLeaderFromOperation(op Operation) string {
 func CreateLeaderFromOperationAPI(w http.ResponseWriter, r *http.Request) {
 	var op Operation
 	reqBody, _ := ioutil.ReadAll(r.Body)
-	json.Unmarshal(reqBody, &op)
-	fmt.Println(op)
+	json.Unmarshal([]byte(reqBody), &op)
 	key := CreateLeaderFromOperation(op)
 	json.NewEncoder(w).Encode(key)
 }

@@ -22,7 +22,8 @@ func Routing() {
 	router.HandleFunc("/", homeLink)
 	commonHandlers := alice.New(CheckRequestFilledHandler)
 	// Replication
-	router.Handle("/replication", commonHandlers.ThenFunc(operation.CreateLeaderFromOperationAPI)).Methods("POST")
+	// router.Handle("/replication", commonHandlers.ThenFunc(operation.CreateLeaderFromOperationAPI)).Methods("POST")
+	router.HandleFunc("/replication", operation.CreateLeaderFromOperationAPI).Methods("POST")
 	router.HandleFunc("/replicant/{metaID}", operation.GetReplicant).Methods("GET")
 	router.HandleFunc("/replicant/{metaID}", operation.AddReplica).Methods("PUT")
 	router.HandleFunc("/replicant/{metaID}", operation.DeleteReplicant).Methods("DELETE")
@@ -32,6 +33,7 @@ func Routing() {
 	router.HandleFunc("/endpoint/getaddress/{Site}", endpoint.GetAddressAPI).Methods("GET")
 	// Database
 	// Operation
+	router.HandleFunc("/operation", operation.CreateOperationAPI).Methods("POST")
 	// Broker - Driver
 	router.HandleFunc("/scope",request.ExtractScope).Methods("GET")
 	router.HandleFunc("/scope/forward",request.RedirectRequest).Methods("POST")
