@@ -5,7 +5,7 @@ import (
 	// "fmt"
 	// "time"
 	"cheops.com/database"
-	// "cheops.com/endpoint"
+	"cheops.com/endpoint"
 	"cheops.com/api"
 	// "cheops.com/operation"
 )
@@ -45,8 +45,8 @@ func main() {
 	// operation.DeleteReplicantWithKey(doc)
 	// coli := database.CreateCollection(db, "endpoint")
 	// coli.EnsurePersistentIndex(nil, []string{"Service", "Address"}, nil)
-	sitea := endpoint.CreateEndpoint("site1", "localhost/endpoint/getaddress/site1")
-	siteb := endpoint.CreateEndpoint("site2", "localhost/endpoint/getaddress/site2")
+	endpoint.CreateEndpoint("site1", "localhost/endpoint/getaddress/site1")
+	endpoint.CreateEndpoint("site2", "localhost/endpoint/getaddress/site2")
 	// query := "FOR end IN endpoint FILTER end.Site == @name RETURN end"
 	// bindvars := map[string]interface{}{ "name": "sitea", }
 	// cursor, _ := db.Query(nil, query, bindvars)
@@ -62,6 +62,6 @@ func main() {
 	// fmt.Println(add)
 	// col := database.ConnectionToCorrectCollection("operation")
 	// col.EnsurePersistentIndex(nil, []string{"MetaID", "IsLeader"}, nil)
-	database.CreateCollection(db, "operation")
+	// database.CreateCollection(db, "operation")
 	api.Routing()
 }

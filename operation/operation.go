@@ -34,12 +34,23 @@ func CreateOperation(operation string,
 	return database.CreateResource(colname, op)
 }
 
+
 func CreateOperationAPI(w http.ResponseWriter, r *http.Request) {
 	var op Operation
 	reqBody, _ := ioutil.ReadAll(r.Body)
 	json.Unmarshal([]byte(reqBody), &op)
 	key := database.CreateResource(colname, op)
 	json.NewEncoder(w).Encode(key)
+}
+
+func ExecuteOperationAPI(w http.ResponseWriter, r *http.Request) {
+	var op Operation
+	reqBody, _ := ioutil.ReadAll(r.Body)
+	json.Unmarshal([]byte(reqBody), &op)
+	key := database.CreateResource(colname, op)
+	json.NewEncoder(w).Encode(key)
+	addresses := SearchEndpoints(op)
+	// curl avec search endpoints
 }
 
 
