@@ -3,6 +3,8 @@ package endpoint
 import (
 	"encoding/json"
 	"net/http"
+	"fmt"
+	"log"
 	"github.com/gorilla/mux"
 	"cheops.com/database"
 )
@@ -26,6 +28,11 @@ func GetAddress(site string) string {
 	bindvars := map[string]interface{}{ "name": site }
 	result := Endpoint{}
 	database.ExecuteQuery(query, bindvars, &result)
+	if result.Address == "" {
+		err := fmt.Sprintf("Address %s not found.\n", site)
+		fmt.Print(err)
+		log.Fatal(err)
+	}
 	return result.Address
 }
 

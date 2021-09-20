@@ -4,6 +4,9 @@ import (
 	"net/http"
 	"encoding/json"
 	"io/ioutil"
+	"os/exec"
+	"fmt"
+	"log"
 	"cheops.com/database"
 	"cheops.com/endpoint"
 )
@@ -49,8 +52,21 @@ func ExecuteOperationAPI(w http.ResponseWriter, r *http.Request) {
 	json.Unmarshal([]byte(reqBody), &op)
 	key := database.CreateResource(colname, op)
 	json.NewEncoder(w).Encode(key)
-	addresses := SearchEndpoints(op)
+	// addresses := SearchEndpoints(op)
 	// curl avec search endpoints
+	for _, site := range op.Sites{
+		fmt.Println(site)
+		add := endpoint.GetAddress(site)
+		fmt.Println(add)
+		command := "curl"
+		arg1 := fmt.Sprintf("http://%s", add)
+		cmd := exec.Command(command, arg1)
+		err := cmd.Run()
+		if err != nil {
+			fmt.Printf("Can't exec command %s \n", command)
+			log.Fatal(err)
+		}
+	}
 }
 
 

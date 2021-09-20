@@ -5,7 +5,7 @@ import (
 	// "fmt"
 	// "time"
 	"cheops.com/database"
-	"cheops.com/endpoint"
+	// "cheops.com/endpoint"
 	"cheops.com/api"
 	// "cheops.com/operation"
 )
@@ -15,12 +15,12 @@ func main() {
 	// https://chriswiegman.com/2019/01/ensuring-the-file-path-is-present-to-create-a-file-in-golang/
 	check_file := "/root/arango"
 	if _, err := os.Stat(check_file); os.IsNotExist(err) {
-		database.PrepareForExecution("cheops", "operation")
+		database.PrepareForExecution("cheops", "replication")
 		os.MkdirAll(check_file, 0700)
 	}
-	c := database.Connection()
-	db := database.ConnectToDatabase(c)
-	// col := database.ConnectionToCorrectCollection("operation")
+	// c := database.Connection()
+	// db := database.ConnectToDatabase(c)
+	// col := database.ConnectionToCorrectCollection("replication")
 	// col.EnsurePersistentIndex(nil, []string{"MetaID", "IsLeader"}, nil)
 	// doca := operation.Replicant{
 	// 	MetaID: "42",
@@ -31,10 +31,10 @@ func main() {
 	// 	Logs:  []operation.Log {
 	// 		operation.Log{Operation: "incredible operation",
 	// 			Date: (time.Now())}}}
-	// key := database.CreateResource("operation", doca)
+	// key := database.CreateResource("replication", doca)
+	// fmt.Println(key)
 	// doci := operation.Replicant{}
 	// database.ReadResource("operation", key, &doci)
-	// fmt.Println(key)
 	// doc := operation.CreateReplicant()
 	// // log = operation.Log{Operation: "incredible operation", Date: (time.Now())}
 	// // database.UpdateReplicant(doc)
@@ -45,8 +45,8 @@ func main() {
 	// operation.DeleteReplicantWithKey(doc)
 	// coli := database.CreateCollection(db, "endpoint")
 	// coli.EnsurePersistentIndex(nil, []string{"Service", "Address"}, nil)
-	endpoint.CreateEndpoint("site1", "localhost/endpoint/getaddress/site1")
-	endpoint.CreateEndpoint("site2", "localhost/endpoint/getaddress/site2")
+	// endpoint.CreateEndpoint("site3", "localhost:8080/endpoint/getaddress/site3")
+	// endpoint.CreateEndpoint("site4", "localhost:8080/endpoint/getaddress/site4")
 	// query := "FOR end IN endpoint FILTER end.Site == @name RETURN end"
 	// bindvars := map[string]interface{}{ "name": "sitea", }
 	// cursor, _ := db.Query(nil, query, bindvars)
@@ -60,7 +60,7 @@ func main() {
 	// defer cursor.Close()
 	// add := endpoint.GetAddress("sitea")
 	// fmt.Println(add)
-	// col := database.ConnectionToCorrectCollection("operation")
+	// col := database.ConnectionToCorrectCollection("replication")
 	// col.EnsurePersistentIndex(nil, []string{"MetaID", "IsLeader"}, nil)
 	// database.CreateCollection(db, "operation")
 	api.Routing()

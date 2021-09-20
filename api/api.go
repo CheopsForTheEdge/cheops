@@ -34,7 +34,7 @@ func Routing() {
 	// Database
 	// Operation
 	router.HandleFunc("/operation", operation.CreateOperationAPI).Methods("POST")
-	router.HandleFunc("/operation", operation.ExecuteOperation).Methods("POST")
+	router.HandleFunc("/operation/execute", operation.ExecuteOperationAPI).Methods("POST")
 	// Broker - Driver
 	router.HandleFunc("/scope",request.ExtractScope).Methods("GET")
 	router.HandleFunc("/scope/forward",request.RedirectRequest).Methods("POST")
