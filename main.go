@@ -5,8 +5,9 @@ import (
 	// "fmt"
 	// "time"
 	"cheops.com/database"
-	// "cheops.com/endpoint"
+	"cheops.com/endpoint"
 	"cheops.com/api"
+	"cheops.com/client"
 	// "cheops.com/operation"
 )
 
@@ -60,8 +61,8 @@ func main() {
 	// defer cursor.Close()
 	// add := endpoint.GetAddress("sitea")
 	// fmt.Println(add)
-	// col := database.ConnectionToCorrectCollection("replication")
+	// col = database.ConnectionToCorrectCollection("replication")
 	// col.EnsurePersistentIndex(nil, []string{"MetaID", "IsLeader"}, nil)
 	// database.CreateCollection(db, "operation")
-	api.Routing()
+	client.Routing()
 }

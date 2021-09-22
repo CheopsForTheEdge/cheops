@@ -1,13 +1,18 @@
-package main
+package client
+
 import (
-    "fmt"
-    "log"
-    "io/ioutil"
-    "os"
-    "net/http"
-    "io"
-    "math/rand"
-    amqp "github.com/rabbitmq/amqp091-go"
+	"fmt"
+	"log"
+	"io/ioutil"
+	"os"
+	"net/http"
+	"io"
+	"math/rand"
+	amqp "github.com/rabbitmq/amqp091-go"
+	// "github.com/gorilla/mux"
+	"cheops.com/operation"
+	"cheops.com/request"
+	"cheops.com/endpoint"
 )
 
 
@@ -18,8 +23,6 @@ func randomString(l int) string {
                 bytes[i] = byte(randInt(65, 90))
         }
         return string(bytes)
-
-
 }
 
 
@@ -118,17 +121,40 @@ func getHandler(w http.ResponseWriter, r *http.Request) {
 
         Final_res := res1 + res2
         io.WriteString(w, Final_res)
-    }
+}
 
-func main() {
-//	Cluster1 := "amqp://guest:guest@172.16.192.9:5672/"
-//	Cluster2 := "amqp://guest:guest@172.16.192.9:5672/"
-//	Cluster3 := "amqp://guest:guest@172.16.192.9:5672/"
+
+func routing() {
 	http.HandleFunc("/get", getHandler)
 	http.HandleFunc("/deploy",deployHandler)
+	http.HandleFunc("/", homeLink)
+	// Replication
+	http.HandleFunc("/replication", operation.CreateLeaderFromOperationAPI).Methods("POST")
+	http.HandleFunc("/replicant/{metaID}", operation.GetReplicant).Methods("GET")
+	http.HandleFunc("/replicant/{metaID}", operation.AddReplica).Methods("PUT")
+	http.HandleFunc("/replicant/{metaID}", operation.DeleteReplicant).Methods("DELETE")
+	http.Handle("/replicants", operation.GetAllReplicants).Methods("GET")
+	// Endpoint
+	http.HandleFunc("/endpoint/getaddress/{Site}", endpoint.GetAddressAPI).Methods("GET")
+	// Database
+	// Operation
+	http.HandleFunc("/operation", operation.CreateOperationAPI).Methods("POST")
+	http.HandleFunc("/operation/execute", operation.ExecuteOperationAPI).Methods("POST")
+	// Broker - Driver
+	http.HandleFunc("/scope",request.ExtractScope).Methods("GET")
+	http.HandleFunc("/scope/forward",request.RedirectRequest).Methods("POST")
+	http.HandleFunc("/Appb/{flexible:.*}", request.Appb).Methods("GET")
+	http.HandleFunc("/SendRemote", request.SendRemote).Methods("GET")
+	http.HandleFunc("/RegisterRemoteSite", request.RegisterRemoteSite).Methods("POST")
+	http.HandleFunc("/GetRemoteSite/{site}", request.GetRemoteSite).Methods("GET")
 
         fmt.Printf("Starting server at port 8080\n")
         if err := http.ListenAndServe(":8080", nil); err != nil {
        		log.Fatal(err)
     	}
+}
+
+// Default route
+func homeLink(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "Welcome to Cheops!")
 }

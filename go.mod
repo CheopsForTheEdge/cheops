@@ -8,6 +8,8 @@ replace (
 	cheops.com/database => ./database
 	cheops.com/operation => ./operation
 	cheops.com/api => ./api
+	cheops.com/client => ./client
+	cheops.com/k8s => ./glue/k8s/
 )
 
 require (
