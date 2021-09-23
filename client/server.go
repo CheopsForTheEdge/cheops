@@ -124,29 +124,29 @@ func getHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 
-func routing() {
+func Routing() {
 	http.HandleFunc("/get", getHandler)
 	http.HandleFunc("/deploy",deployHandler)
 	http.HandleFunc("/", homeLink)
 	// Replication
-	http.HandleFunc("/replication", operation.CreateLeaderFromOperationAPI).Methods("POST")
-	http.HandleFunc("/replicant/{metaID}", operation.GetReplicant).Methods("GET")
-	http.HandleFunc("/replicant/{metaID}", operation.AddReplica).Methods("PUT")
-	http.HandleFunc("/replicant/{metaID}", operation.DeleteReplicant).Methods("DELETE")
-	http.Handle("/replicants", operation.GetAllReplicants).Methods("GET")
+	http.HandleFunc("/replication", operation.CreateLeaderFromOperationAPI)
+	http.HandleFunc("/replicant/get/{metaID}", operation.GetReplicant)
+	http.HandleFunc("/replicant/create/{metaID}", operation.AddReplica)
+	http.HandleFunc("/replicant/delete/{metaID}", operation.DeleteReplicant)
+	http.HandleFunc("/replicants", operation.GetAllReplicants)
 	// Endpoint
-	http.HandleFunc("/endpoint/getaddress/{Site}", endpoint.GetAddressAPI).Methods("GET")
+	http.HandleFunc("/endpoint/getaddress/{Site}", endpoint.GetAddressAPI)
 	// Database
 	// Operation
-	http.HandleFunc("/operation", operation.CreateOperationAPI).Methods("POST")
-	http.HandleFunc("/operation/execute", operation.ExecuteOperationAPI).Methods("POST")
+	http.HandleFunc("/operation", operation.CreateOperationAPI)
+	http.HandleFunc("/operation/execute", operation.ExecuteOperationAPI)
 	// Broker - Driver
-	http.HandleFunc("/scope",request.ExtractScope).Methods("GET")
-	http.HandleFunc("/scope/forward",request.RedirectRequest).Methods("POST")
-	http.HandleFunc("/Appb/{flexible:.*}", request.Appb).Methods("GET")
-	http.HandleFunc("/SendRemote", request.SendRemote).Methods("GET")
-	http.HandleFunc("/RegisterRemoteSite", request.RegisterRemoteSite).Methods("POST")
-	http.HandleFunc("/GetRemoteSite/{site}", request.GetRemoteSite).Methods("GET")
+	http.HandleFunc("/scope",request.ExtractScope)
+	http.HandleFunc("/scope/forward",request.RedirectRequest)
+	http.HandleFunc("/Appb/{flexible:.*}", request.Appb)
+	http.HandleFunc("/SendRemote", request.SendRemote)
+	http.HandleFunc("/RegisterRemoteSite", request.RegisterRemoteSite)
+	http.HandleFunc("/GetRemoteSite/{site}", request.GetRemoteSite)
 
         fmt.Printf("Starting server at port 8080\n")
         if err := http.ListenAndServe(":8080", nil); err != nil {
@@ -156,5 +156,5 @@ func routing() {
 
 // Default route
 func homeLink(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Welcome to Cheops!")
+	fmt.Fprintf(w, "Welcome to Cheops! \n")
 }
