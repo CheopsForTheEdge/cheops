@@ -6,7 +6,8 @@ import (
 //        "math/rand"
          amqp "github.com/rabbitmq/amqp091-go"
 	 "encoding/json"
-	 "io/ioutil"
+	 "bytes"
+//	 "io/ioutil"
 )
 
 
@@ -15,8 +16,20 @@ func failOnError(err error, msg string) {
                 log.Fatalf("%s: %s", msg, err)
         }
 }
+/*type data struct{
+	name string
+	op string
+	rs_name string
+}*/
 
-
+type Message map[string]interface{}
+func deserialize(b []byte) (Message, error) {
+    var msg Message
+    buf := bytes.NewBuffer(b)
+    decoder := json.NewDecoder(buf)
+    err := decoder.Decode(&msg)
+    return msg, err
+}
 
 func main() {
         conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
@@ -61,7 +74,25 @@ func main() {
                 for d := range msgs {
 			var response string
 			log.Println(d.Body)
-			temp := int(d.Body[0])
+			result, err := deserialize(d.Body)
+			//result := data{}
+			//var result map[string]interface{}
+                        //json.Unmarshal(d.Body, &result)
+
+                        log.Println(result)
+			if result["operation"] == "check"{
+				response = k8s.Cross_Check(result["resource_name"].(string))
+			}else if result["operation"] == "createns"{
+				response = k8s.Cross_Create(result["resource_name"].(string))
+			}else if result["operation"] == "get"{
+				response = k8s.Cross_Get(result["namespace"].(string),result["resource_name"].(string))
+			}else if result["operation"] == "applycheck"{
+				log.Println("\ncheck")
+				response = k8s.Cross_App_Check(result["namespace"].(string),result["resource_name"].(string))
+			}else if result["operation"] == "apply"{
+				response = k8s.Cross_Apply(result["namespace"].(string),result["resource_name"].(string),result["depfile"].(string))
+			}
+			/*			temp := int(d.Body[0])
 			if temp == 48 {
                         	response = k8s.Get()
                         	log.Printf("%s", response)
@@ -81,7 +112,7 @@ func main() {
 
 
 			}
-                        err = ch.Publish(
+*/                        err = ch.Publish(
                                 "",        // exchange
                                 d.ReplyTo, // routing key
                                 false,     // mandatory
