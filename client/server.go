@@ -1,21 +1,20 @@
-package client
-
+package main
 import (
-	"fmt"
-	"log"
-	"io/ioutil"
-	"os"
-	"net/http"
-	"io"
-	"math/rand"
-	amqp "github.com/rabbitmq/amqp091-go"
-	// "github.com/gorilla/mux"
-	"cheops.com/operation"
-	"cheops.com/request"
-	"cheops.com/endpoint"
+    "fmt"
+    "log"
+    "io/ioutil"
+    "os"
+    "net/http"
+    "strings"
+    "io"
+    "math/rand"
+    "cheops.com/k8s"
+    amqp "github.com/rabbitmq/amqp091-go"
 )
 
-
+var Cluster1 string = "amqp://guest:guest@172.16.192.16:5672/"
+var Cluster2 string = "amqp://guest:guest@172.16.192.17:5672/"
+var Cluster3 string = "amqp://guest:guest@172.16.192.18:5672/"
 
 func randomString(l int) string {
         bytes := make([]byte, l)
@@ -23,6 +22,8 @@ func randomString(l int) string {
                 bytes[i] = byte(randInt(65, 90))
         }
         return string(bytes)
+
+
 }
 
 
@@ -101,11 +102,11 @@ func deployHandler(w http.ResponseWriter, r *http.Request) {
 	jsonFile, err := os.Open("deployment.json")
 	if err != nil {
             fmt.Println(err)
-    }
+        }
 	byteValue, _ := ioutil.ReadAll(jsonFile)
-	res1 := Broker_Client("amqp://guest:guest@10.44.61.255:5672/", byteValue)
-        log.Printf("%s", res1)
-
+	res1 := Broker_Client(Cluster1, byteValue)
+	log.Printf("%s", res1)
+	
 
 	io.WriteString(w, res1)
 }
@@ -113,48 +114,86 @@ func deployHandler(w http.ResponseWriter, r *http.Request) {
 
 func getHandler(w http.ResponseWriter, r *http.Request) {
         //fmt.Fprintf(w, "Hello!")
-        res1 := Broker_Client("amqp://guest:guest@10.44.61.255:5672/", []byte("0"))
+        res1 := Broker_Client(Cluster1, []byte("0"))
         log.Printf("%s", res1)
 
-        res2 := Broker_Client("amqp://guest:guest@10.44.61.255:5672/", []byte("0"))
+        res2 := Broker_Client(Cluster1, []byte("0"))
         log.Printf("%s", res2)
 
         Final_res := res1 + res2
         io.WriteString(w, Final_res)
+
 }
 
 
-func Routing() {
+func replicaHandler(w http.ResponseWriter, r *http.Request) {
+        path := r.URL.Path
+        log.Println(path)
+        sPath := strings.Split(path, "/")
+        log.Println(sPath)
+        clusters := strings.Split(sPath[2],",")
+        log.Println(sPath[3])
+        jsonFile, err := os.Open("deployment.json")
+        if err != nil {
+            fmt.Println(err)
+        }
+        deploy_json, _ := ioutil.ReadAll(jsonFile)
+        log.Println(deploy_json)
+        res1 := " "
+        for i := range(clusters){
+                var res12 string
+                log.Println(clusters[i])
+                if clusters[i] == "cluster1"{
+                        res12 = Broker_Client(Cluster1, deploy_json)
+                }else if clusters[i] == "cluster2"{
+                        res12 = Broker_Client(Cluster2, deploy_json)
+                }else if clusters[i] == "cluster3"{
+                        res12 = Broker_Client(Cluster3, deploy_json)
+                }
+                res1 = res1 + res12
+        }
+        log.Printf("%s", res1)
+        io.WriteString(w, res1)
+
+}
+
+func crossHandler(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Path
+	log.Println(path)
+	sPath := strings.Split(path, "/")
+	log.Println(sPath)
+	clusters := strings.Split(sPath[2],",")
+	log.Println(sPath[3])
+        deploy_json := k8s.Get_Deploy(sPath[3])
+	log.Println(deploy_json)
+	res1 := " "
+	for i := range(clusters){
+		var res12 string
+		log.Println(clusters[i])
+		if clusters[i] == "cluster1"{
+			res12 = Broker_Client(Cluster1, []byte(deploy_json))
+		}else if clusters[i] == "cluster2"{
+			res12 = Broker_Client(Cluster2, []byte(deploy_json))
+		}else if clusters[i] == "cluster3"{
+			res12 = Broker_Client(Cluster3, []byte(deploy_json))
+		}
+		res1 = res1 + res12
+	}
+        log.Printf("%s", res1)
+	io.WriteString(w, res1)
+
+}
+
+func main() {
+//	Cluster1 := "amqp://guest:guest@172.16.192.9:5672/"
+//	Cluster2 := "amqp://guest:guest@172.16.192.9:5672/"
+//	Cluster3 := "amqp://guest:guest@172.16.192.9:5672/"
 	http.HandleFunc("/get", getHandler)
 	http.HandleFunc("/deploy",deployHandler)
-	http.HandleFunc("/", homeLink)
-	// Replication
-	http.HandleFunc("/replication", operation.CreateLeaderFromOperationAPI)
-	http.HandleFunc("/replicant/get/{metaID}", operation.GetReplicant)
-	http.HandleFunc("/replicant/create/{metaID}", operation.AddReplica)
-	http.HandleFunc("/replicant/delete/{metaID}", operation.DeleteReplicant)
-	http.HandleFunc("/replicants", operation.GetAllReplicants)
-	// Endpoint
-	http.HandleFunc("/endpoint/getaddress/{Site}", endpoint.GetAddressAPI)
-	// Database
-	// Operation
-	http.HandleFunc("/operation", operation.CreateOperationAPI)
-	http.HandleFunc("/operation/execute", operation.ExecuteOperationAPI)
-	// Broker - Driver
-	http.HandleFunc("/scope",request.ExtractScope)
-	http.HandleFunc("/scope/forward",request.RedirectRequest)
-	http.HandleFunc("/Appb/{flexible:.*}", request.Appb)
-	http.HandleFunc("/SendRemote", request.SendRemote)
-	http.HandleFunc("/RegisterRemoteSite", request.RegisterRemoteSite)
-	http.HandleFunc("/GetRemoteSite/{site}", request.GetRemoteSite)
-
+	http.HandleFunc("/cross/", crossHandler)
+	http.HandleFunc("/replica/", replicaHandler)
         fmt.Printf("Starting server at port 8080\n")
         if err := http.ListenAndServe(":8080", nil); err != nil {
        		log.Fatal(err)
     	}
-}
-
-// Default route
-func homeLink(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Welcome to Cheops! \n")
 }
