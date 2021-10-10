@@ -66,11 +66,15 @@ func ExecuteOperationAPI(w http.ResponseWriter,
 			CreateLeaderFromOperation(op)
 		}
 		add := endpoint.GetAddress(site)
-		exec_add := add + ":8080" + "/operation/localrequest"
-		resp, _ := http.Post(exec_add, "application/json", r.Body)
+		exec_add := "http://" + add + ":8080" + "/operation/localrequest"
+		resp, err := http.Post(exec_add, "application/json", r.Body)
+		if err != nil {
+			fmt.Printf("Error in executing command %s \n", exec_add)
+			log.Fatal(err)
+		}
 		execResp := ExecutionResp{"site", "op.Request", *resp}
 		resps = append(resps, execResp)
-		replication_add := add + ":8080" + "replication"
+		replication_add := "http://" + add + ":8080" + "replication"
 		resp, _ = http.Post(replication_add, "application/json", r.Body)
 		execResp = ExecutionResp{"site", "createReplicant", *resp}
 		resps = append(resps, execResp)
