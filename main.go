@@ -70,17 +70,17 @@ func main() {
 	// fmt.Println(add)
 	// col = database.ConnectionToCorrectCollection("replication")
 	// col.EnsurePersistentIndex(nil, []string{"MetaID", "IsLeader"}, nil)
-	endpoint.CreateEndpoint("site1", "10.12.1.8")
-	endpoint.CreateEndpoint("site2", "10.12.65.7")
-	doca := operation.Operation{
-		Operation: "&",
-		Sites: []string{"site1", "site2"},
-		Platform: "openstack",
-		Resource: "image",
-		PlatformOperation: "create",
-		ExtraArgs: []string{"lol"},
-		Request: "openstack image create lol"}
-	key := database.CreateResource("replication", doca)
-	fmt.Println(key)
+	// endpoint.CreateEndpoint("site1", "10.12.1.8")
+	// endpoint.CreateEndpoint("site2", "10.12.65.7")
+	// doca := operation.Operation{
+	// 	Operation: "&",
+	// 	Sites: []string{"site1", "site2"},
+	// 	Platform: "openstack",
+	// 	Resource: "image",
+	// 	PlatformOperation: "create",
+	// 	ExtraArgs: []string{"lol"},
+	// 	Request: "openstack image create lol"}
+	// key := database.CreateResource("replication", doca)
+	// fmt.Println(key)
 	api.Routing()
 }

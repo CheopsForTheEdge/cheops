@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os/exec"
+	"strings"
 )
 
 type Operation struct {
@@ -66,16 +67,19 @@ func ExecuteOperationAPI(w http.ResponseWriter,
 			CreateLeaderFromOperation(op)
 		}
 		add := endpoint.GetAddress(site)
-		exec_add := "http://" + add + ":8080" + "/operation/localrequest"
-		resp, err := http.Post(exec_add, "application/json", r.Body)
+		execAdd := "http://" + add + ":8080" + "/operation/localrequest"
+		operation, _ := json.Marshal(op)
+		opReader := strings.NewReader(string(operation))
+		resp, err := http.Post(execAdd, "application/json",
+			opReader)
 		if err != nil {
-			fmt.Printf("Error in executing command %s \n", exec_add)
+			fmt.Printf("Error in executing command %s \n", execAdd)
 			log.Fatal(err)
 		}
 		execResp := ExecutionResp{"site", "op.Request", *resp}
 		resps = append(resps, execResp)
-		replication_add := "http://" + add + ":8080" + "replication"
-		resp, _ = http.Post(replication_add, "application/json", r.Body)
+		replicationAdd := "http://" + add + ":8080" + "replication"
+		resp, _ = http.Post(replicationAdd, "application/json", opReader)
 		execResp = ExecutionResp{"site", "createReplicant", *resp}
 		resps = append(resps, execResp)
 	}
