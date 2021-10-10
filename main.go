@@ -6,8 +6,8 @@ import (
 	"time"
 	"cheops.com/database"
 	"cheops.com/endpoint"
-	// "cheops.com/api"
-	"cheops.com/client"
+	"cheops.com/api"
+	//"cheops.com/client"
 	"cheops.com/operation"
 )
 
@@ -39,7 +39,7 @@ func main() {
 		key := database.CreateResource("replication", doca)
 		fmt.Println(key)
 		coli := database.CreateCollection(db, "endpoint")
-		coli.EnsurePersistentIndex(nil, []string{"Service", "Address"}, nil)
+		coli.EnsurePersistentIndex(nil, []string{"Site", "Address"}, nil)
 		endpoint.CreateEndpoint("site3", "localhost:8080/endpoint/getaddress/site3")
 		endpoint.CreateEndpoint("site4", "localhost:8080/endpoint/getaddress/site4")
 		database.CreateCollection(db, "operation")
@@ -70,5 +70,17 @@ func main() {
 	// fmt.Println(add)
 	// col = database.ConnectionToCorrectCollection("replication")
 	// col.EnsurePersistentIndex(nil, []string{"MetaID", "IsLeader"}, nil)
-	client.Routing()
+	endpoint.CreateEndpoint("site1", "10.12.1.8")
+	endpoint.CreateEndpoint("site2", "10.12.65.7")
+	doca := operation.Operation{
+		Operation: "&",
+		Sites: []string{"site1", "site2"},
+		Platform: "openstack",
+		Resource: "image",
+		PlatformOperation: "create",
+		ExtraArgs: []string{"lol"},
+		Request: "openstack image create lol"}
+	key := database.CreateResource("replication", doca)
+	fmt.Println(key)
+	api.Routing()
 }

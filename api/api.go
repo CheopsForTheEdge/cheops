@@ -1,15 +1,15 @@
 package api
 
 import (
+	"cheops.com/endpoint"
+	"cheops.com/operation"
+	"cheops.com/request"
 	"fmt"
+	"github.com/gorilla/mux"
+	"github.com/justinas/alice"
 	"io/ioutil"
 	"log"
 	"net/http"
-	"github.com/gorilla/mux"
-	"github.com/justinas/alice"
-	"cheops.com/operation"
-	"cheops.com/request"
-	"cheops.com/endpoint"
 )
 
 /*
@@ -30,11 +30,15 @@ func Routing() {
 	router.Handle("/replicants", commonHandlers.ThenFunc(operation.
 		GetAllReplicants)).Methods("GET")
 	// Endpoint
+	router.HandleFunc("/endpoint", endpoint.CreateEndpointAPI).Methods("POST")
 	router.HandleFunc("/endpoint/getaddress/{Site}", endpoint.GetAddressAPI).Methods("GET")
 	// Database
 	// Operation
 	router.HandleFunc("/operation", operation.CreateOperationAPI).Methods("POST")
 	router.HandleFunc("/operation/execute", operation.ExecuteOperationAPI).Methods("POST")
+	router.HandleFunc("/operation/localrequest",
+		operation.ExecRequestLocallyAPI).
+		Methods("POST")
 	// Broker - Driver
 	router.HandleFunc("/scope",request.ExtractScope).Methods("GET")
 	router.HandleFunc("/scope/forward",request.RedirectRequest).Methods("POST")

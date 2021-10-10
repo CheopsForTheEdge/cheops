@@ -1,16 +1,16 @@
 package endpoint
 
 import (
-	"encoding/json"
-	"net/http"
-	"fmt"
-	"log"
-	"github.com/gorilla/mux"
 	"cheops.com/database"
+	"encoding/json"
+	"fmt"
+	"github.com/gorilla/mux"
+	"log"
+	"net/http"
 )
 
 type Endpoint struct {
-	Service string `json:"Service"`
+	Site    string `json:"Site"`
 	Address string `json:"Address"`
 }
 
@@ -19,12 +19,19 @@ var colname = "endpoint"
 
 // Constructor
 func CreateEndpoint(service string, address string) string {
-	end := Endpoint{Service: service, Address: address}
+	end := Endpoint{Site: service, Address: address}
 	return database.CreateResource(colname, end)
 }
 
+func CreateEndpointAPI(w http.ResponseWriter, r *http.Request) {
+	site := mux.Vars(r)["Site"]
+	add := mux.Vars(r)["Address"]
+	key := CreateEndpoint(site, add)
+	json.NewEncoder(w).Encode(key)
+}
+
 func GetAddress(site string) string {
-	query := "FOR end IN endpoint FILTER end.Service == @name RETURN end"
+	query := "FOR end IN endpoint FILTER end.Site == @name RETURN end"
 	bindvars := map[string]interface{}{ "name": site }
 	result := Endpoint{}
 	database.ExecuteQuery(query, bindvars, &result)
