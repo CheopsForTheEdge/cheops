@@ -58,50 +58,64 @@ func ExecuteOperationAPI(w http.ResponseWriter,
 	reqBody, _ := ioutil.ReadAll(r.Body)
 	json.Unmarshal([]byte(reqBody), &op)
 	database.CreateResource(colname, op)
-
-	// addresses := SearchEndpoints(op)
-	// curl avec search endpoints
+	// create a table for responses
 	var resps []ExecutionResp
 	for _, site := range op.Sites{
-		if op.Operation == "&" {
-			CreateLeaderFromOperation(op)
-		}
+
 		add := endpoint.GetAddress(site)
+		// using the ExecRequestLocally on each involved site
 		execAdd := "http://" + add + ":8080" + "/operation/localrequest"
+		// for post, we need a reader, so we need the operation marshalled
 		operation, _ := json.Marshal(op)
 		opReader := strings.NewReader(string(operation))
+		// execute the actual request
 		resp, err := http.Post(execAdd, "application/json",
 			opReader)
 		if err != nil {
 			fmt.Printf("Error in executing command %s \n", execAdd)
 			log.Fatal(err)
 		}
+		// create the response
 		execResp := ExecutionResp{"site", "op.Request", *resp}
 		resps = append(resps, execResp)
-		replicationAdd := "http://" + add + ":8080" + "replication"
-		resp, _ = http.Post(replicationAdd, "application/json", opReader)
-		execResp = ExecutionResp{"site", "createReplicant", *resp}
-		resps = append(resps, execResp)
+		// depending on the operation, we have to do stuff (e.g.
+		// create the replicants)
+		if op.Operation == "&" {
+			replicationAdd := "http://" + add + ":8080" + "replication"
+			resp, _ = http.Post(replicationAdd, "application/json", opReader)
+			execResp = ExecutionResp{"site", "createReplicant", *resp}
+			resps = append(resps, execResp)
+		}
 	}
 	// return resps
 	json.NewEncoder(w).Encode(resps)
 }
 
-func ExecRequestLocally(operation Operation) {
-	command := operation.Request
-	cmd := exec.Command(command)
-	err := cmd.Run()
+func ExecRequestLocally(operation Operation) (out string) {
+	// slice the request
+	f := strings.Fields(operation.Request)
+	// the program called is the first word in the slice
+	command := f[0]
+	// the args are the rest, as string
+    arg := strings.Join(f[1:], " ")
+    // exec the entire request
+	cmd := exec.Command(command, arg)
+	stdout, err := cmd.CombinedOutput()
+
 	if err != nil {
 		fmt.Printf("Can't exec command %s \n", command)
 		log.Fatal(err)
 	}
+	fmt.Println(string(stdout))
+	return string(stdout)
 }
 
 func ExecRequestLocallyAPI(w http.ResponseWriter, r *http.Request) {
 	var op Operation
 	reqBody, _ := ioutil.ReadAll(r.Body)
 	json.Unmarshal([]byte(reqBody), &op)
-	ExecRequestLocally(op)
+	out := ExecRequestLocally(op)
+	w.Write([]byte(out))
 }
 
 func SearchEndpoints(op Operation) []string {
