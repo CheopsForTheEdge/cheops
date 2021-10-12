@@ -81,10 +81,12 @@ func ExecuteOperationAPI(w http.ResponseWriter,
 		// depending on the operation, we have to do stuff (e.g.
 		// create the replicants)
 		if op.Operation == "&" {
-			replicationAdd := "http://" + add + ":8080" + "replication"
+			replicationAdd := "http://" + add + ":8080" + "/replication"
 			resp, _ = http.Post(replicationAdd, "application/json", opReader)
-			execResp = ExecutionResp{"site", "createReplicant", *resp}
-			resps = append(resps, execResp)
+			if resp != nil {
+				execResp = ExecutionResp{"site", "createReplicant", *resp}
+				resps = append(resps, execResp)
+			}
 		}
 	}
 	// return resps
@@ -104,9 +106,9 @@ func ExecRequestLocally(operation Operation) (out string) {
 
 	if err != nil {
 		fmt.Printf("Can't exec command %s \n", command)
-		log.Fatal(err)
+		fmt.Printf("Stdout %s \n", stdout)
+		return string(stdout)
 	}
-	fmt.Println(string(stdout))
 	return string(stdout)
 }
 
