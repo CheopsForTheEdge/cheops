@@ -99,13 +99,13 @@ func ExecRequestLocally(operation Operation) (out string) {
 	// the program called is the first word in the slice
 	command := f[0]
 	// the args are the rest, as string
-    arg := strings.Join(f[1:], " ")
+    arg := f[1:]
     // exec the entire request
-	cmd := exec.Command(command, arg)
+	cmd := exec.Command(command, arg...)
 	stdout, err := cmd.CombinedOutput()
 
 	if err != nil {
-		fmt.Printf("Can't exec command %s \n", command)
+		fmt.Printf("Can't exec command %s: %s \n", command, stdout)
 		fmt.Printf("Stdout %s \n", stdout)
 		return string(stdout)
 	}
