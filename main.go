@@ -1,12 +1,12 @@
 package main
 
 import (
-	"os"
-	"fmt"
-	"time"
+	"cheops.com/api"
 	"cheops.com/database"
 	"cheops.com/endpoint"
-	"cheops.com/api"
+	"fmt"
+	"os"
+	"time"
 	//"cheops.com/client"
 	"cheops.com/operation"
 )
@@ -45,6 +45,7 @@ func main() {
 		database.CreateCollection(db, "operation")
 		os.MkdirAll(test_file, 0700)
 	}
+
 	// doci := operation.Replicant{}
 	// database.ReadResource("operation", key, &doci)
 	// doc := operation.CreateReplicant()

@@ -3,6 +3,7 @@ package operation
 import (
 	"cheops.com/database"
 	"cheops.com/endpoint"
+	"cheops.com/utils"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -17,6 +18,7 @@ type Operation struct {
 	Sites				[]string 	`json:"Sites"`
 	Platform			string      `json:"Platform"`
 	Resource   			string  	`json:"Resource"`
+	Instance   			string  	`json:"Instance"`
 	PlatformOperation	string		`json:"PlatformOperation"`
 	ExtraArgs			[]string	`json:"ExtraArgs"`
 	Request		        string      `json:"Request"`
@@ -31,13 +33,16 @@ type ExecutionResp struct {
 // Collection name variable
 var colname = "operation"
 
+var config = utils.GetConfig()
+
 func CreateOperation(operation string,
 	sites []string, platform string,
 	service string, resource string,
+	instance string,
 	platformOperation string,
 	extraArgs []string, request string) string {
 	op := Operation{Operation: operation, Sites: sites,
-		Platform: platform, Resource: resource,
+		Platform: platform, Resource: resource, Instance: instance,
 		PlatformOperation: platformOperation, ExtraArgs: extraArgs,
 		Request: request}
 	return database.CreateResource(colname, op)
@@ -81,11 +86,16 @@ func ExecuteOperationAPI(w http.ResponseWriter,
 		// depending on the operation, we have to do stuff (e.g.
 		// create the replicants)
 		if op.Operation == "&" {
-			replicationAdd := "http://" + add + ":8080" + "/replication"
-			resp, _ = http.Post(replicationAdd, "application/json", opReader)
-			if resp != nil {
-				execResp = ExecutionResp{"site", "createReplicant", *resp}
-				resps = append(resps, execResp)
+			if op.PlatformOperation == "create" {
+				replicationAdd := "http://" + add + ":8080" + "/replication"
+				resp, _ = http.Post(replicationAdd, "application/json", opReader)
+				if resp != nil {
+					execResp = ExecutionResp{"site", "createReplicant", *resp}
+					resps = append(resps, execResp)
+				}
+			}
+			if op.PlatformOperation == "delete" {
+
 			}
 		}
 	}

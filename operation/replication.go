@@ -59,32 +59,32 @@ func CreateReplicant() string {
 	return key
 }
 
-//CreateLeaderFromOperation Creates the first Replicant for the replicas
-func CreateLeaderFromOperation(op Operation) string {
+//CreateReplicantFromOperation Creates the first Replicant for the replicas
+func CreateReplicantFromOperation(op Operation, isLeader bool) string {
 	rep := new(Replicant)
 	rep.MetaID = utils.CreateMetaId()
 	rep.Replicas = []Replica{}
 	for _, site := range op.Sites{
 		rep.Replicas = append(rep.Replicas, Replica{Site: site, ID:""})
 	}
-	rep.IsLeader = true
+	rep.IsLeader = isLeader
 	rep.Logs = []Log{
 		Log{Operation: op.Request, Date: (time.Now())}}
 	key := database.CreateResource(colnamerep, rep)
 	return key
 }
 
-func CreateLeaderFromOperationAPI(w http.ResponseWriter, r *http.Request) {
+func CreateReplicantFromOperationAPI(w http.ResponseWriter, r *http.Request) {
 	var op Operation
 	reqBody, _ := ioutil.ReadAll(r.Body)
 	json.Unmarshal([]byte(reqBody), &op)
-	key := CreateLeaderFromOperation(op)
+	key := CreateReplicantFromOperation(op)
 	json.NewEncoder(w).Encode(key)
 }
 
 
-// CreateReplicantFromUID Creates a replicant with given information
-func CreateReplicantFromUID(w http.ResponseWriter, r *http.Request)  {
+// CreateReplicantAPI Creates a replicant with given information
+func CreateReplicantAPI(w http.ResponseWriter, r *http.Request)  {
 	var newReplicant Replicant
 	reqBody, _ := ioutil.ReadAll(r.Body)
 
