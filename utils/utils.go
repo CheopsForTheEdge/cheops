@@ -15,7 +15,8 @@ type Configuration struct {
 
 func CreateMetaId() string {
 	id := ksuid.New()
-	return id.String()
+	cheopsID := "CHEOPS_" + id.String()
+	return cheopsID
 }
 
 func GetConfig() (conf Configuration) {

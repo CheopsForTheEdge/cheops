@@ -243,3 +243,24 @@ func DeleteResource(colname string, key string) {
 		log.Fatal(err)
 	}
 }
+
+// TODO Cursor must be closed, how to return it?
+func SearchResource(colname string, key string,
+	value string, result interface{}) (cursor driver.Cursor) {
+	ctx := context.Background()
+	db := ConnectionToCheopsDatabase()
+	query := "FOR doc IN @colname\n" +
+		"SEARCH @key == @value\n" +
+		"RETURN doc"
+	bindvars := map[string]interface{} { "@colname": colname, "@key": key,
+		"@value": value}
+	cursor, err := db.Query(ctx, query,	bindvars)
+		if err != nil {
+			fmt.Println("Can't execute the query")
+			log.Fatal(err)
+			// handle error
+		}
+	cursor.ReadDocument(ctx, &result)
+	fmt.Println(result)
+	return cursor
+}

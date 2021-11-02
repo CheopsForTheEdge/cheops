@@ -78,7 +78,9 @@ func CreateReplicantFromOperationAPI(w http.ResponseWriter, r *http.Request) {
 	var op Operation
 	reqBody, _ := ioutil.ReadAll(r.Body)
 	json.Unmarshal([]byte(reqBody), &op)
-	key := CreateReplicantFromOperation(op)
+	conf := utils.GetConfig()
+	isLeader := (conf.Site == op.Sites[0])
+	key := CreateReplicantFromOperation(op, isLeader)
 	json.NewEncoder(w).Encode(key)
 }
 
