@@ -45,8 +45,6 @@ var Replicants = allReplicants{
 var colnamerep = "replication"
 
 
-
-
 // CreateReplicant Creates a replicant with a meta ID, probably needs to add also the locations
 func CreateReplicant() string {
 	rep := new(Replicant)
@@ -156,4 +154,13 @@ func DeleteReplicant(w http.ResponseWriter, r *http.Request) {
 func DeleteReplicantWithKey(key string) {
 	database.DeleteResource(colnamerep, key)
 	fmt.Printf("The event with ID %s has been deleted successfully \n", key)
+}
+
+// CheckIfReplicant Returns true if the id is in the database
+func CheckIfReplicant(id string) (isReplicant bool) {
+	var rep *Replicant
+	database.SearchResource(colnamerep, "MetaID", id, &rep)
+	if rep != nil {
+		return true
+	} else { return false }
 }
