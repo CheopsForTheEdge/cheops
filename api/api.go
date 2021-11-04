@@ -23,8 +23,8 @@ func Routing() {
 	commonHandlers := alice.New(CheckRequestFilledHandler)
 	// Replication
 	// router.Handle("/replication", commonHandlers.ThenFunc(operation.CreateLeaderFromOperationAPI)).Methods("POST")
-	router.HandleFunc("/replicationLeader",
-		operation.CreateLeaderFromOperationAPI).Methods("POST")
+	// router.HandleFunc("/replicationLeader",
+	//operation.CreateLeaderFromOperationAPI).Methods("POST")
 	router.HandleFunc("/replication", operation.CreateReplicantAPI).Methods(
 		"POST")
 	router.HandleFunc("/replicant/{metaID}", operation.GetReplicant).Methods("GET")

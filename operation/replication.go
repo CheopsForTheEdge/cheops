@@ -2,12 +2,15 @@ package operation
 
 import (
 	"cheops.com/database"
+	"cheops.com/endpoint"
 	"cheops.com/utils"
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
 	"io/ioutil"
+	"log"
 	"net/http"
+	"reflect"
 	"time"
 )
 
@@ -140,20 +143,33 @@ func AddReplica(w http.ResponseWriter, r *http.Request) {
 // DeleteReplicant Deletes a replicant given a meta ID
 func DeleteReplicant(w http.ResponseWriter, r *http.Request) {
 	metaID := mux.Vars(r)["MetaID"]
-	for i, rep := range Replicants {
-		if rep.MetaID == metaID {
-			Replicants = append(Replicants[:i], Replicants[i+1:]...)
-			fmt.Fprintf(w,
-				"The event with ID %v has been deleted successfully",
-				metaID)
-		}
-	}
+	DeleteReplicantWithID(metaID)
+	fmt.Fprintf(w, "The replicant with ID %v has been deleted successfully",
+		metaID)
 }
 
-// DeleteReplicant Deletes a replicant given a meta ID
-func DeleteReplicantWithKey(key string) {
-	database.DeleteResource(colnamerep, key)
-	fmt.Printf("The event with ID %s has been deleted successfully \n", key)
+// DeleteReplicantWithID Deletes a replicant given a meta ID
+func DeleteReplicantWithID(id string) {
+	var rep *Replicant
+	database.SearchResource(colnamerep, "MetaID", id, &rep)
+	if rep != nil {
+		if rep.IsLeader {
+			database.DeleteResource(colnamerep, id)
+			fmt.Printf("The event with ID %s has been deleted successfully \n", id)
+			for _, replica := range rep.Replicas {
+				site := replica.Site
+				//TODO: use API
+				siteAddress := endpoint.GetAddress(site)
+				getReplicant := "http://" + siteAddress + ":8080" + "/replicant" +
+					"/" + id
+				//TODO: maybe do something with the result
+				http.NewRequest("DELETE", getReplicant, nil)
+			}
+		} else {
+			//TODO: send the request to the leader
+		}
+	}
+
 }
 
 // CheckIfReplicant Returns true if the id is in the database
@@ -164,3 +180,28 @@ func CheckIfReplicant(id string) (isReplicant bool) {
 		return true
 	} else { return false }
 }
+
+// CheckReplicas Requires the id to be the leader of the replicants
+func CheckReplicas(id string) {
+	var rep *Replicant
+	database.SearchResource(colnamerep, "MetaID", id, &rep)
+	if rep != nil {
+		//TODO: maybe check if leader to be sure
+		for _, replica := range rep.Replicas {
+			var otherRep Replicant
+			site := replica.Site
+			//TODO: use API
+			endpoint.GetAddress(site)
+			//getReplicant := "http://" + siteAddress + ":8080" + "/replicant" +
+			//	"/" + id
+			// resp, _ := http.Get(getReplicant)
+			//	otherRep = json.Unmarshal([]byte(resp.Body), &otherRep)
+			reflect.DeepEqual(rep, otherRep)
+		}
+	} else {
+		fmt.Println("The replicant does not exists")
+		log.Fatal(rep)
+	}
+	//TODO: return a list of NEQUAL replicas?
+}
+

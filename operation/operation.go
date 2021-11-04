@@ -48,7 +48,6 @@ func CreateOperation(operation string,
 	return database.CreateResource(colname, op)
 }
 
-
 func CreateOperationAPI(w http.ResponseWriter, r *http.Request) {
 	var op Operation
 	reqBody, _ := ioutil.ReadAll(r.Body)

@@ -244,6 +244,13 @@ func DeleteResource(colname string, key string) {
 	}
 }
 
+func DeleteResourceFromSearch(colname string, key string, value string) {
+	var result interface{}
+	SearchResource(colname, key, value, result)
+	// TODO: how to get the key?
+	// DeleteResource(colname, result.Key)
+}
+
 // TODO Cursor must be closed, how to return it?
 func SearchResource(colname string, key string,
 	value string, result interface{}) (cursor driver.Cursor) {
