@@ -160,3 +160,8 @@ name [Cheops](https://cheops.unibe.ch/) was chosen.
 [Sagas]: http://www.amundsen.com/downloads/sagas.pdf
 [envoy]: https://www.consul.io/docs/connect/proxies/envoy
 [Golang conventions]: (https://medium.com/@kdnotes/golang-naming-rules-and-conventions-8efeecd23b68)
+
+
+### Update
+
+This research prototype is currently under heavy development. If you are interested to know more about this project, please contact us.
