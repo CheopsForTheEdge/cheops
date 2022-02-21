@@ -11,6 +11,11 @@ Cheops work is supported by [Inria](https://www.inria.fr/),
 [IMT Atlantique](https://www.imt-atlantique.fr/) and
 [Orange Labs](https://www.orange.com/).
 
+
+### Update
+
+This research prototype is currently under heavy development. If you are interested to know more about this project, please contact us.
+
 # Publications
 
 - [Euro-Par 2021](https://hal.inria.fr/hal-03212421v1): Ronan-Alexandre Cherrueau, Marie Delavergne, Adrien Lebre. Geo-Distribute Cloud Applications at the Edge. EURO-PAR 2021 - 27th International European Conference on Parallel and Distributed Computing, Aug 2021, Lisbon, Portugal. pp.1-14. ⟨hal-03212421⟩
@@ -162,6 +167,3 @@ name [Cheops](https://cheops.unibe.ch/) was chosen.
 [Golang conventions]: (https://medium.com/@kdnotes/golang-naming-rules-and-conventions-8efeecd23b68)
 
 
-### Update
-
-This research prototype is currently under heavy development. If you are interested to know more about this project, please contact us.
