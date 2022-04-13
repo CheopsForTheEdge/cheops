@@ -14,20 +14,20 @@ import (
 )
 
 type Operation struct {
-	Operation  			string    	`json:"Operation"`
-	Sites				[]string 	`json:"Sites"`
-	Platform			string      `json:"Platform"`
-	Resource   			string  	`json:"Resource"`
-	Instance   			string  	`json:"Instance"`
-	PlatformOperation	string		`json:"PlatformOperation"`
-	ExtraArgs			[]string	`json:"ExtraArgs"`
-	Request		        string      `json:"Request"`
+	Operation         string   `json:"Operation"`
+	Sites             []string `json:"Sites"`
+	Platform          string   `json:"Platform"`
+	Resource          string   `json:"Resource"`
+	Instance          string   `json:"Instance"`
+	PlatformOperation string   `json:"PlatformOperation"`
+	ExtraArgs         []string `json:"ExtraArgs"`
+	Request           string   `json:"Request"`
 }
 
 type ExecutionResp struct {
-	Site 			string 			 `json:"Site"`
-	Request  		string 			 `json:"Request"`
-	Response 		http.Response	 `json:"Response"`
+	Site     string        `json:"Site"`
+	Request  string        `json:"Request"`
+	Response http.Response `json:"Response"`
 }
 
 // Collection name variable
@@ -57,7 +57,7 @@ func CreateOperationAPI(w http.ResponseWriter, r *http.Request) {
 }
 
 func ExecuteOperationAPI(w http.ResponseWriter,
-						r *http.Request) {
+	r *http.Request) {
 	var op Operation
 	reqBody, _ := ioutil.ReadAll(r.Body)
 	json.Unmarshal([]byte(reqBody), &op)
@@ -65,7 +65,7 @@ func ExecuteOperationAPI(w http.ResponseWriter,
 	// create a table for responses
 	var resps []ExecutionResp
 	// Executing operations on each sites, might need threads to do it in parallel
-	for _, site := range op.Sites{
+	for _, site := range op.Sites {
 		add := endpoint.GetAddress(site)
 		// using the ExecRequestLocally on each involved site
 		execAdd := "http://" + add + ":8080" + "/operation/localrequest"
@@ -74,7 +74,7 @@ func ExecuteOperationAPI(w http.ResponseWriter,
 		opReader := strings.NewReader(string(operation))
 		// execute the actual request
 		resp, err := http.Post(execAdd, "application/json",
-							opReader)
+			opReader)
 		if err != nil {
 			fmt.Printf("Error in executing command %s \n", execAdd)
 			log.Fatal(err)
@@ -101,6 +101,7 @@ func ExecuteOperationAPI(w http.ResponseWriter,
 				}
 			}
 			if op.PlatformOperation == "delete" {
+				//TODO: call the API instead (through the broker)
 				if CheckIfReplicant(op.Instance) {
 
 				}
@@ -117,8 +118,8 @@ func ExecRequestLocally(operation Operation) (out string) {
 	// the program called is the first word in the slice
 	command := f[0]
 	// the args are the rest, as string
-    arg := f[1:]
-    // exec the entire request
+	arg := f[1:]
+	// exec the entire request
 	cmd := exec.Command(command, arg...)
 	stdout, err := cmd.CombinedOutput()
 
@@ -140,13 +141,12 @@ func ExecRequestLocallyAPI(w http.ResponseWriter, r *http.Request) {
 
 func SearchEndpoints(op Operation) []string {
 	var addresses []string
-	for _, site := range op.Sites{
+	for _, site := range op.Sites {
 		address := endpoint.GetAddress(site)
 		addresses = append(addresses, address)
 	}
 	return addresses
 }
-
 
 func SendRequestToBroker(op Operation) {
 	// call to Broker API with address and the op jsonified
