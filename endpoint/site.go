@@ -1,5 +1,7 @@
 package endpoint
 
+
+// Site is the global endpoint for the site's Cheops
 type Site struct {
 	SiteName		string  `json:"SiteName"`
 	Address 		string  `json:"Address"`

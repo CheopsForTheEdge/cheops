@@ -9,6 +9,8 @@ import (
 	"net/http"
 )
 
+
+// Endpoints are for services on a site
 type Endpoint struct {
 	Site    string `json:"Site"`
 	Address string `json:"Address"`
