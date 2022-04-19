@@ -1,12 +1,12 @@
 package main
 
 import (
-        "log"
-        "cheops.com/k8s"
-//        "math/rand"
-         amqp "github.com/rabbitmq/amqp091-go"
-	 "encoding/json"
-	 "io/ioutil"
+	"cheops.com/k8s"
+	"log"
+	"encoding/json"
+	//        "math/rand"
+	amqp "github.com/rabbitmq/amqp091-go"
+	"io/ioutil"
 )
 
 
