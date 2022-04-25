@@ -12,8 +12,8 @@ import (
 
 // Endpoints are for services on a site
 type Endpoint struct {
-	Site    string `json:"Site"`
-	Address string `json:"Address"`
+	Service 	string `json:"Service"`
+	Address 	string `json:"Address"`
 }
 
 // Collection name variable
@@ -21,24 +21,24 @@ var colname = "endpoint"
 
 // Constructor
 func CreateEndpoint(service string, address string) string {
-	end := Endpoint{Site: service, Address: address}
+	end := Endpoint{Service: service, Address: address}
 	return database.CreateResource(colname, end)
 }
 
 func CreateEndpointAPI(w http.ResponseWriter, r *http.Request) {
-	site := mux.Vars(r)["Site"]
+	service := mux.Vars(r)["Service"]
 	add := mux.Vars(r)["Address"]
-	key := CreateEndpoint(site, add)
+	key := CreateEndpoint(service, add)
 	json.NewEncoder(w).Encode(key)
 }
 
-func GetAddress(site string) string {
-	query := "FOR end IN endpoint FILTER end.Site == @name RETURN end"
-	bindvars := map[string]interface{}{ "name": site }
+func GetEndpointAddress(service string) string {
+	query := "FOR end IN endpoint FILTER end.Service == @name RETURN end"
+	bindvars := map[string]interface{}{ "name": service }
 	result := Endpoint{}
 	database.ExecuteQuery(query, bindvars, &result)
 	if result.Address == "" {
-		err := fmt.Sprintf("Address %s not found.\n", site)
+		err := fmt.Sprintf("Address %s not found.\n", service)
 		fmt.Print(err)
 		log.Fatal(err)
 	}
@@ -46,9 +46,9 @@ func GetAddress(site string) string {
 }
 
 
-func GetAddressAPI(w http.ResponseWriter, r *http.Request) {
-	site := mux.Vars(r)["Site"]
-	add := GetAddress(site)
+func GetEndpointAddressAPI(w http.ResponseWriter, r *http.Request) {
+	service := mux.Vars(r)["Service"]
+	add := GetEndpointAddress(service)
 	if add != "" {
 		json.NewEncoder(w).Encode(add)
 		return
@@ -57,8 +57,8 @@ func GetAddressAPI(w http.ResponseWriter, r *http.Request) {
 }
 
 // Contact an endpoint with a GET
-func ContactEndpoint(site string) *http.Response  {
-	address := GetAddress(site)
+func ContactEndpoint(service string) *http.Response  {
+	address := GetEndpointAddress(service)
 	response,_ := http.Get(address)
 	return response
 }

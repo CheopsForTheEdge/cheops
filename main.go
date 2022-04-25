@@ -11,6 +11,7 @@ import (
 	"cheops.com/operation"
 )
 
+var app = "k8s"
 
 func main() {
 	// https://chriswiegman.com/2019/01/ensuring-the-file-path-is-present-to-create-a-file-in-golang/
@@ -43,6 +44,7 @@ func main() {
 		endpoint.CreateEndpoint("site3", "localhost:8080/endpoint/getaddress/site3")
 		endpoint.CreateEndpoint("site4", "localhost:8080/endpoint/getaddress/site4")
 		database.CreateCollection(db, "operation")
+		database.CreateCollection(db, "site")
 		os.MkdirAll(test_file, 0700)
 	}
 
