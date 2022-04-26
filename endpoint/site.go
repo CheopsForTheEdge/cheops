@@ -17,7 +17,7 @@ type Site struct {
 
 
 // Collection name variable
-var colnamesite = "site"
+var colnamesite = "sites"
 
 
 func CreateSite(siteName string, address string) string {

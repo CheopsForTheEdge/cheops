@@ -8,9 +8,11 @@ import (
 	"log"
 	"os/exec"
 	"time"
+	"cheops.com/config"
 )
 
 var dbcheops = "cheops"
+var database = config.Conf.Database
 
 func LaunchDatabase() {
 	out, err := exec.Command("/bin/sh", "database/launch_db.sh").Output()
@@ -29,7 +31,7 @@ func Connection() driver.Client {
 		// Handle error
 		log.Fatal(err)
 	}
-	conn.SetAuthentication(driver.BasicAuthentication("root", ""))
+	conn.SetAuthentication(driver.BasicAuthentication(database.DBUser, database.DBPassword))
 	c, err := driver.NewClient(driver.ClientConfig{
 		Connection: conn,
 	})
@@ -50,8 +52,8 @@ func CreateDatabase(client driver.Client) driver.Database {
 	}
 	if !exists {
 		dbdefault := driver.CreateDatabaseDefaultOptions{}
-		user:= driver.CreateDatabaseUserOptions{UserName:"cheops",
-			Password:"cheops"}
+		user:= driver.CreateDatabaseUserOptions{UserName: database.DBUser,
+			Password: database.DBPassword}
 		options := &driver.CreateDatabaseOptions{Users:[]driver.CreateDatabaseUserOptions{user},
 			Options: dbdefault}
 		db, err := client.CreateDatabase(ctx, dbcheops, options)
@@ -162,14 +164,19 @@ func CreateCollectionWithIndexes(db driver.Database, colName string, fields []st
 }
 
 
-func PrepareForExecution(dbname string, colname string) (driver.Database, driver.Collection) {
+func PrepareForExecution() (driver.Database,
+	[]driver.Collection) {
 	LaunchDatabase()
 	time.Sleep(15 * time.Second)
 	c := Connection()
 	CreateDatabase(c)
 	db := ConnectToDatabase(c)
-	col := CreateCollection(db, colname)
-	return db, col
+	var cols []driver.Collection
+	for _, col := range database.Collections {
+		c := CreateCollection(db, col)
+		cols = append(cols, c)
+	}
+	return db, cols
 }
 
 

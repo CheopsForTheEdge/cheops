@@ -31,7 +31,7 @@ type ExecutionResp struct {
 }
 
 // Collection name variable
-var colname = "operation"
+var colname = "operations"
 
 var config = utils.GetConfig()
 
@@ -66,7 +66,7 @@ func ExecuteOperationAPI(w http.ResponseWriter,
 	var resps []ExecutionResp
 	// Executing operations on each sites, might need threads to do it in parallel
 	for _, site := range op.Sites {
-		add := endpoint.GetAddress(site)
+		add := endpoint.GetSiteAddress(site)
 		// using the ExecRequestLocally on each involved site
 		execAdd := "http://" + add + ":8080" + "/operation/localrequest"
 		// for post, we need a reader, so we need the operation marshalled
@@ -139,10 +139,10 @@ func ExecRequestLocallyAPI(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(out))
 }
 
-func SearchEndpoints(op Operation) []string {
+func SearchSites(op Operation) []string {
 	var addresses []string
 	for _, site := range op.Sites {
-		address := endpoint.GetAddress(site)
+		address := endpoint.GetSiteAddress(site)
 		addresses = append(addresses, address)
 	}
 	return addresses

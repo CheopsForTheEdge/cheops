@@ -17,7 +17,7 @@ type Endpoint struct {
 }
 
 // Collection name variable
-var colname = "endpoint"
+var colname = "endpoints"
 
 // Constructor
 func CreateEndpoint(service string, address string) string {

@@ -34,7 +34,8 @@ func Routing() {
 		GetAllReplicants)).Methods("GET")
 	// Endpoint
 	router.HandleFunc("/endpoint", endpoint.CreateEndpointAPI).Methods("POST")
-	router.HandleFunc("/endpoint/getaddress/{Site}", endpoint.GetAddressAPI).Methods("GET")
+	router.HandleFunc("/endpoint/getaddress/{Site}",
+		endpoint.GetSiteAddressAPI).Methods("GET")
 	// Database
 	// Operation
 	router.HandleFunc("/operation", operation.CreateOperationAPI).Methods("POST")

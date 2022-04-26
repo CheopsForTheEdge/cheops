@@ -45,7 +45,7 @@ var Replicants = allReplicants{
 }
 
 // Collection name variable
-var colnamerep = "replication"
+var colnamerep = "replications"
 
 
 // CreateReplicant Creates a replicant with a meta ID, probably needs to add also the locations
@@ -158,8 +158,8 @@ func DeleteReplicantWithID(id string) {
 			fmt.Printf("The event with ID %s has been deleted successfully \n", id)
 			for _, replica := range rep.Replicas {
 				site := replica.Site
-				//TODO: use API
-				siteAddress := endpoint.GetAddress(site)
+				//TODO: use API + send to broker
+				siteAddress := endpoint.GetSiteAddress(site)
 				getReplicant := "http://" + siteAddress + ":8080" + "/replicant" +
 					"/" + id
 				//TODO: maybe do something with the result
@@ -191,7 +191,7 @@ func CheckReplicas(id string) {
 			var otherRep Replicant
 			site := replica.Site
 			//TODO: use API
-			endpoint.GetAddress(site)
+			endpoint.GetSiteAddress(site)
 			//getReplicant := "http://" + siteAddress + ":8080" + "/replicant" +
 			//	"/" + id
 			// resp, _ := http.Get(getReplicant)

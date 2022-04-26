@@ -1,0 +1,13 @@
+application:
+  name: "k8s"
+
+database:
+  dbname: "cheops"
+  dbuser: "root"
+  dbpassword: ""
+  collections:
+    - operations
+    - endpoints
+    - sites
+    - replications
+    - crosses
