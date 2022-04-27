@@ -22,7 +22,7 @@ var colnamesite = "sites"
 
 func CreateSite(siteName string, address string) string {
 	end := Site{SiteName: siteName, Address: address}
-	return database.CreateResource(colname, end)
+	return database.CreateResource(colnamesite, end)
 }
 
 func CreateSiteAPI(w http.ResponseWriter, r *http.Request) {

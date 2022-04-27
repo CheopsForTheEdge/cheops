@@ -19,15 +19,23 @@ Cheops work is supported by [Inria](https://www.inria.fr/),
 
 - [Slides AMP 2021](https://docs.google.com/presentation/d/1ZusGXEKPaRXQUaodkuvzJ5awdUmU6o8muxNYB-GZOPo/edit?usp=sharing)
 
-# Compiling and running on Goland
+# Install
 
-First of all, you *don't have to* use Goland, but this is just the way we
-will describe:
-- Download Goland [here](https://www.jetbrains.com/go/) - you can have a
-  professional edition with your student account -
-- Git clone the project then import it in the IDE
-- Run the project.
-- Cf [tests README](tests/README.md) for testing
+1. Execute `install.sh`
+2. Connect to ArangoDB `arangosh --server.endpoint tcp://127.0.0.1:8529`
+3. In the Arangoshell, add the *Cheops* database, and a user:
+```
+db._createDatabase("cheops");
+var users = require("@arangodb/users");
+users.save("cheops@cheops", "lol");
+users.grantDatabase("cheops@cheops", "cheops");
+```
+4. On G5k, you can access to the DB from your computer using `ssh -N -L 
+   8081:localhost:8529 root@HOSTIP`
+5. Install Kubernetes `bash k8s_debian.sh`
+6. Run RabbitMQ `docker run -it -d --rm --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3.8-management`
+7. Run the broker `go run broker/broker_recieve.go &`
+8. Test your requests, such as: `curl http://HOSTIP:8080/deploy`
 
 
 # Global working principles
