@@ -4,7 +4,6 @@ import (
 	"cheops.com/k8s"
 	"encoding/json"
 	"log"
-	//        "math/rand"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"io/ioutil"
 )

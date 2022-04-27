@@ -1,18 +1,17 @@
-package main
+package client
+
 import (
-	"fmt"
-	"log"
-	"io/ioutil"
-	"os"
-	"net/http"
-	"strings"
-	"io"
-	"math/rand"
-	//    "cheops.com/k8s"
-	"encoding/json"
-	//    "reflect"
 	"bytes"
+	"encoding/json"
+	"fmt"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"io"
+	"io/ioutil"
+	"log"
+	"math/rand"
+	"net/http"
+	"os"
+	"strings"
 )
 
 
@@ -101,7 +100,7 @@ func failOnError(err error, msg string) {
 }
 
 
-func deployHandler(w http.ResponseWriter, r *http.Request) {
+func DeployHandler(w http.ResponseWriter, r *http.Request) {
 	jsonFile, err := os.Open("deployment.json")
 	if err != nil {
 		fmt.Println(err)
@@ -115,7 +114,7 @@ func deployHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 
-func getHandler(w http.ResponseWriter, r *http.Request) {
+func GetHandler(w http.ResponseWriter, r *http.Request) {
 	//fmt.Fprintf(w, "Hello!")
 	res1 := Broker_Client(def_Cluster[0], []byte("0"))
 	log.Printf("%s", res1)
@@ -129,7 +128,7 @@ func getHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 
-func replicaHandler(w http.ResponseWriter, r *http.Request) {
+func ReplicaHandler(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 	log.Println(path)
 	sPath := strings.Split(path, "/")
@@ -196,7 +195,7 @@ func crossHandler(w http.ResponseWriter, r *http.Request) {
 }*/
 
 
-func comm(clusters []string, content []byte) string{
+func Comm(clusters []string, content []byte) string{
 	res1 := ""
 	log.Println(strings.TrimSpace(strings.Join(clusters, "")))
 	if strings.TrimSpace(strings.Join(clusters, "")) == "" {
@@ -226,7 +225,7 @@ func comm(clusters []string, content []byte) string{
 
 
 
-func  crossHandler(w http.ResponseWriter, r *http.Request){
+func CrossHandler(w http.ResponseWriter, r *http.Request){
 
 	path := r.URL.Path
 	log.Println(path)
@@ -247,7 +246,7 @@ func  crossHandler(w http.ResponseWriter, r *http.Request){
 		}
 		content1 := b.Bytes()
 		//check_cluster := [2]string{"cluster1","cluster2"}
-		res1 := comm(check_cluster, content1)
+		res1 := Comm(check_cluster, content1)
 		log.Println(res1)
 		if strings.Contains(res1, "FALSE"){
 			io.WriteString(w,"Namespace exist")
@@ -266,7 +265,7 @@ func  crossHandler(w http.ResponseWriter, r *http.Request){
 			log.Fatalf("%s:%s","hi",err)
 		}
 		content1 := b.Bytes()
-		res1 := comm(check_cluster, content1)
+		res1 := Comm(check_cluster, content1)
 		log.Println(res1)
 		if strings.Contains(res1, "FALSE"){
 			io.WriteString(w,"Resource exist")
@@ -336,21 +335,22 @@ func  crossHandler(w http.ResponseWriter, r *http.Request){
 			}
 		}*/
 	log.Println("hello",clusters)
-	res1 := comm(clusters, content)
+	res1 := Comm(clusters, content)
 	log.Println(res1)
 	io.WriteString(w,res1)
 
 }
-func main() {
+
+//func main() {
 	//	Cluster1 := "amqp://guest:guest@172.16.192.9:5672/"
 	//	Cluster2 := "amqp://guest:guest@172.16.192.9:5672/"
 	//	Cluster3 := "amqp://guest:guest@172.16.192.9:5672/"
-	http.HandleFunc("/get", getHandler)
-	http.HandleFunc("/deploy",deployHandler)
-	http.HandleFunc("/cross/", crossHandler)
-	http.HandleFunc("/replica/", replicaHandler)
-	fmt.Printf("Starting server at port 8080\n")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
-		log.Fatal(err)
-	}
-}
+	//http.HandleFunc("/get", getHandler)
+	//http.HandleFunc("/deploy",deployHandler)
+	//http.HandleFunc("/cross/", crossHandler)
+	//http.HandleFunc("/replica/", replicaHandler)
+	//fmt.Printf("Starting server at port 8080\n")
+	//if err := http.ListenAndServe(":8080", nil); err != nil {
+	//	log.Fatal(err)
+	//}
+//}

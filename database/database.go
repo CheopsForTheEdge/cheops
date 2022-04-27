@@ -1,6 +1,7 @@
 package database
 
 import (
+	"cheops.com/config"
 	"context"
 	"fmt"
 	driver "github.com/arangodb/go-driver"
@@ -8,18 +9,17 @@ import (
 	"log"
 	"os/exec"
 	"time"
-	"cheops.com/config"
 )
 
 var dbcheops = "cheops"
 var database = config.Conf.Database
 
 func LaunchDatabase() {
-	out, err := exec.Command("/bin/sh", "database/launch_db.sh").Output()
+	_, err := exec.Command("/bin/sh", "database/launch_db.sh").Output()
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(out)
+	fmt.Println("Database ready")
 }
 
 

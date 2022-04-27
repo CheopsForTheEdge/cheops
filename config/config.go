@@ -6,19 +6,33 @@ import (
 )
 
 type Configurations struct {
-	Application		ApplicationConfigurations
-	Database 		DatabaseConfigurations
+	Application		ApplicationConfiguration
+	Database 		DatabaseConfiguration
+	Sites			SitesConfiguration
+	Endpoints 		EndpointsConfiguration
 }
 
-type ApplicationConfigurations struct {
+type ApplicationConfiguration struct {
 	Name		string
 }
 
-type DatabaseConfigurations struct {
+type DatabaseConfiguration struct {
 	DBName 		string
 	DBUser    	string
 	DBPassword 	string
 	Collections []string
+}
+
+type SitesConfiguration struct {
+	Site 	[]map[string]interface{}
+}
+
+type SiteConfiguration struct {
+
+}
+
+type EndpointsConfiguration struct {
+	Site 	map[string]string
 }
 
 var Conf = LoadConfig()
@@ -49,6 +63,11 @@ func LoadConfig() Configurations {
 		"endpoints",
 		"sites",
 		"crosses"})
+
+	err := viper.Unmarshal(&conf)
+	if err != nil {
+		fmt.Printf("Unable to decode into struct, %v", err)
+	}
 
 	return conf
 }

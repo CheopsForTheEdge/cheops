@@ -1,6 +1,7 @@
 package api
 
 import (
+	cli "cheops.com/client"
 	"cheops.com/endpoint"
 	"cheops.com/operation"
 	"cheops.com/request"
@@ -44,12 +45,17 @@ func Routing() {
 		operation.ExecRequestLocallyAPI).
 		Methods("POST")
 	// Broker - Driver
-	router.HandleFunc("/scope",request.ExtractScope).Methods("GET")
-	router.HandleFunc("/scope/forward",request.RedirectRequest).Methods("POST")
+	router.HandleFunc("/scope", request.ExtractScope).Methods("GET")
+	router.HandleFunc("/scope/forward", request.RedirectRequest).Methods("POST")
 	router.HandleFunc("/Appb/{flexible:.*}", request.Appb).Methods("GET")
 	router.HandleFunc("/SendRemote", request.SendRemote).Methods("GET")
 	router.HandleFunc("/RegisterRemoteSite", request.RegisterRemoteSite).Methods("POST")
 	router.HandleFunc("/GetRemoteSite/{site}", request.GetRemoteSite).Methods("GET")
+	// Client
+	router.HandleFunc("/get", cli.GetHandler)
+	router.HandleFunc("/deploy", cli.DeployHandler)
+	router.HandleFunc("/cross/", cli.CrossHandler)
+	router.HandleFunc("/replica/", cli.ReplicaHandler)
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
 

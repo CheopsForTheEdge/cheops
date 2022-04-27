@@ -11,3 +11,17 @@ database:
     - sites
     - replications
     - crosses
+
+knownsites:
+  - local:
+      name: "Paravance17"
+      address: "172.16.96.17"
+  - neighbor1:
+      name: "Paravance18"
+      address: "172.16.96.18"
+
+
+localservices:
+  - api:
+      name: "api"
+      address: "127.0.0.1"
