@@ -258,9 +258,25 @@ func DeleteResourceFromSearch(colname string, key string, value string) {
 	// DeleteResource(colname, result.Key)
 }
 
-// TODO Cursor must be closed, how to return it?
+//func GetAllResources(colname string) ([]interface{}){
+//	var lst []interface{}
+//	ctx := context.Background()
+//	query := "FOR d IN @colname RETURN d"
+//	db := ConnectionToCheopsDatabase()
+//	cursor, err := db.Query(ctx, query, nil)
+//	db.
+//	if err != nil {
+//		fmt.Println("A problem arrived when getting the resources of %s:\n",
+//			colname)
+//		log.Fatal(err)
+//	}
+//	defer cursor.Close()
+//	return lst
+//}
+
+
 func SearchResource(colname string, key string,
-	value string, result interface{}) (cursor driver.Cursor) {
+	value string, result interface{}) (interface{}) {
 	ctx := context.Background()
 	db := ConnectionToCheopsDatabase()
 	query := "FOR doc IN @colname\n" +
@@ -276,5 +292,6 @@ func SearchResource(colname string, key string,
 		}
 	cursor.ReadDocument(ctx, &result)
 	fmt.Println(result)
-	return cursor
+	defer cursor.Close()
+	return &result
 }

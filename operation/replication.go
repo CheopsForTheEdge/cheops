@@ -205,3 +205,26 @@ func CheckReplicas(id string) {
 	//TODO: return a list of NEQUAL replicas?
 }
 
+func ExecuteReplication(op Operation, add string) {
+	if op.PlatformOperation == "create" {
+		// TODO: here, we need to pass through the broker and change Redirection to true
+		//replicationAdd := "http://" + add + ":8080" + "/replication"
+		//resp, _ = http.Post(replicationAdd, "application/json", opReader)
+		//if resp != nil {
+		//	execResp = ExecutionResp{"site", "createReplicant", *resp}
+		//	resps = append(resps, execResp)
+		//}
+	}
+	if op.PlatformOperation == "update" {
+		//TODO: call the API instead (through the broker)
+		if CheckIfReplicant(op.Instance) {
+			// Check if leader
+		}
+	}
+	if op.PlatformOperation == "delete" {
+		//TODO: call the API instead (through the broker)
+		if CheckIfReplicant(op.Instance) {
+
+		}
+	}
+}

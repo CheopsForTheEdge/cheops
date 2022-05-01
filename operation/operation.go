@@ -22,6 +22,7 @@ type Operation struct {
 	PlatformOperation string   `json:"PlatformOperation"`
 	ExtraArgs         []string `json:"ExtraArgs"`
 	Request           string   `json:"Request"`
+	Redirection		  bool
 }
 
 type ExecutionResp struct {
@@ -44,7 +45,7 @@ func CreateOperation(operation string,
 	op := Operation{Operation: operation, Sites: sites,
 		Platform: platform, Resource: resource, Instance: instance,
 		PlatformOperation: platformOperation, ExtraArgs: extraArgs,
-		Request: request}
+		Request: request, Redirection: false}
 	return database.CreateResource(colname, op)
 }
 
@@ -52,6 +53,7 @@ func CreateOperationAPI(w http.ResponseWriter, r *http.Request) {
 	var op Operation
 	reqBody, _ := ioutil.ReadAll(r.Body)
 	json.Unmarshal([]byte(reqBody), &op)
+	op.Redirection = false
 	key := database.CreateResource(colname, op)
 	json.NewEncoder(w).Encode(key)
 }
@@ -85,27 +87,7 @@ func ExecuteOperationAPI(w http.ResponseWriter,
 		// depending on the operation, we have to do stuff (e.g.
 		// create the replicants)
 		if op.Operation == "&" {
-			//TODO: maybe create this in replication so we only have to call it
-			if op.PlatformOperation == "create" {
-				replicationAdd := "http://" + add + ":8080" + "/replication"
-				resp, _ = http.Post(replicationAdd, "application/json", opReader)
-				if resp != nil {
-					execResp = ExecutionResp{"site", "createReplicant", *resp}
-					resps = append(resps, execResp)
-				}
-			}
-			if op.PlatformOperation == "update" {
-				//TODO: call the API instead (through the broker)
-				if CheckIfReplicant(op.Instance) {
-					// Check if leader
-				}
-			}
-			if op.PlatformOperation == "delete" {
-				//TODO: call the API instead (through the broker)
-				if CheckIfReplicant(op.Instance) {
-
-				}
-			}
+			ExecuteReplication(op, add)
 		}
 	}
 	// return resps

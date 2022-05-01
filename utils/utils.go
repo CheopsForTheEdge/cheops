@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"cheops.com/endpoint"
 	"encoding/json"
 	"fmt"
 	"github.com/segmentio/ksuid"
@@ -19,6 +20,7 @@ func CreateMetaId() string {
 	return cheopsID
 }
 
+// No longer used
 func GetConfig() (conf Configuration) {
 	file, _ := os.Open("conf.json")
 	defer file.Close()
@@ -28,4 +30,16 @@ func GetConfig() (conf Configuration) {
 		fmt.Println("error:", err)
 	}
 	return conf
+}
+
+
+// TODO maybe use httpstat https://pkg.go.dev/github.com/tcnksm/go-httpstat
+func Heartbeat(site endpoint.Site) {
+
+
+}
+
+func SendHeartbeats() ([]endpoint.Site){
+	var sites []endpoint.Site
+	return sites
 }
