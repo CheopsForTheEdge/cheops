@@ -1,6 +1,7 @@
 package config
 
 import (
+	"cheops.com/endpoint"
 	"fmt"
 	"github.com/spf13/viper"
 )
@@ -10,6 +11,7 @@ type Configurations struct {
 	Database 		DatabaseConfiguration
 	Sites			SitesConfiguration
 	Endpoints 		EndpointsConfiguration
+	LocalSite		endpoint.Site
 }
 
 type ApplicationConfiguration struct {

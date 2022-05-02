@@ -12,13 +12,15 @@ database:
     - replications
     - crosses
 
+localsite:
+  - sitename: "Paravance16"
+    address: "127.0.0.1"
+
 knownsites:
-  - local:
-      name: "Paravance17"
-      address: "172.16.96.17"
-  - neighbor1:
-      name: "Paravance18"
-      address: "172.16.96.18"
+  - name: "Paravance17"
+    address: "172.16.96.17"
+  - name: "Paravance18"
+    address: "172.16.96.18"
 
 
 localservices:

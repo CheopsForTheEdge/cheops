@@ -1,9 +1,9 @@
 package operation
 
 import (
+	config "cheops.com/config"
 	"cheops.com/database"
 	"cheops.com/endpoint"
-	"cheops.com/utils"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -12,6 +12,8 @@ import (
 	"os/exec"
 	"strings"
 )
+
+
 
 type Operation struct {
 	Operation         string   `json:"Operation"`
@@ -34,7 +36,7 @@ type ExecutionResp struct {
 // Collection name variable
 var colname = "operations"
 
-var config = utils.GetConfig()
+var conf = config.Conf
 
 func CreateOperation(operation string,
 	sites []string, platform string,
@@ -58,41 +60,30 @@ func CreateOperationAPI(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(key)
 }
 
-func ExecuteOperationAPI(w http.ResponseWriter,
-	r *http.Request) {
+func ExecuteOperationAPI(w http.ResponseWriter,	r *http.Request) {
 	var op Operation
 	reqBody, _ := ioutil.ReadAll(r.Body)
-	json.Unmarshal([]byte(reqBody), &op)
+	err := json.Unmarshal([]byte(reqBody), &op)
+	if err != nil {
+		fmt.Fprintf(w, "There was an error reading the json: %s\n ",
+			err)
+		log.Fatal(err)
+	}
 	database.CreateResource(colname, op)
 	// create a table for responses
-	var resps []ExecutionResp
-	// Executing operations on each sites, might need threads to do it in parallel
-	for _, site := range op.Sites {
-		add := endpoint.GetSiteAddress(site)
-		// using the ExecRequestLocally on each involved site
-		execAdd := "http://" + add + ":8080" + "/operation/localrequest"
-		// for post, we need a reader, so we need the operation marshalled
-		operation, _ := json.Marshal(op)
-		opReader := strings.NewReader(string(operation))
-		// execute the actual request
-		resp, err := http.Post(execAdd, "application/json",
-			opReader)
-		if err != nil {
-			fmt.Printf("Error in executing command %s \n", execAdd)
-			log.Fatal(err)
-		}
-		// create the response
-		execResp := ExecutionResp{"site", "op.Request", *resp}
-		resps = append(resps, execResp)
-		// depending on the operation, we have to do stuff (e.g.
-		// create the replicants)
+	//var resps []ExecutionResp
+	// First, check if this is a redirection to know if we need to read sites
+	if !(op.Redirection) {
 		if op.Operation == "&" {
-			ExecuteReplication(op, add)
+			ExecuteReplication(op, conf)
 		}
-	}
-	// return resps
-	json.NewEncoder(w).Encode(resps)
+
+
+		}
 }
+	// return resps
+	//json.NewEncoder(w).Encode(resps)
+
 
 func ExecRequestLocally(operation Operation) (out string) {
 	// slice the request
@@ -116,9 +107,18 @@ func ExecRequestLocally(operation Operation) (out string) {
 func ExecRequestLocallyAPI(w http.ResponseWriter, r *http.Request) {
 	var op Operation
 	reqBody, _ := ioutil.ReadAll(r.Body)
-	json.Unmarshal([]byte(reqBody), &op)
+	err := json.Unmarshal([]byte(reqBody), &op)
+	if err != nil {
+		fmt.Fprintf(w, "There was an error reading the json: %s\n ", err)
+		log.Fatal(err)
+	}
 	out := ExecRequestLocally(op)
-	w.Write([]byte(out))
+	_, err = w.Write([]byte(out))
+	if err != nil {
+		fmt.Fprintf(w, "There was an error while returning the result: %s\n ",
+			err)
+		log.Fatal(err)
+	}
 }
 
 func SearchSites(op Operation) []string {

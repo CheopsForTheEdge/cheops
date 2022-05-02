@@ -1,6 +1,7 @@
 package operation
 
 import (
+	"cheops.com/config"
 	"cheops.com/database"
 	"cheops.com/endpoint"
 	"cheops.com/utils"
@@ -11,6 +12,7 @@ import (
 	"log"
 	"net/http"
 	"reflect"
+	"strings"
 	"time"
 )
 
@@ -55,7 +57,7 @@ func CreateReplicant() string {
 	rep.Replicas = []Replica{}
 	rep.IsLeader = true
 	rep.Logs = []Log{
-		Log{Operation: "creation", Date: (time.Now())}}
+		Log{Operation: "creation", Date: time.Now()}}
 	key := database.CreateResource(colnamerep, rep)
 	return key
 }
@@ -70,7 +72,7 @@ func CreateReplicantFromOperation(op Operation, isLeader bool) string {
 	}
 	rep.IsLeader = isLeader
 	rep.Logs = []Log{
-		Log{Operation: op.Request, Date: (time.Now())}}
+		Log{Operation: op.Request, Date: time.Now()}}
 	key := database.CreateResource(colnamerep, rep)
 	return key
 }
@@ -78,7 +80,11 @@ func CreateReplicantFromOperation(op Operation, isLeader bool) string {
 func CreateReplicantFromOperationAPI(w http.ResponseWriter, r *http.Request) {
 	var op Operation
 	reqBody, _ := ioutil.ReadAll(r.Body)
-	json.Unmarshal([]byte(reqBody), &op)
+	err := json.Unmarshal([]byte(reqBody), &op)
+	if err != nil {
+		fmt.Fprintf(w, "There was an error reading the json: %s\n ", err)
+		return
+	}
 	conf := utils.GetConfig()
 	isLeader := (conf.Site == op.Sites[0])
 	key := CreateReplicantFromOperation(op, isLeader)
@@ -91,7 +97,11 @@ func CreateReplicantAPI(w http.ResponseWriter, r *http.Request)  {
 	var newReplicant Replicant
 	reqBody, _ := ioutil.ReadAll(r.Body)
 
-	json.Unmarshal(reqBody, &newReplicant)
+	err:= json.Unmarshal(reqBody, &newReplicant)
+	if err != nil {
+		fmt.Fprintf(w, "There was an error reading the json: %s\n ", err)
+		return
+	}
 	Replicants = append(Replicants, newReplicant)
 	w.WriteHeader(http.StatusCreated)
 
@@ -123,9 +133,13 @@ func AddReplica(w http.ResponseWriter, r *http.Request) {
 
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		fmt.Fprintf(w, "Kindly enter data")
+		fmt.Fprintf(w, "Kindly enter data: %s\n", err)
 	}
-	json.Unmarshal(reqBody, &updatedReplicant)
+	err = json.Unmarshal(reqBody, &updatedReplicant)
+	if err != nil {
+		fmt.Fprintf(w, "There was an error reading the json: %s\n ", err)
+		return
+	}
 
 	for i, rep := range Replicants {
 		if rep.MetaID == metaID {
@@ -135,7 +149,11 @@ func AddReplica(w http.ResponseWriter, r *http.Request) {
 			replica.ID = updatedReplicant.Replicas[numberReplicas].Site
 			rep.Replicas = append(rep.Replicas, replica)
 			Replicants = append(Replicants[:i], rep)
-			json.NewEncoder(w).Encode(rep)
+			err := json.NewEncoder(w).Encode(rep)
+			if err != nil {
+				fmt.Fprintf(w, "There was an error reading the json: %s\n ", err)
+				return
+			}
 		}
 	}
 }
@@ -205,26 +223,51 @@ func CheckReplicas(id string) {
 	//TODO: return a list of NEQUAL replicas?
 }
 
-func ExecuteReplication(op Operation, add string) {
+func ExecuteReplication(op Operation, conf config.Configurations) {
 	if op.PlatformOperation == "create" {
-		// TODO: here, we need to pass through the broker and change Redirection to true
-		//replicationAdd := "http://" + add + ":8080" + "/replication"
+		// TODO: cf notebook
+		//replicationAdd := "http://" + siteadd + ":8080" + "/replication"
 		//resp, _ = http.Post(replicationAdd, "application/json", opReader)
 		//if resp != nil {
 		//	execResp = ExecutionResp{"site", "createReplicant", *resp}
 		//	resps = append(resps, execResp)
 		//}
-	}
-	if op.PlatformOperation == "update" {
-		//TODO: call the API instead (through the broker)
-		if CheckIfReplicant(op.Instance) {
-			// Check if leader
-		}
-	}
-	if op.PlatformOperation == "delete" {
-		//TODO: call the API instead (through the broker)
-		if CheckIfReplicant(op.Instance) {
+		var resps []ExecutionResp
+		// Executing operations on each sites, might need threads to do it in parallel
+		for _, site := range op.Sites {
+			siteaddress := endpoint.GetSiteAddress(site)
+			// using the ExecRequestLocally on each involved site
+			execAddress := "http://" + siteaddress + ":8080" + "/operation" +
+				"/localrequest"
 
+			//
+			op.Redirection = true
+			// for post, we need a reader, so we need the operation marshalled
+			operation, _ := json.Marshal(op)
+			opReader := strings.NewReader(string(operation))
+			// execute the actual request
+			// TODO: ExecRequestLocallyAPI for the broker
+			resp, err := http.Post(execAddress, "application/json",
+				opReader)
+			if err != nil {
+				fmt.Printf("Error in executing command %s \n", execAddress)
+				log.Fatal(err)
+			}
+			// create the response
+			execResp := ExecutionResp{"site", "op.Request", *resp}
+			resps = append(resps, execResp)
+		}
+		if op.PlatformOperation == "update" {
+			//TODO: call the API instead (through the broker)
+			if CheckIfReplicant(op.Instance) {
+				// Check if leader
+			}
+		}
+		if op.PlatformOperation == "delete" {
+			//TODO: call the API instead (through the broker)
+			if CheckIfReplicant(op.Instance) {
+
+			}
 		}
 	}
 }
