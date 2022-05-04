@@ -56,6 +56,7 @@ func Routing() {
 	router.HandleFunc("/deploy", cli.DeployHandler)
 	router.HandleFunc("/cross/", cli.CrossHandler)
 	router.HandleFunc("/replica/", cli.ReplicaHandler)
+	router.HandleFunc("/sendoperation", cli.SendOperationToSites)
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
 

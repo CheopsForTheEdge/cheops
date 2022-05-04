@@ -109,54 +109,46 @@ func CreateReplicantAPI(w http.ResponseWriter, r *http.Request)  {
 	json.NewEncoder(w).Encode(newReplicant)
 }
 
-// GetReplicant Gets a specific replicant from its meta ID
-func GetReplicant(w http.ResponseWriter, r *http.Request) {
+// GetReplicantAPI Gets a specific replicant from its meta ID
+func GetReplicantAPI(w http.ResponseWriter, r *http.Request) {
 	metaID := mux.Vars(r)["MetaID"]
+	rep, _ := getReplicant(metaID)
+	json.NewEncoder(w).Encode(rep)
+	//w.WriteHeader(404)
+}
 
-	for _, rep := range Replicants {
-		if rep.MetaID == metaID {
-			json.NewEncoder(w).Encode(rep)
-			return
-		}
-	}
-	w.WriteHeader(404)
+// getReplicant Gets a specific replicant from its meta ID
+func getReplicant(metaID string) (Replicant, string){
+	var rep Replicant
+	_, key := database.SearchResource(colnamerep, "metaID", metaID, &rep)
+	return rep, key
+	//w.WriteHeader(404)
 }
 
 // GetAllReplicants Gets all replicants
-func GetAllReplicants(w http.ResponseWriter, r *http.Request) {
-	json.NewEncoder(w).Encode(Replicants)
-}
+//func GetAllReplicants(w http.ResponseWriter, r *http.Request) {
+//	json.NewEncoder(w).Encode(Replicants)
+//}
 
 // AddReplica Add a replica to a replicant
 func AddReplica(w http.ResponseWriter, r *http.Request) {
 	metaID := mux.Vars(r)["MetaID"]
-	var updatedReplicant Replicant
+	var addedReplica Replica
 
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		fmt.Fprintf(w, "Kindly enter data: %s\n", err)
 	}
-	err = json.Unmarshal(reqBody, &updatedReplicant)
+	err = json.Unmarshal(reqBody, &addedReplica)
 	if err != nil {
 		fmt.Fprintf(w, "There was an error reading the json: %s\n ", err)
 		return
 	}
 
-	for i, rep := range Replicants {
-		if rep.MetaID == metaID {
-			var replica Replica
-			var numberReplicas = len(rep.Replicas)
-			replica.Site = updatedReplicant.Replicas[numberReplicas].Site
-			replica.ID = updatedReplicant.Replicas[numberReplicas].Site
-			rep.Replicas = append(rep.Replicas, replica)
-			Replicants = append(Replicants[:i], rep)
-			err := json.NewEncoder(w).Encode(rep)
-			if err != nil {
-				fmt.Fprintf(w, "There was an error reading the json: %s\n ", err)
-				return
-			}
-		}
-	}
+	replicant, key := getReplicant(metaID)
+	replicant.Replicas = append(replicant.Replicas, addedReplica)
+
+	database.UpdateResource(colnamerep, key, replicant.Replicas)
 }
 
 // DeleteReplicant Deletes a replicant given a meta ID

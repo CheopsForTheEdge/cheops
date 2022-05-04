@@ -246,7 +246,6 @@ func Comm(clusters []string, content []byte) string{
 
 
 func CrossHandler(w http.ResponseWriter, r *http.Request){
-
 	path := r.URL.Path
 	log.Println(path)
 	sPath := strings.Split(path, "/")
@@ -304,25 +303,7 @@ func CrossHandler(w http.ResponseWriter, r *http.Request){
 		msg["namespace"] = sPath[2]
 		msg["operation"] = sPath[3]
 		msg["resource_name"] = sPath[4]
-		//content_str :=
-		//	content,err := json.Marshal([3]string{namespace,operation,resource_name})
-		//if err != nil
-		//        log.Fatalf("%s: %s", content, err)
-		//}
-		//content  := json.Marshal(content_str):
-		//	log.Println(content)
-		/*	var result map[string]interface{}
-			json.Unmarshal(content, &result)
-			log.Println(result)
-		*/      //clusters := strings.Split(sPath[5],",")
-		//log.Println(clusters)
 
-		//deploy_json := k8s.Get_Deploy(sPath[3])
-		//log.Println(deploy_json)
-		/*content, err := serialize(msg)
-			if err != nil {
-		                log.Fatalf("%s: %s", content, err)
-		        }*/
 	}
 	var b bytes.Buffer
 	encoder := json.NewEncoder(&b)
@@ -331,29 +312,7 @@ func CrossHandler(w http.ResponseWriter, r *http.Request){
 		log.Fatalf("%s:%s","hi",err)
 	}
 	content := b.Bytes()
-	//	}
-	//res1 := ""
-	//	clusters := strings.Split(sPath[5],",")
-	//	log.Println(clusters)
-	//	log.Println(reflect.TypeOf(content))
-	/*if len (clusters) == 0{
-			for i := range (def_Cluster){
-				res1 := Broker_Client(def_Cluster[i], []byte(content))
-				log.Println(res1)
-			}
-		}else{
-			for i := range (clusters){
-				var res12 string
-				if clusters[i] == "cluster1"{
-	                        res12 = Broker_Client(def_Cluster[0], []byte(content))
-	               		}else if clusters[i] == "cluster2"{
-	                        res12 = Broker_Client(def_Cluster[1], []byte(content))
-	               	 	}else if clusters[i] == "cluster3"{
-	                        res12 = Broker_Client(def_Cluster[2], []byte(content))
-	                	}
-	                res1 = res1 + res12
-			}
-		}*/
+
 	log.Println("hello",clusters)
 	res1 := Comm(clusters, content)
 	log.Println(res1)

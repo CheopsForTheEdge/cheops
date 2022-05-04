@@ -231,10 +231,12 @@ func ReadResource(colname string, key string, doc interface{}) {
 	}
 }
 
-func UpdateResource(colname string, key string, doc interface{}) {
+
+// Key is ArangoDB key, patch is the changed part
+func UpdateResource(colname string, key string, patch interface{}) {
 	ctx := context.Background()
 	col := ConnectionToCorrectCollection(colname)
-	_, err := col.UpdateDocument(ctx, key, doc)
+	_, err := col.UpdateDocument(ctx, key, patch)
 	if err != nil {
 		fmt.Println("Can't access the resource")
 		log.Fatal(err)
@@ -276,7 +278,7 @@ func DeleteResourceFromSearch(colname string, key string, value string) {
 
 
 func SearchResource(colname string, key string,
-	value string, result interface{}) (interface{}) {
+	value string, result interface{}) (interface{}, string) {
 	ctx := context.Background()
 	db := ConnectionToCheopsDatabase()
 	query := "FOR doc IN @colname\n" +
@@ -290,8 +292,8 @@ func SearchResource(colname string, key string,
 			log.Fatal(err)
 			// handle error
 		}
-	cursor.ReadDocument(ctx, &result)
+	docmeta, _  := cursor.ReadDocument(ctx, &result)
 	fmt.Println(result)
 	defer cursor.Close()
-	return &result
+	return &result, docmeta.Key
 }
