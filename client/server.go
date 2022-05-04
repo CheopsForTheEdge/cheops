@@ -1,7 +1,10 @@
 package client
 
 import (
+	"cheops.com/config"
 	"bytes"
+	"cheops.com/endpoint"
+	"cheops.com/operation"
 	"encoding/json"
 	"fmt"
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -14,7 +17,7 @@ import (
 	"strings"
 )
 
-
+var knownsites = config.Conf.Sites
 
 var def_Cluster = []string{"amqp://guest:guest@172.16.192.10:5672/","amqp://guest:guest@172.16.192.11:5672/","amqp://guest:guest@172.16.192.13:5672/"}
 var check_cluster = []string{"cluster1","cluster2","cluster3"}
@@ -99,6 +102,23 @@ func failOnError(err error, msg string) {
 	}
 }
 
+
+func SendOperationToSites(w http.ResponseWriter, r *http.Request) {
+	var op operation.Operation
+	reqBody, _ := ioutil.ReadAll(r.Body)
+	err := json.Unmarshal([]byte(reqBody), &op)
+	if err != nil {
+		fmt.Fprintf(w, "There was an error reading the json: %s\n ", err)
+		log.Fatal(err)
+	}
+	opByte, err := json.Marshal(op)
+	for _, site := range op.Sites {
+		address := endpoint.GetSiteAddress(site)
+		result := Broker_Client(address, opByte)
+		log.Printf("Result:%s\n", result)
+		io.WriteString(w, result)
+	}
+}
 
 func DeployHandler(w http.ResponseWriter, r *http.Request) {
 	jsonFile, err := os.Open("deployment.json")

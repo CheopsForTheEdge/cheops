@@ -9,8 +9,8 @@ import (
 type Configurations struct {
 	Application		ApplicationConfiguration
 	Database 		DatabaseConfiguration
-	Sites			SitesConfiguration
-	Endpoints 		EndpointsConfiguration
+	Sites			endpoint.Site
+	Endpoints 		endpoint.Endpoint
 	LocalSite		endpoint.Site
 }
 
@@ -25,7 +25,7 @@ type DatabaseConfiguration struct {
 	Collections []string
 }
 
-type SitesConfiguration struct {
+/*type SitesConfiguration struct {
 	Site 	[]map[string]interface{}
 }
 
@@ -35,7 +35,7 @@ type SiteConfiguration struct {
 
 type EndpointsConfiguration struct {
 	Site 	map[string]string
-}
+}*/
 
 var Conf = LoadConfig()
 
@@ -65,6 +65,8 @@ func LoadConfig() Configurations {
 		"endpoints",
 		"sites",
 		"crosses"})
+	viper.SetDefault("localsite", endpoint.Site{SiteName: "Cheops1",
+		Address: "127.0.0.1"})
 
 	err := viper.Unmarshal(&conf)
 	if err != nil {

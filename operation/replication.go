@@ -19,6 +19,7 @@ import (
 type Replica struct {
 	Site 	string `json:"Site"`
 	ID 		string `json:"ID"`
+	Status  string `json:"Status"`
 }
 
 type Replicant struct {
@@ -249,6 +250,7 @@ func ExecuteReplication(op Operation, conf config.Configurations) {
 			// TODO: ExecRequestLocallyAPI for the broker
 			resp, err := http.Post(execAddress, "application/json",
 				opReader)
+			
 			if err != nil {
 				fmt.Printf("Error in executing command %s \n", execAddress)
 				log.Fatal(err)
