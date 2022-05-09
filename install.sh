@@ -1,8 +1,6 @@
 apt update -y
 apt upgrade -y
 
-apt install -y git
-
 # Golang + Cheops
 curl -OL https://golang.org/dl/go1.17.linux-amd64.tar.gz
 rm -rf /usr/local/go && tar -C /usr/local -xzf go1.17.linux-amd64.tar.gz
@@ -18,10 +16,7 @@ go get github.com/arangodb/go-driver
 go get github.com/arangodb/go-driver/http
 go get github.com/segmentio/ksuid
 go get github.com/rabbitmq/amqp091-go
-cd $HOME/go/
-mkdir src && cd src && git clone https://gitlab.inria.fr/discovery/cheops.git
-cd cheops
-git checkout mariebind
+
 
 # ArangoDB
 curl -OL https://download.arangodb.com/arangodb38/DEBIAN/Release.key

@@ -20,22 +20,32 @@ Cheops work is supported by [Inria](https://www.inria.fr/),
 - [Slides AMP 2021](https://docs.google.com/presentation/d/1ZusGXEKPaRXQUaodkuvzJ5awdUmU6o8muxNYB-GZOPo/edit?usp=sharing)
 
 # Install
+1. Install git if it is not on your system: `apt install -y git`
+2. Execute this snippet to download Cheops and install ArangoDB:
+```bash
+mkdir -p $HOME/go/src && cd $HOME/go/src 
+git clone https://gitlab.inria.fr/discovery/cheops.git
+cd cheops
+git checkout mariebind
+bash install.sh
 
-1. Execute `install.sh`
-2. Connect to ArangoDB `arangosh --server.endpoint tcp://127.0.0.1:8529`
-3. In the Arangoshell, add the *Cheops* database, and a user:
 ```
+3. Connect to ArangoDB `arangosh --server.endpoint tcp://127.0.0.1:8529`
+4. In the Arangoshell, add the *Cheops* database, and a user:
+```bash
 db._createDatabase("cheops");
 var users = require("@arangodb/users");
 users.save("cheops@cheops", "lol");
 users.grantDatabase("cheops@cheops", "cheops");
+exit
+
 ```
-4. On G5k, you can access to the DB from your computer using `ssh -N -L 
+5. On G5k, you can access to the DB from your computer using `ssh -N -L 
    8081:localhost:8529 root@HOSTIP`
-5. Install Kubernetes `bash k8s_debian.sh`
-6. Run RabbitMQ `docker run -it -d --rm --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3.8-management`
-7. Run the broker `go run broker/broker_recieve.go &`
-8. Test your requests, such as: `curl http://HOSTIP:8080/deploy`
+6. Install Kubernetes `bash k8s_debian.sh`
+7. Run RabbitMQ `docker run -it -d --rm --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3.8-management`
+8. Run the broker `go run broker/broker_recieve.go &`
+9. Test your requests, such as: `curl http://HOSTIP:8080/deploy`
 
 
 # Global working principles
