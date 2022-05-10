@@ -7,7 +7,6 @@ import (
 	"cheops.com/request"
 	"fmt"
 	"github.com/gorilla/mux"
-	"github.com/justinas/alice"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -21,18 +20,17 @@ it runs the listening on defined port with those routes.
 func Routing() {
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/", homeLink)
-	commonHandlers := alice.New(CheckRequestFilledHandler)
+	//commonHandlers := alice.New(CheckRequestFilledHandler)
 	// Replication
 	// router.Handle("/replication", commonHandlers.ThenFunc(operation.CreateLeaderFromOperationAPI)).Methods("POST")
 	// router.HandleFunc("/replicationLeader",
 	//operation.CreateLeaderFromOperationAPI).Methods("POST")
 	router.HandleFunc("/replication", operation.CreateReplicantAPI).Methods(
 		"POST")
-	router.HandleFunc("/replicant/{metaID}", operation.GetReplicant).Methods("GET")
+	router.HandleFunc("/replicant/{metaID}", operation.GetReplicantAPI).Methods("GET")
 	router.HandleFunc("/replicant/{metaID}", operation.AddReplica).Methods("PUT")
 	router.HandleFunc("/replicant/{metaID}", operation.DeleteReplicant).Methods("DELETE")
-	router.Handle("/replicants", commonHandlers.ThenFunc(operation.
-		GetAllReplicants)).Methods("GET")
+	//router.Handle("/replicants", commonHandlers.ThenFunc(operation.GetAllReplicantsAPI)).Methods("GET")
 	// Endpoint
 	router.HandleFunc("/endpoint", endpoint.CreateEndpointAPI).Methods("POST")
 	router.HandleFunc("/endpoint/getaddress/{Site}",

@@ -1,8 +1,8 @@
 package client
 
 import (
-	"cheops.com/config"
 	"bytes"
+	"cheops.com/config"
 	"cheops.com/endpoint"
 	"cheops.com/operation"
 	"encoding/json"
