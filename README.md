@@ -24,15 +24,44 @@ This research prototype is currently under heavy development. If you are interes
 
 - [Slides AMP 2021](https://docs.google.com/presentation/d/1ZusGXEKPaRXQUaodkuvzJ5awdUmU6o8muxNYB-GZOPo/edit?usp=sharing)
 
-# Compiling and running on Goland
+# Install
+1. Install git if it is not on your system: `apt install -y git`
+2. Execute this snippet to download Cheops and install ArangoDB:
+```bash
+mkdir -p $HOME/go/src && cd $HOME/go/src 
+git clone https://gitlab.inria.fr/discovery/cheops.git
+cd cheops
+bash install.sh
+source $HOME/.profile
 
-First of all, you *don't have to* use Goland, but this is just the way we
-will describe:
-- Download Goland [here](https://www.jetbrains.com/go/) - you can have a
-  professional edition with your student account -
-- Git clone the project then import it in the IDE
-- Run the project.
-- Cf [tests README](tests/README.md) for testing
+```
+3. Connect to ArangoDB `arangosh --server.endpoint tcp://127.0.0.1:8529`
+4. In the Arangoshell, add the *Cheops* database, and a user:
+```bash
+db._createDatabase("cheops");
+var users = require("@arangodb/users");
+users.save("cheops@cheops", "lol");
+users.grantDatabase("cheops@cheops", "cheops");
+exit
+
+```
+5. On G5k, you can access to the DB from your computer using `ssh -N -L 
+   8081:localhost:8529 root@HOSTIP`
+6. Install Kubernetes `bash k8s_debian.sh`
+7. Execute this snippet:
+```bash
+kubeadm init --pod-network-cidr=10.244.0.0/16
+
+mkdir -p $HOME/.kube
+cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+chown $(id -u):$(id -g) $HOME/.kube/config
+
+kubectl apply -f https://github.com/coreos/flannel/raw/master/Documentation/kube-flannel.yml
+```
+8. Run RabbitMQ `docker run -it -d --rm --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3.8-management`
+9. Run the broker `go run broker/broker_recieve.go &`
+10. Change the addresses of the Sites in the`main.go` file before `go run main.go &`
+11. Test your requests, such as: `curl http://HOSTIP:8080/deploy`
 
 
 # Global working principles
