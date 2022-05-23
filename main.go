@@ -1,45 +1,58 @@
 package main
 
 import (
-	"os"
+	"cheops.com/api"
+	"cheops.com/endpoint"
+	"cheops.com/utils"
 	"fmt"
-	//"time"
-	"cheops/database"
-	"cheops/replication"
-	//	"cheops/api"
+	"os"
+	"time"
+	//"cheops.com/client"
+	"cheops.com/operation"
 )
 
+var app = "k8s"
 
 func main() {
-	//	api.Routing()
+
+	var conf = utils.Conf
+
 	// https://chriswiegman.com/2019/01/ensuring-the-file-path-is-present-to-create-a-file-in-golang/
-	check_file := "/root/arango"
-	if _, err := os.Stat(check_file); os.IsNotExist(err) {
-		database.PrepareForExecution("cheops", "replication")
-		os.MkdirAll(check_file, 0700)
+	arango_file := "/root/arango"
+	if _, err := os.Stat(arango_file); os.IsNotExist(err) {
+		fmt.Printf("Using credentials: mdp=%s, pwd=%s\n",
+			conf.Database.DBUser, conf.Database.DBPassword)
+		utils.PrepareForExecution()
+		os.MkdirAll(arango_file, 0700)
 	}
-	//c := database.Connection()
-	//db := database.ConnectToDatabase(c)
-	//col := database.ConnectToCollection(db , "cheopsmodel")
-	// doc := replication.Replicant{
-	// 	MetaID: "42",
-	// 	Replicas: []replication.Replica{
-	// 		replication.Replica{Site: "Paris", ID: "65"},
-	// 		replication.Replica{Site: "Nantes", ID: "42"}},
-	// 	IsLeader: true,
-	// 	Logs:  []replication.Log {
-	// 		replication.Log{Operation: "incredible operation",
-	// 			Date: (time.Now())}}}
-	// key := database.CreateResource("replication", doc)
-	// doci := replication.Replicant{}
-	// database.ReadResource("replication", key, &doci)
-	// fmt.Println(doci)
-	doc := replication.CreateReplicant()
-	// log = replication.Log{Operation: "incredible operation", Date: (time.Now())}
-	// database.UpdateReplicant(doc)
-	doci := replication.Replicant{}
-	database.ReadResource("replication",  doc, &doci)
-	fmt.Println(doci)
-	fmt.Println(doci.Logs)
-	replication.DeleteReplicantWithKey(doc)
+
+	test_file := "/root/test"
+	if _, err := os.Stat(test_file); os.IsNotExist(err) {
+/*		for _, site := range conf.Sites.Site {
+			prepSite := endpoint.Site{SiteName: site.name}
+		}*/
+		endpoint.CreateSite("Site1", "172.16.96.11")
+        endpoint.CreateSite("Site2", "172.16.96.12")
+        endpoint.CreateSite("Site3", "172.16.96.13")
+
+		col := utils.ConnectionToCorrectCollection("replications")
+		col.EnsurePersistentIndex(nil, []string{"MetaID", "IsLeader"}, nil)
+		doca := operation.Replicant{
+			MetaID: "42",
+			Replicas: []operation.Replica{
+				operation.Replica{Site: "Paris", ID: "65"},
+				operation.Replica{Site: "Nantes", ID: "42"}},
+			IsLeader: true,
+			Logs:  []operation.Log {
+				operation.Log{Operation: "incredible operation",
+					Date: (time.Now())}}}
+		utils.CreateResource("replications", doca)
+		coli := utils.ConnectionToCorrectCollection("sites")
+		coli.EnsurePersistentIndex(nil, []string{"Site", "Address"}, nil)
+		os.MkdirAll(test_file, 0700)
+
+
+	}
+
+	api.Routing()
 }

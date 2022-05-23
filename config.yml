@@ -1,0 +1,28 @@
+application:
+  name: "k8s"
+
+database:
+  dbname: "cheops"
+  dbuser: "root"
+  dbpassword: ""
+  collections:
+    - operations
+    - endpoints
+    - sites
+    - replications
+    - crosses
+
+localsite:
+  sitename: "Paravance16"
+  address: "127.0.0.1"
+
+knownsites:
+  - sitename: "Paravance17"
+    address: "172.16.96.17"
+  - sitename: "Paravance18"
+    address: "172.16.96.18"
+
+
+localservices:
+  - name: "api"
+    address: "127.0.0.1"

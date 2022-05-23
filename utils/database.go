@@ -1,4 +1,4 @@
-package database
+package utils
 
 import (
 	"context"
@@ -11,13 +11,14 @@ import (
 )
 
 var dbcheops = "cheops"
+var database = Conf.Database
 
 func LaunchDatabase() {
-	out, err := exec.Command("/bin/sh", "database/launch_db.sh").Output()
+	_, err := exec.Command("/bin/sh", "utils/launch_db.sh").Output()
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(out)
+	fmt.Println("Database ready")
 }
 
 
@@ -29,7 +30,7 @@ func Connection() driver.Client {
 		// Handle error
 		log.Fatal(err)
 	}
-	conn.SetAuthentication(driver.BasicAuthentication("root", ""))
+	conn.SetAuthentication(driver.BasicAuthentication(database.DBUser, database.DBPassword))
 	c, err := driver.NewClient(driver.ClientConfig{
 		Connection: conn,
 	})
@@ -50,8 +51,8 @@ func CreateDatabase(client driver.Client) driver.Database {
 	}
 	if !exists {
 		dbdefault := driver.CreateDatabaseDefaultOptions{}
-		user:= driver.CreateDatabaseUserOptions{UserName:"cheops",
-			Password:"cheops"}
+		user:= driver.CreateDatabaseUserOptions{UserName: database.DBUser,
+			Password: database.DBPassword}
 		options := &driver.CreateDatabaseOptions{Users:[]driver.CreateDatabaseUserOptions{user},
 			Options: dbdefault}
 		db, err := client.CreateDatabase(ctx, dbcheops, options)
@@ -132,17 +133,57 @@ func CreateCollection(db driver.Database, colName string) driver.Collection {
 	return nil
 }
 
+func CreateCollectionWithIndexes(db driver.Database, colName string, fields []string) driver.Collection {
+	ctx := context.Background()
+	exists, err := db.CollectionExists(ctx, colName)
+	if err != nil {
+		// handle error
+		log.Fatal(err)
+	}
+	if !(exists) {
+		options := &driver.CreateCollectionOptions{}
+		col, err := db.CreateCollection(ctx, colName, options)
+		if err != nil {
+			// handle error
+			fmt.Println("Can't create collection")
+			log.Fatal(err)
+		}
+		_, _, error := col.EnsurePersistentIndex(ctx, fields, nil)
+		if error != nil {
+			// handle error
+			fmt.Println("Can't create index")
+			log.Fatal(err)
+		}
+		return col
+	} else {
+		fmt.Println("Collection already exists")
+	}
 
-func PrepareForExecution(dbname string, colname string) (driver.Database, driver.Collection) {
+	return nil
+}
+
+
+func PrepareForExecution() (driver.Database,
+	[]driver.Collection) {
 	LaunchDatabase()
 	time.Sleep(15 * time.Second)
 	c := Connection()
 	CreateDatabase(c)
 	db := ConnectToDatabase(c)
-	col := CreateCollection(db, colname)
-	return db, col
+	var cols []driver.Collection
+	for _, col := range database.Collections {
+		c := CreateCollection(db, col)
+		cols = append(cols, c)
+	}
+	return db, cols
 }
 
+
+func ConnectionToCheopsDatabase() (driver.Database){
+	c := Connection()
+	db := ConnectToDatabase(c)
+	return db
+}
 
 func ConnectionToCorrectCollection(colname string) (driver.Collection){
 	c := Connection()
@@ -151,12 +192,19 @@ func ConnectionToCorrectCollection(colname string) (driver.Collection){
 	return col
 }
 
-
-
-func ExecuteQuery(db driver.Database) bool {
-	// ctx := context.Background()
-	fmt.Println("test")
-	return true
+ func ExecuteQuery(query string, bindVars map[string]interface{},
+ result interface{}) (
+ 	cursor driver.Cursor) {
+ 	ctx := context.Background()
+ 	db := ConnectionToCheopsDatabase()
+ 	cursor, err := db.Query(ctx, query, bindVars)
+ 	if err != nil {
+		 fmt.Println("Can't execute the query")
+		 log.Fatal(err)
+		 // handle error
+ 	}
+	cursor.ReadDocument(ctx, &result)
+ 	return cursor
 }
 
 func CreateResource(colname string, doc interface{}) string {
@@ -182,10 +230,12 @@ func ReadResource(colname string, key string, doc interface{}) {
 	}
 }
 
-func UpdateResource(colname string, key string, doc interface{}) {
+
+// Key is ArangoDB key, patch is the changed part
+func UpdateResource(colname string, key string, patch interface{}) {
 	ctx := context.Background()
 	col := ConnectionToCorrectCollection(colname)
-	_, err := col.UpdateDocument(ctx, key, doc)
+	_, err := col.UpdateDocument(ctx, key, patch)
 	if err != nil {
 		fmt.Println("Can't access the resource")
 		log.Fatal(err)
@@ -200,4 +250,49 @@ func DeleteResource(colname string, key string) {
 		fmt.Println("Can't remove the resource")
 		log.Fatal(err)
 	}
+}
+
+func DeleteResourceFromSearch(colname string, key string, value string) {
+	var result interface{}
+	SearchResource(colname, key, value, result)
+	// TODO: how to get the key?
+	// DeleteResource(colname, result.Key)
+}
+
+//func GetAllResources(colname string) ([]interface{}){
+//	var lst []interface{}
+//	ctx := context.Background()
+//	query := "FOR d IN @colname RETURN d"
+//	db := ConnectionToCheopsDatabase()
+//	cursor, err := db.Query(ctx, query, nil)
+//	db.
+//	if err != nil {
+//		fmt.Println("A problem arrived when getting the resources of %s:\n",
+//			colname)
+//		log.Fatal(err)
+//	}
+//	defer cursor.Close()
+//	return lst
+//}
+
+
+func SearchResource(colname string, key string,
+	value string, result interface{}) (interface{}, string) {
+	ctx := context.Background()
+	db := ConnectionToCheopsDatabase()
+	query := "FOR doc IN @colname\n" +
+		"SEARCH @key == @value\n" +
+		"RETURN doc"
+	bindvars := map[string]interface{} { "@colname": colname, "@key": key,
+		"@value": value}
+	cursor, err := db.Query(ctx, query,	bindvars)
+		if err != nil {
+			fmt.Println("Can't execute the query")
+			log.Fatal(err)
+			// handle error
+		}
+	docmeta, _  := cursor.ReadDocument(ctx, &result)
+	fmt.Println(result)
+	defer cursor.Close()
+	return &result, docmeta.Key
 }
