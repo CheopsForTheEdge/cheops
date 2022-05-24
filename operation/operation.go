@@ -71,14 +71,11 @@ func ExecuteOperationAPI(w http.ResponseWriter,	r *http.Request) {
 	utils.CreateResource(colname, op)
 	// create a table for responses
 	//var resps []ExecutionResp
-	// First, check if this is a redirection to know if we need to read sites
-	if !(op.Redirection) {
-		if op.Operation == "&" {
-			ExecuteReplication(op, conf)
-		}
 
+	if op.Operation == "&" {
+		ExecuteReplication(op, conf)
+	}
 
-		}
 }
 	// return resps
 	//json.NewEncoder(w).Encode(resps)

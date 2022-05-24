@@ -216,50 +216,62 @@ func CheckReplicas(id string) {
 
 func ExecuteReplication(op Operation, conf utils.Configurations) {
 	if op.PlatformOperation == "create" {
-		// TODO: cf notebook
-		//replicationAdd := "http://" + siteadd + ":8080" + "/replication"
-		//resp, _ = http.Post(replicationAdd, "application/json", opReader)
-		//if resp != nil {
-		//	execResp = ExecutionResp{"site", "createReplicant", *resp}
-		//	resps = append(resps, execResp)
-		//}
+
 		var resps []ExecutionResp
-		// Executing operations on each sites, might need threads to do it in parallel
-		for _, site := range op.Sites {
-			siteaddress := endpoint.GetSiteAddress(site)
-			// using the ExecRequestLocally on each involved site
-			execAddress := "http://" + siteaddress + ":8080" + "/operation" +
-				"/localrequest"
+
+		// Executing operations on each sites
+		// First, check if this is a redirection to know if we need to read sites
+		if !(op.Redirection) {
+			key := CreateReplicantFromOperation(op, true)
+			fmt.Printf("Le replicant %s a été crée. \n", key)
+
+			// Execute the request locally
+			// TODO need threads (?) to execute the others in parallel
+			stdout := ExecRequestLocally(op)
+			fmt.Println(stdout)
 
 			// Every operation becomes a redirection to avoid recursion
 			op.Redirection = true
+
+			// Send the operation to the broker for distribution
+			// Formatting the call to the broker
 			// for post, we need a reader, so we need the operation marshalled
 			operation, _ := json.Marshal(op)
 			opReader := strings.NewReader(string(operation))
-			// execute the actual request
-			// TODO: ExecRequestLocallyAPI for the broker
+
+			// the API to be called
+			execAddress := "http://" + conf.LocalSite.Address + "/sendoperation"
+
+			// Execute the actual request
 			resp, err := http.Post(execAddress, "application/json",
 				opReader)
-			
+				// Handle the error
 			if err != nil {
 				fmt.Printf("Error in executing command %s \n", execAddress)
 				log.Fatal(err)
 			}
-			// create the response
+				// Create the response and add it
 			execResp := ExecutionResp{"site", "op.Request", *resp}
 			resps = append(resps, execResp)
-		}
-		if op.PlatformOperation == "update" {
-			//TODO: call the API instead (through the broker)
-			if CheckIfReplicant(op.Instance) {
-				// Check if leader
-			}
-		}
-		if op.PlatformOperation == "delete" {
-			//TODO: call the API instead (through the broker)
-			if CheckIfReplicant(op.Instance) {
 
-			}
+		} else { // An operation is a redirection, i.e. is not the leader
+			// Create non leader replica
+			key := CreateReplicantFromOperation(op, false)
+			fmt.Printf("Le replicant %s a été crée. \n", key)
+			// Execute the operation locally
+			stdout := ExecRequestLocally(op)
+			fmt.Println(stdout)
+		}
+	}
+	if op.PlatformOperation == "update" {
+		//TODO: call the API instead (through the broker)
+		if CheckIfReplicant(op.Instance) {
+				// Check if leader
+		}
+	}
+	if op.PlatformOperation == "delete" {
+		//TODO: call the API instead (through the broker)
+		if CheckIfReplicant(op.Instance) {
 		}
 	}
 }
