@@ -190,28 +190,44 @@ func CheckIfReplicant(id string) (isReplicant bool) {
 	} else { return false }
 }
 
-// CheckReplicas Requires the id to be the leader of the replicants
-func CheckReplicas(id string) {
+// CheckReplicas Ensure that replicants are up-to-date
+// Requires the id to be the leader of the replicants
+func CheckReplicas(id string) []string {
+	var outdated_sites []string
 	var rep *Replicant
+	// Getting the replicant, checking if it exists,
+	// checking if it is the leader
 	utils.SearchResource(colnamerep, "MetaID", id, &rep)
 	if rep != nil {
-		//TODO: maybe check if leader to be sure
-		for _, replica := range rep.Replicas {
-			var otherRep Replicant
-			site := replica.Site
-			//TODO: use API
-			endpoint.GetSiteAddress(site)
-			//GetReplicant := "http://" + siteAddress + ":8080" + "/replicant" +
-			//	"/" + id
-			// resp, _ := http.Get(GetReplicant)
-			//	otherRep = json.Unmarshal([]byte(resp.Body), &otherRep)
-			reflect.DeepEqual(rep, otherRep)
+		if rep.IsLeader {
+			// We'll get all the replicants on every site and check it is equal
+			// to the leader
+			for _, replica := range rep.Replicas {
+				var otherReplicant Replicant
+				site := replica.Site
+				//TODO: use API
+				siteAddress := endpoint.GetSiteAddress(site)
+				GetReplicantAPI := "http://" + siteAddress + ":8080" +
+					"" + "/replicant/" + id
+				resp, _ := http.Get(GetReplicantAPI)
+				reqBody, _ := ioutil.ReadAll(resp.Body)
+				err := json.Unmarshal([]byte(reqBody),
+					&otherReplicant)
+				if err != nil {
+					fmt.Printf("There was an error retrieving the replicant" +
+						" on site %s:\n %s. \n", site, err)
+					log.Fatal(err)
+				}
+				if !reflect.DeepEqual(rep, otherReplicant) {
+					outdated_sites = append(outdated_sites, site)
+				}
+			}
 		}
 	} else {
-		fmt.Println("The replicant does not exists")
+		fmt.Printf("There are no replicant with the identifier %s",	id)
 		log.Fatal(rep)
 	}
-	//TODO: return a list of NEQUAL replicas?
+	return outdated_sites
 }
 
 func ExecuteReplication(op Operation, conf utils.Configurations) {
