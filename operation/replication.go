@@ -28,6 +28,7 @@ type Replicant struct {
 }
 
 type Log struct {
+	Index int 			`json:"Index"`
 	Operation string    `json:"Operation"`
 	Date time.Time		`json:"Date"`
 }
@@ -190,45 +191,6 @@ func CheckIfReplicant(id string) (isReplicant bool) {
 	} else { return false }
 }
 
-// CheckReplicas Ensure that replicants are up-to-date
-// Requires the id to be the leader of the replicants
-func CheckReplicas(id string) []string {
-	var outdated_sites []string
-	var rep *Replicant
-	// Getting the replicant, checking if it exists,
-	// checking if it is the leader
-	utils.SearchResource(colnamerep, "MetaID", id, &rep)
-	if rep != nil {
-		if rep.IsLeader {
-			// We'll get all the replicants on every site and check it is equal
-			// to the leader
-			for _, replica := range rep.Replicas {
-				var otherReplicant Replicant
-				site := replica.Site
-				//TODO: use API
-				siteAddress := endpoint.GetSiteAddress(site)
-				GetReplicantAPI := "http://" + siteAddress + ":8080" +
-					"" + "/replicant/" + id
-				resp, _ := http.Get(GetReplicantAPI)
-				reqBody, _ := ioutil.ReadAll(resp.Body)
-				err := json.Unmarshal([]byte(reqBody),
-					&otherReplicant)
-				if err != nil {
-					fmt.Printf("There was an error retrieving the replicant" +
-						" on site %s:\n %s. \n", site, err)
-					log.Fatal(err)
-				}
-				if !reflect.DeepEqual(rep, otherReplicant) {
-					outdated_sites = append(outdated_sites, site)
-				}
-			}
-		}
-	} else {
-		fmt.Printf("There are no replicant with the identifier %s",	id)
-		log.Fatal(rep)
-	}
-	return outdated_sites
-}
 
 func ExecuteReplication(op Operation, conf utils.Configurations) {
 	if op.PlatformOperation == "create" {
@@ -282,7 +244,8 @@ func ExecuteReplication(op Operation, conf utils.Configurations) {
 	if op.PlatformOperation == "update" {
 		//TODO: call the API instead (through the broker)
 		if CheckIfReplicant(op.Instance) {
-				// Check if leader
+			// Check if leader
+
 		}
 	}
 	if op.PlatformOperation == "delete" {
@@ -291,3 +254,67 @@ func ExecuteReplication(op Operation, conf utils.Configurations) {
 		}
 	}
 }
+
+
+/*
+_______  _______  _______ _________   _______ _________          _______  _______
+(  ____ )(  ___  )(  ____ \\__   __/  (  ____ \\__   __/|\     /|(  ____ \(  ____ \
+| (    )|| (   ) || (    \/   ) (     | (    \/   ) (   | )   ( || (    \/| (    \/
+| (____)|| (___) || (__       | |     | (_____    | |   | |   | || (__    | (__
+|     __)|  ___  ||  __)      | |     (_____  )   | |   | |   | ||  __)   |  __)
+| (\ (   | (   ) || (         | |           ) |   | |   | |   | || (      | (
+| ) \ \__| )   ( || )         | |     /\____) |   | |   | (___) || )      | )
+|/   \__/|/     \||/          )_(     \_______)   )_(   (_______)|/       |/
+*/
+
+// AddLogToLeader
+//goland:noinspection LanguageDetectionInspection
+func AddLogToLeader(log string) int  {
+
+	return 0
+}
+
+
+// TODO check index
+// CheckReplicas Ensure that replicants are up-to-date
+// Requires the id to be the leader of the replicants
+func CheckReplicas(id string) []string {
+	var outdated_sites []string
+	var rep *Replicant
+	// Getting the replicant, checking if it exists,
+	// checking if it is the leader
+	utils.SearchResource(colnamerep, "MetaID", id, &rep)
+	if rep != nil {
+		if rep.IsLeader {
+			// We'll get all the replicants on every site and check it is equal
+			// to the leader
+			for _, replica := range rep.Replicas {
+				var otherReplicant Replicant
+				site := replica.Site
+				//TODO: use broker API !!
+				siteAddress := endpoint.GetSiteAddress(site)
+				GetReplicantAPI := "http://" + siteAddress + ":8080" +
+					"" + "/replicant/" + id
+				resp, _ := http.Get(GetReplicantAPI)
+				reqBody, _ := ioutil.ReadAll(resp.Body)
+				err := json.Unmarshal([]byte(reqBody),
+					&otherReplicant)
+				if err != nil {
+					fmt.Printf("There was an error retrieving the replicant" +
+						" on site %s:\n %s. \n", site, err)
+					log.Fatal(err)
+				}
+				if !reflect.DeepEqual(rep, otherReplicant) {
+					outdated_sites = append(outdated_sites, site)
+				}
+			}
+		}
+	} else {
+		fmt.Printf("There are no replicant with the identifier %s",	id)
+		log.Fatal(rep)
+	}
+	return outdated_sites
+}
+
+// TODO later: leader election for Raft, right now,
+// the leader is the first replicant
