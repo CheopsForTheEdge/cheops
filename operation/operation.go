@@ -12,8 +12,18 @@ import (
 	"strings"
 )
 
-
-
+/*
+Operation: &, cross, etc
+Sites: names of the sites
+Platform: application (os, k8s, etc)
+Resource: name of the service so we can know what service to contact thanks to
+the catalog
+Instance:
+PlatformOperation: the command without the scope
+ExtraArgs: any extra args
+Request: the entire request that was made
+Redirection: is this the site where the request was made
+ */
 type Operation struct {
 	Operation         string   `json:"Operation"`
 	Sites             []string `json:"Sites"`
