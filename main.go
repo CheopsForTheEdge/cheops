@@ -15,6 +15,7 @@ var app = "k8s"
 
 func main() {
 
+
 	var conf = utils.Conf
 
 	// https://chriswiegman.com/2019/01/ensuring-the-file-path-is-present-to-create-a-file-in-golang/
@@ -36,13 +37,14 @@ func main() {
         endpoint.CreateSite("Site3", "172.16.96.13")
 
 		col := utils.ConnectionToCorrectCollection("replications")
+
 		col.EnsurePersistentIndex(nil, []string{"MetaID", "IsLeader"}, nil)
 		doca := operation.Replicant{
 			MetaID: "42",
 			Replicas: []operation.Replica{
-				operation.Replica{Site: "Paris", ID: "65"},
-				operation.Replica{Site: "Nantes", ID: "42"}},
-			IsLeader: true,
+				operation.Replica{Site: endpoint.Site{"Paris", "127.0.0.1"}, ID: "65"},
+				operation.Replica{Site: endpoint.Site{"Nantes", "192.168.0.1"}, ID: "42"}},
+			Leader: "Paris",
 			Logs:  []operation.Log {
 				operation.Log{Operation: "incredible operation",
 					Date: (time.Now())}}}

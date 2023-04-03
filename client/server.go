@@ -19,6 +19,7 @@ import (
 
 var knownsites = utils.Conf.KnownSites
 
+
 var def_Cluster = []string{"amqp://guest:guest@172.16.192.10:5672/","amqp://guest:guest@172.16.192.11:5672/","amqp://guest:guest@172.16.192.13:5672/"}
 var check_cluster = []string{"cluster1","cluster2","cluster3"}
 func randomString(l int) string {
@@ -103,6 +104,22 @@ func failOnError(err error, msg string) {
 }
 
 
+
+func SendThisOperationToSites(op operation.Operation) {
+	var w http.ResponseWriter
+	opByte, err := json.Marshal(op)
+	if err != nil {
+		fmt.Println(err)
+	}
+	for _, site := range op.Sites {
+		address := endpoint.GetSiteAddress(site)
+		result := Broker_Client(address, opByte)
+		log.Printf("Result:%s\n", result)
+		io.WriteString(w, result)
+	}
+}
+
+
 func SendOperationToSites(w http.ResponseWriter, r *http.Request) {
 	var op operation.Operation
 	reqBody, _ := ioutil.ReadAll(r.Body)
@@ -112,10 +129,12 @@ func SendOperationToSites(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(err)
 	}
 	opByte, err := json.Marshal(op)
+	if err != nil {
+		fmt.Println(err)
+	}
 	for _, site := range op.Sites {
 		address := endpoint.GetSiteAddress(site)
-		amqpAdd := "amqp://guest:guest@" + address + ":5672"
-		result := Broker_Client(amqpAdd, opByte)
+		result := Broker_Client(address, opByte)
 		log.Printf("Result:%s\n", result)
 		io.WriteString(w, result)
 	}

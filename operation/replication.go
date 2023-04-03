@@ -3,6 +3,7 @@ package operation
 import (
 	"cheops.com/endpoint"
 	"cheops.com/utils"
+	"cheops.com/client"
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
@@ -15,7 +16,7 @@ import (
 )
 
 type Replica struct {
-	Site 	string `json:"Site"`
+	Site 	endpoint.Site `json:"Site"`
 	ID 		string `json:"ID"`
 	Status  string `json:"Status"`
 }
@@ -23,7 +24,7 @@ type Replica struct {
 type Replicant struct {
 	MetaID      string    `json:"MetaID"`
 	Replicas	[]Replica `json:"Replicas"`
-	IsLeader	bool      `json:"IsLeader"`
+	Leader		string     `json:"Leader"`
 	Logs        []Log     `json:"Logs"`
 }
 
@@ -35,12 +36,17 @@ type Log struct {
 // Test replicants (allReplicants and Replicants)
 type allReplicants []Replicant
 
+
+var Nantes = endpoint.Site{SiteName: "Nantes", Address: "127.0.0.1"}
+var Paris = endpoint.Site{SiteName: "Paris", Address: "127.0.0.1"}
+
+
 var Replicants = allReplicants{
 	{
 		MetaID:      utils.CreateMetaId(),
 		Replicas:     []Replica{
-			Replica{Site: "Paris", ID: "65"},
-			Replica{Site: "Nantes", ID: "42"},
+			Replica{Site: Paris, ID: "65"},
+			Replica{Site: Nantes, ID: "42"},
 		},
 	},
 }
@@ -54,7 +60,7 @@ func CreateReplicant() string {
 	rep := new(Replicant)
 	rep.MetaID = utils.CreateMetaId()
 	rep.Replicas = []Replica{}
-	rep.IsLeader = true
+	rep.Leader = utils.Conf.LocalSite.SiteName
 	rep.Logs = []Log{
 		Log{Operation: "creation", Date: time.Now()}}
 	key := utils.CreateResource(colnamerep, rep)
@@ -62,14 +68,16 @@ func CreateReplicant() string {
 }
 
 //CreateReplicantFromOperation Creates the first Replicant for the replicas
-func CreateReplicantFromOperation(op Operation, isLeader bool) string {
+func CreateReplicantFromOperation(op Operation, leader string) string {
 	rep := new(Replicant)
 	rep.MetaID = utils.CreateMetaId()
 	rep.Replicas = []Replica{}
-	for _, site := range op.Sites{
+	var site endpoint.Site
+	for _, siteName := range op.Sites{
+		site = endpoint.GetSite(siteName)
 		rep.Replicas = append(rep.Replicas, Replica{Site: site, ID:""})
 	}
-	rep.IsLeader = isLeader
+	rep.Leader = leader
 	rep.Logs = []Log{
 		Log{Operation: op.Request, Date: time.Now()}}
 	key := utils.CreateResource(colnamerep, rep)
@@ -84,9 +92,8 @@ func CreateReplicantFromOperationAPI(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "There was an error reading the json: %s\n ", err)
 		return
 	}
-	conf := utils.GetConfig()
-	isLeader := (conf.Site == op.Sites[0])
-	key := CreateReplicantFromOperation(op, isLeader)
+	Leader := utils.Conf.LocalSite.SiteName
+	key := CreateReplicantFromOperation(op, Leader)
 	json.NewEncoder(w).Encode(key)
 }
 
@@ -110,13 +117,13 @@ func CreateReplicantAPI(w http.ResponseWriter, r *http.Request)  {
 // GetReplicantAPI Gets a specific replicant from its meta ID
 func GetReplicantAPI(w http.ResponseWriter, r *http.Request) {
 	metaID := mux.Vars(r)["MetaID"]
-	rep, _ := GetReplicant(metaID)
+	rep, _ := getReplicant(metaID)
 	json.NewEncoder(w).Encode(rep)
 	//w.WriteHeader(404)
 }
 
-// GetReplicant Gets a specific replicant from its meta ID
-func GetReplicant(metaID string) (Replicant, string){
+// getReplicant Gets a specific replicant from its meta ID
+func getReplicant(metaID string) (Replicant, string){
 	var rep Replicant
 	_, key := utils.SearchResource(colnamerep, "metaID", metaID, &rep)
 	return rep, key
@@ -143,7 +150,7 @@ func AddReplica(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	replicant, key := GetReplicant(metaID)
+	replicant, key := getReplicant(metaID)
 	replicant.Replicas = append(replicant.Replicas, addedReplica)
 
 	utils.UpdateResource(colnamerep, key, replicant.Replicas)
@@ -160,34 +167,52 @@ func DeleteReplicant(w http.ResponseWriter, r *http.Request) {
 // DeleteReplicantWithID Deletes a replicant given a meta ID
 func DeleteReplicantWithID(id string) {
 	var rep *Replicant
+	var op Operation
+	var sites []string
+	var isLeader bool
 	utils.SearchResource(colnamerep, "MetaID", id, &rep)
 	if rep != nil {
-		if rep.IsLeader {
+		isLeader = (rep.Leader == utils.Conf.LocalSite.SiteName)
+		if isLeader {
 			utils.DeleteResource(colnamerep, id)
 			fmt.Printf("The event with ID %s has been deleted successfully \n", id)
 			for _, replica := range rep.Replicas {
-				site := replica.Site
-				//TODO: use API + send to broker
-				siteAddress := endpoint.GetSiteAddress(site)
-				getReplicant := "http://" + siteAddress + ":8080" + "/replicant" +
-					"/" + id
-				//TODO: maybe do something with the result
-				http.NewRequest("DELETE", getReplicant, nil)
+				if !isLeader {
+					sites = append(sites, replica.Site.SiteName)
+				}
 			}
-		} else {
-			//TODO: send the request to the leader
+			op = Operation{Operation: "deleteResource",
+				Sites: sites,
+				Platform: "Cheops",
+				Resource: "Replication",
+				Instance: "None",
+				PlatformOperation: "DeleteReplicant",
+				Request: "/replicant/" + id,
+				Redirection: true,
+			}
+			client.SendThisOperationToSites(op)
 		}
+	} else {
+		sites = append(sites, rep.Leader)
+		op = Operation{Operation: "deleteResource",
+			Sites: sites,
+			Platform: "Cheops",
+			Resource: "Replication",
+			Instance: "None",
+			PlatformOperation: "DeleteReplicant",
+			Request: "/replicant/" + id,
+			Redirection: true,
+		}
+		client.SendThisOperationToSites(op)
 	}
-
 }
 
+
 // CheckIfReplicant Returns true if the id is in the database
-func CheckIfReplicant(id string) (isReplicant bool) {
+func CheckIfReplicant(id string) bool {
 	var rep *Replicant
 	utils.SearchResource(colnamerep, "MetaID", id, &rep)
-	if rep != nil {
-		return true
-	} else { return false }
+	return rep != nil
 }
 
 // CheckReplicas Requires the id to be the leader of the replicants
@@ -200,10 +225,10 @@ func CheckReplicas(id string) {
 			var otherRep Replicant
 			site := replica.Site
 			//TODO: use API
-			endpoint.GetSiteAddress(site)
-			//GetReplicant := "http://" + siteAddress + ":8080" + "/replicant" +
+			fmt.Printf("Checking replica on site %s \n", site.SiteName)
+			//getReplicant := "http://" + siteAddress + ":8080" + "/replicant" +
 			//	"/" + id
-			// resp, _ := http.Get(GetReplicant)
+			// resp, _ := http.Get(getReplicant)
 			//	otherRep = json.Unmarshal([]byte(resp.Body), &otherRep)
 			reflect.DeepEqual(rep, otherRep)
 		}
@@ -213,6 +238,7 @@ func CheckReplicas(id string) {
 	}
 	//TODO: return a list of NEQUAL replicas?
 }
+
 
 func ExecuteReplication(op Operation, conf utils.Configurations) {
 	if op.PlatformOperation == "create" {
@@ -230,7 +256,6 @@ func ExecuteReplication(op Operation, conf utils.Configurations) {
 			// using the ExecRequestLocally on each involved site
 			execAddress := "http://" + siteaddress + ":8080" + "/operation" +
 				"/localrequest"
-
 			// Every operation becomes a redirection to avoid recursion
 			op.Redirection = true
 			// for post, we need a reader, so we need the operation marshalled

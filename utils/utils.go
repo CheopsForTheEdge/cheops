@@ -34,11 +34,10 @@ func GetConfig() (conf Configuration) {
 
 // TODO maybe use httpstat https://pkg.go.dev/github.com/tcnksm/go-httpstat
 func Heartbeat(SiteName string) {
-
-
 }
 
 func SendHeartbeats() (sitesnames []string){
 	var sites []string
+
 	return sites
 }

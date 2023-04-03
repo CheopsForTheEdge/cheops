@@ -13,16 +13,17 @@ database:
     - crosses
 
 localsite:
-  sitename: "Paravance16"
-  address: "127.0.0.1"
+  - sitename: "Paravance16"
+    address: "127.0.0.1"
 
 knownsites:
-  - sitename: "Paravance17"
+  - name: "Paravance17"
     address: "172.16.96.17"
-  - sitename: "Paravance18"
+  - name: "Paravance18"
     address: "172.16.96.18"
 
 
 localservices:
   - name: "api"
     address: "127.0.0.1"
+

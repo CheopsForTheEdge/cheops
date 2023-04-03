@@ -75,6 +75,7 @@ kubectl apply -f https://github.com/coreos/flannel/raw/master/Documentation/kube
 11. Test your requests, such as: `curl http://HOSTIP:8080/deploy`
 
 
+
 # Global working principles
 
 Cheops is designed in a P2P manner considering each resource as a black box:

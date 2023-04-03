@@ -48,6 +48,7 @@ func CreateOperation(operation string,
 		PlatformOperation: platformOperation, ExtraArgs: extraArgs,
 		Request: request, Redirection: false}
 	return utils.CreateResource(colname, op)
+
 }
 
 func CreateOperationAPI(w http.ResponseWriter, r *http.Request) {

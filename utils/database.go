@@ -15,6 +15,7 @@ var database = Conf.Database
 
 func LaunchDatabase() {
 	_, err := exec.Command("/bin/sh", "utils/launch_db.sh").Output()
+
 	if err != nil {
 		log.Fatal(err)
 	}
