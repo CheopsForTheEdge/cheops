@@ -32,13 +32,26 @@ func CreateSiteAPI(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(key)
 }
 
-func GetSiteAddress(site string) string {
+func GetSite(siteName string) Site {
+	query := "FOR end IN sites FILTER end.Site == @name RETURN end"
+	bindvars := map[string]interface{}{ "name": siteName}
+	result := Site{}
+	database.ExecuteQuery(query, bindvars, &result)
+	if &result == nil {
+		err := fmt.Sprintf("Address %s not found.\n", siteName)
+		fmt.Print(err)
+		log.Fatal(err)
+	}
+	return result
+}
+
+func GetSiteAddress(siteName string) string {
 	query := "FOR end IN endpoint FILTER end.Site == @name RETURN end"
-	bindvars := map[string]interface{}{ "name": site }
+	bindvars := map[string]interface{}{ "name": siteName}
 	result := Endpoint{}
 	database.ExecuteQuery(query, bindvars, &result)
 	if result.Address == "" {
-		err := fmt.Sprintf("Address %s not found.\n", site)
+		err := fmt.Sprintf("Address %s not found.\n", siteName)
 		fmt.Print(err)
 		log.Fatal(err)
 	}

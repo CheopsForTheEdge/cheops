@@ -103,6 +103,21 @@ func failOnError(err error, msg string) {
 }
 
 
+func SendThisOperationToSites(op operation.Operation) {
+	var w http.ResponseWriter
+	opByte, err := json.Marshal(op)
+	if err != nil {
+		fmt.Println(err)
+	}
+	for _, site := range op.Sites {
+		address := endpoint.GetSiteAddress(site)
+		result := Broker_Client(address, opByte)
+		log.Printf("Result:%s\n", result)
+		io.WriteString(w, result)
+	}
+}
+
+
 func SendOperationToSites(w http.ResponseWriter, r *http.Request) {
 	var op operation.Operation
 	reqBody, _ := ioutil.ReadAll(r.Body)
@@ -112,6 +127,9 @@ func SendOperationToSites(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(err)
 	}
 	opByte, err := json.Marshal(op)
+	if err != nil {
+		fmt.Println(err)
+	}
 	for _, site := range op.Sites {
 		address := endpoint.GetSiteAddress(site)
 		result := Broker_Client(address, opByte)
