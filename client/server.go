@@ -245,22 +245,20 @@ func Comm(clusters []string, content []byte) string{
 			log.Println(res1)
 			res1 = res1 + "\n" + res12
 		}
-	}else{
+	} else{
 		for i := range (clusters){
 			var res12 string
 			if clusters[i] == "cluster1"{
 				res12 = Broker_Client(def_Cluster[0], []byte(content))
-			}else if clusters[i] == "cluster2"{
+			} else if clusters[i] == "cluster2"{
 				res12 = Broker_Client(def_Cluster[1], []byte(content))
-			}else if clusters[i] == "cluster3"{
+			} else if clusters[i] == "cluster3"{
 				res12 = Broker_Client(def_Cluster[2], []byte(content))
 			}
 			res1 = res1 + "\n" + res12
 		}
 	}
 	return res1
-
-
 }
 
 

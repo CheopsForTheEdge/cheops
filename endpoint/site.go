@@ -13,6 +13,7 @@ import (
 type Site struct {
 	SiteName		string  `json:"SiteName"`
 	Address 		string  `json:"Address"`
+	Latency			int		`json:"Latency"`
 }
 
 

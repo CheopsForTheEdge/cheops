@@ -1,10 +1,13 @@
 package utils
 
 import (
+	"cheops.com/endpoint"
 	"encoding/json"
 	"fmt"
 	"github.com/segmentio/ksuid"
+	"net"
 	"os"
+	"time"
 )
 
 type Configuration struct {
@@ -33,7 +36,16 @@ func GetConfig() (conf Configuration) {
 
 
 // TODO maybe use httpstat https://pkg.go.dev/github.com/tcnksm/go-httpstat
-func Heartbeat(SiteName string) {
+func Heartbeat(site endpoint.Site) {
+	host := site.Address
+	port := Conf.Application.HeartbeatPort
+	timeout := time.Duration(1 * time.Second)
+	_, err := net.DialTimeout("tcp", host + ":" + port, timeout)
+	if err != nil {
+		fmt.Printf("%s %s %s\n", host, "not responding", err.Error())
+	} else {
+		fmt.Printf("%s %s %s\n", host, "responding on port:", port)
+	}
 }
 
 func SendHeartbeats() (sitesnames []string){
