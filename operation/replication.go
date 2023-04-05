@@ -72,7 +72,7 @@ func CreateReplicantFromOperation(op Operation, leader string) string {
 	rep.Replicas = []Replica{}
 	var site endpoint.Site
 	var date = time.Now()
-	for _, siteName := range op.Sites{
+	for _, siteName := range op.Sites {
 		site = endpoint.GetSite(siteName)
 		rep.Replicas = append(rep.Replicas, Replica{Site: site,
 													ID: "",
