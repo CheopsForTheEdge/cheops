@@ -310,9 +310,17 @@ func GetAll(result []interface{}, colname string) ([]interface{}) {
 		log.Fatal(err)
 		// handle error
 	}
-	for cursor.HasMore() {
-		cursor.ReadDocument(ctx, &res)
-		result = append(result, res)
+	defer cursor.Close()
+	for {
+		meta, err := cursor.ReadDocument(ctx, &res)
+		if driver.IsNoMoreDocuments(err) {
+			break
+		} else if err != nil {
+			fmt.Println("Document cannot be read." )
+			log.Fatal(err)
+		}
+		result = append(result, meta)
+		fmt.Printf("Got doc with key '%s' from query\n", meta.Key)
 	}
 	return result
 }

@@ -23,6 +23,7 @@ func Heartbeat(site endpoint.Site) {
 	timeout := time.Duration(1 * time.Second)
 	_, err := net.DialTimeout("tcp", host + ":" + port, timeout)
 	// TODO close connection
+	// TODO add latency count
 	if err != nil {
 		fmt.Printf("%s %s %s\n", host, "not responding", err.Error())
 	} else {
@@ -30,10 +31,12 @@ func Heartbeat(site endpoint.Site) {
 	}
 }
 
-func SendHeartbeats() (){
-/*	var interf []endpoint.Site
-	sites := GetAll(interf, "sites")
-	for _, site := range sites {
 
-	}*/
+// TODO add errors
+func SendHeartbeats() {
+	var interf []interface{}
+	interf = GetAll(interf, "sites")
+	for _, site := range interf {
+		Heartbeat(site.(endpoint.Site))
+	}
 }
