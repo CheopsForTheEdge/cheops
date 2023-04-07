@@ -16,19 +16,19 @@ func CreateMetaId() string {
 }
 
 
-// TODO maybe use httpstat https://pkg.go.dev/github.com/tcnksm/go-httpstat
+
 func Heartbeat(site endpoint.Site) {
 	host := site.Address
 	port := Conf.Application.HeartbeatPort
 	timeout := time.Duration(1 * time.Second)
-	_, err := net.DialTimeout("tcp", host + ":" + port, timeout)
-	// TODO close connection
+	conn, err := net.DialTimeout("tcp", host + ":" + port, timeout)
 	// TODO add latency count
 	if err != nil {
 		fmt.Printf("%s %s %s\n", host, "not responding", err.Error())
 	} else {
 		fmt.Printf("%s %s %s\n", host, "responding on port:", port)
 	}
+	conn.Close()
 }
 
 
