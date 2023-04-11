@@ -176,7 +176,8 @@ func DeleteReplicantWithID(id string) {
 		isLeader = (rep.Leader == utils.Conf.LocalSite.SiteName)
 		if isLeader {
 			utils.DeleteResource(colnamerep, id)
-			fmt.Printf("The event with ID %s has been deleted successfully \n", id)
+			fmt.Printf("The replicant with ID %s has been deleted" +
+				" successfully \n",	id)
 			for _, replica := range rep.Replicas {
 				if !isLeader {
 					sites = append(sites, replica.Site.SiteName)
@@ -301,7 +302,6 @@ func ExecuteReplication(op Operation, conf utils.Configurations) {
 			}
 		}
 		if op.PlatformOperation == "delete" {
-			//TODO: call the API instead (through the broker)
 			if CheckIfReplicant(op.Instance) {
 				DeleteReplicantWithID(op.Instance)
 			}

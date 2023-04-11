@@ -308,7 +308,6 @@ func GetAll(result []interface{}, colname string) ([]interface{}) {
 	if err != nil {
 		fmt.Println("Can't execute the query")
 		log.Fatal(err)
-		// handle error
 	}
 	defer cursor.Close()
 	for {
