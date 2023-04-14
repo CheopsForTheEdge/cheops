@@ -1,7 +1,6 @@
 package client
 
 import (
-	"bytes"
 	"cheops.com/endpoint"
 	"cheops.com/operation"
 	"cheops.com/utils"
@@ -14,7 +13,6 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
-	"strings"
 )
 
 var knownsites = utils.Conf.KnownSites
@@ -104,9 +102,8 @@ func failOnError(err error, msg string) {
 }
 
 
-
-func SendThisOperationToSites(op operation.Operation) {
-	var w http.ResponseWriter
+//SendThisOperationToSites 
+func SendThisOperationToSites(op operation.Operation, w http.ResponseWriter) {
 	opByte, err := json.Marshal(op)
 	if err != nil {
 		fmt.Println(err)
@@ -128,16 +125,7 @@ func SendOperationToSites(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "There was an error reading the json: %s\n ", err)
 		log.Fatal(err)
 	}
-	opByte, err := json.Marshal(op)
-	if err != nil {
-		fmt.Println(err)
-	}
-	for _, site := range op.Sites {
-		address := endpoint.GetSiteAddress(site)
-		result := Broker_Client(address, opByte)
-		log.Printf("Result:%s\n", result)
-		io.WriteString(w, result)
-	}
+	SendThisOperationToSites(op, w)
 }
 
 func DeployHandler(w http.ResponseWriter, r *http.Request) {
@@ -168,7 +156,7 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 
-func ReplicaHandler(w http.ResponseWriter, r *http.Request) {
+/*func ReplicaHandler(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 	log.Println(path)
 	sPath := strings.Split(path, "/")
@@ -197,7 +185,7 @@ func ReplicaHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("%s", res1)
 	io.WriteString(w, res1)
 
-}
+}*/
 /*
 func crossHandler(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
@@ -235,7 +223,7 @@ func crossHandler(w http.ResponseWriter, r *http.Request) {
 }*/
 
 
-func Comm(clusters []string, content []byte) string{
+/*func Comm(clusters []string, content []byte) string{
 	res1 := ""
 	log.Println(strings.TrimSpace(strings.Join(clusters, "")))
 	if strings.TrimSpace(strings.Join(clusters, "")) == "" {
@@ -259,11 +247,11 @@ func Comm(clusters []string, content []byte) string{
 		}
 	}
 	return res1
-}
+}*/
 
 
 
-func CrossHandler(w http.ResponseWriter, r *http.Request){
+/*func CrossHandler(w http.ResponseWriter, r *http.Request){
 	path := r.URL.Path
 	log.Println(path)
 	sPath := strings.Split(path, "/")
@@ -336,7 +324,7 @@ func CrossHandler(w http.ResponseWriter, r *http.Request){
 	log.Println(res1)
 	io.WriteString(w,res1)
 
-}
+}*/
 
 //func main() {
 	//	Cluster1 := "amqp://guest:guest@172.16.192.9:5672/"
