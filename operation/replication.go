@@ -17,9 +17,9 @@ import (
 
 type Replica struct {
 	Site 	endpoint.Site `json:"Site"`
-	ID 		string `json:"ID"`
-	Status  string `json:"Status"`
-	Logs        []Log     `json:"Logs"`
+	ID 		string        `json:"ID"`
+	Status  string        `json:"Status"`
+	Logs    []Log         `json:"Logs"`
 }
 
 type Replicant struct {
@@ -169,6 +169,7 @@ func DeleteReplicant(w http.ResponseWriter, r *http.Request) {
 func DeleteReplicantWithID(id string) {
 	var rep *Replicant
 	var op Operation
+	var w http.ResponseWriter
 	var sites []string
 	var isLeader bool
 	utils.SearchResource(colnamerep, "MetaID", id, &rep)
@@ -192,7 +193,7 @@ func DeleteReplicantWithID(id string) {
 				Request: "/replicant/" + id,
 				Redirection: true,
 			}
-			client.SendThisOperationToSites(op)
+			client.SendThisOperationToSites(op, w)
 		}
 	} else {
 		sites = append(sites, rep.Leader)
@@ -205,7 +206,7 @@ func DeleteReplicantWithID(id string) {
 			Request: "/replicant/" + id,
 			Redirection: true,
 		}
-		client.SendThisOperationToSites(op)
+		client.SendThisOperationToSites(op, w)
 	}
 }
 

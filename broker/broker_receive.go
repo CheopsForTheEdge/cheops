@@ -1,11 +1,12 @@
-package main
+// Package broker manages the broker service of Cheops.
+package broker
 
 import (
 	"cheops.com/k8s"
 	"encoding/json"
-	"log"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"io/ioutil"
+	"log"
 )
 
 

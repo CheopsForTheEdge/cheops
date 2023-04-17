@@ -1,3 +1,4 @@
+// Package main executes Cheops.
 package main
 
 import (
@@ -7,7 +8,8 @@ import (
 	"fmt"
 	"os"
 	"time"
-	//"cheops.com/client"
+
+	// "cheops.com/client"
 	"cheops.com/operation"
 )
 
@@ -39,15 +41,22 @@ func main() {
 		col := utils.ConnectionToCorrectCollection("replications")
 
 		col.EnsurePersistentIndex(nil, []string{"MetaID", "IsLeader"}, nil)
+		date := (time.Now())
 		doca := operation.Replicant{
 			MetaID: "42",
 			Replicas: []operation.Replica{
-				operation.Replica{Site: endpoint.Site{"Paris", "127.0.0.1"}, ID: "65"},
-				operation.Replica{Site: endpoint.Site{"Nantes", "192.168.0.1"}, ID: "42"}},
+				operation.Replica{Site: endpoint.Site{"Paris", "127.0.0.1",
+					0},	ID: "65",
+					Logs:  []operation.Log {operation.Log{Operation: "incredible operation",
+														  Date: date}},},
+				operation.Replica{Site: endpoint.Site{"Nantes",
+					"192.168.0.1", 0}, ID: "42",
+					Logs:  []operation.Log {operation.Log{Operation: "incredible operation",
+														  Date: date}}},
+			},
 			Leader: "Paris",
-			Logs:  []operation.Log {
-				operation.Log{Operation: "incredible operation",
-					Date: (time.Now())}}}
+
+		}
 		utils.CreateResource("replications", doca)
 		coli := utils.ConnectionToCorrectCollection("sites")
 		coli.EnsurePersistentIndex(nil, []string{"Site", "Address"}, nil)

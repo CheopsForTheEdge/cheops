@@ -1,3 +1,4 @@
+// Package api offers the API entrypoints for the different packages
 package api
 
 import (
@@ -52,8 +53,8 @@ func Routing() {
 	// Client
 	router.HandleFunc("/get", cli.GetHandler)
 	router.HandleFunc("/deploy", cli.DeployHandler)
-	router.HandleFunc("/cross/", cli.CrossHandler)
-	router.HandleFunc("/replica/", cli.ReplicaHandler)
+	// router.HandleFunc("/cross/", cli.CrossHandler)
+	// router.HandleFunc("/replica/", cli.ReplicaHandler)
 	router.HandleFunc("/sendoperation", cli.SendOperationToSites)
 	log.Fatal(http.ListenAndServe(":8080", router))
 }

@@ -1,3 +1,4 @@
+// Package client manages the communications between the different Cheops.
 package client
 
 import (
@@ -102,7 +103,9 @@ func failOnError(err error, msg string) {
 }
 
 
-//SendThisOperationToSites 
+// SendThisOperationToSites takes an operation and a response to fill.
+// Sends the operation to the involved sites in the operation.
+// Writes the response in the given response.
 func SendThisOperationToSites(op operation.Operation, w http.ResponseWriter) {
 	opByte, err := json.Marshal(op)
 	if err != nil {
@@ -116,17 +119,15 @@ func SendThisOperationToSites(op operation.Operation, w http.ResponseWriter) {
 	}
 }
 
-
+// SendOperationToSites takes a request and a response to fill.
+// Uses operation.ReadOperationFromRequest to extract the operation and
+// SendThisOperationToSites to send an operation from a request to involved
+// sites.
 func SendOperationToSites(w http.ResponseWriter, r *http.Request) {
-	var op operation.Operation
-	reqBody, _ := ioutil.ReadAll(r.Body)
-	err := json.Unmarshal([]byte(reqBody), &op)
-	if err != nil {
-		fmt.Fprintf(w, "There was an error reading the json: %s\n ", err)
-		log.Fatal(err)
-	}
+ 	op := operation.ReadOperationFromRequest(r, w)
 	SendThisOperationToSites(op, w)
 }
+
 
 func DeployHandler(w http.ResponseWriter, r *http.Request) {
 	jsonFile, err := os.Open("deployment.json")
@@ -136,8 +137,6 @@ func DeployHandler(w http.ResponseWriter, r *http.Request) {
 	byteValue, _ := ioutil.ReadAll(jsonFile)
 	res1 := Broker_Client(def_Cluster[0], byteValue)
 	log.Printf("%s", res1)
-
-
 	io.WriteString(w, res1)
 }
 

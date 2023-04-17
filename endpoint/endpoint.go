@@ -1,3 +1,4 @@
+// Package endpoint manages both local endpoint and also remote sites.
 package endpoint
 
 import (

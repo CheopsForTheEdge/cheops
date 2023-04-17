@@ -1,3 +1,5 @@
+// Package utils handles every utility functions, like configurations,
+// heartbeat, database.
 package utils
 
 import (
