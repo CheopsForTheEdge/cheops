@@ -14,6 +14,17 @@ import (
 	"strings"
 )
 
+// Operation is the generic type to describe operations in Cheops.
+// Operation is the operator (collaboration) used, like ',', '&',
+// '%'. Sites is the list of sites needed for the operation like '["Site1",
+// "Site2"]'. Platform is the application used like 'openstack' or
+// 'kubernetes'. Resource is the involved resource, such as 'server',
+// 'deployment'. Instance. PlatformOperation is the crud operation involved,
+// for example 'create',
+// 'delete'. Request is the full request that was made to deduce this
+// operation and ExtraArgs if there was something more in the request needed
+// for the operation. Redirection is the bool to know whether the operation
+// was requested directly on this site or if it was sent from another site.
 type Operation struct {
 	Operation         string   `json:"Operation"`
 	Sites             []string `json:"Sites"`

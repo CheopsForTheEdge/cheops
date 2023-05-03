@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"time"
-
 	// "cheops.com/client"
 	"cheops.com/operation"
 )
