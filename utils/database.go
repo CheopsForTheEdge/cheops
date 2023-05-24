@@ -297,3 +297,29 @@ func SearchResource(colname string, key string,
 	defer cursor.Close()
 	return &result, docmeta.Key
 }
+
+func GetAll(result []interface{}, colname string) ([]interface{}) {
+	var res interface{}
+	ctx := context.Background()
+	db := ConnectionToCheopsDatabase()
+	query := "FOR doc IN @colname" + "RETURN doc"
+	bindvars := map[string]interface{} { "@colname": colname}
+	cursor, err := db.Query(ctx, query,	bindvars)
+	if err != nil {
+		fmt.Println("Can't execute the query")
+		log.Fatal(err)
+	}
+	defer cursor.Close()
+	for {
+		meta, err := cursor.ReadDocument(ctx, &res)
+		if driver.IsNoMoreDocuments(err) {
+			break
+		} else if err != nil {
+			fmt.Println("Document cannot be read." )
+			log.Fatal(err)
+		}
+		result = append(result, meta)
+		fmt.Printf("Got doc with key '%s' from query\n", meta.Key)
+	}
+	return result
+}

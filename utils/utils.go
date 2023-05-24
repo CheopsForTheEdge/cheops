@@ -1,17 +1,16 @@
+// Package utils handles every utility functions, like configurations,
+// heartbeat, database.
 package utils
 
 import (
-	"encoding/json"
+	"cheops.com/endpoint"
 	"fmt"
 	"github.com/segmentio/ksuid"
-	"os"
+	"log"
+	"net"
+	"time"
 )
 
-type Configuration struct {
-	Site    string `json:"Site"`
-	Address string `json:"Address"`
-
-}
 
 func CreateMetaId() string {
 	id := ksuid.New()
@@ -19,25 +18,40 @@ func CreateMetaId() string {
 	return cheopsID
 }
 
-// No longer used
-func GetConfig() (conf Configuration) {
-	file, _ := os.Open("conf.json")
-	defer file.Close()
-	decoder := json.NewDecoder(file)
-	err := decoder.Decode(&conf)
+
+// Heartbeat sends a heartbeat to the given site and updates the latency to it
+func Heartbeat(site endpoint.Site) {
+	host := site.Address
+	port := Conf.Application.HeartbeatPort
+	timeout := time.Duration(1 * time.Second)
+	start := time.Now()
+	conn, err := net.DialTimeout("tcp", host + ":" + port, timeout)
 	if err != nil {
-		fmt.Println("error:", err)
+		fmt.Printf("%s %s %s\n", host, "not responding", err.Error())
+		log.Fatal(err)
+	} else {
+		fmt.Printf("%s %s %s\n", host, "responding on port:", port)
 	}
-	return conf
+	latency := time.Since(start)
+	var s endpoint.Site
+	_, id := SearchResource("sites", "SiteName",
+		site.SiteName, &s)
+	update := map[string]interface{}{"Latency": latency}
+	UpdateResource("sites", id, update)
+	conn.Close()
 }
 
 
-// TODO maybe use httpstat https://pkg.go.dev/github.com/tcnksm/go-httpstat
-func Heartbeat(SiteName string) {
-}
 
-func SendHeartbeats() (sitesnames []string){
-	var sites []string
-
-	return sites
+func SendHeartbeats() {
+	var interf []interface{}
+	interf = GetAll(interf, "sites")
+	if interf == nil {
+		log.Fatal()
+		fmt.Println("Document cannot be read." )
+	}
+	for _, site := range interf {
+		// TODO check if it could be possible to send the key also
+		Heartbeat(site.(endpoint.Site))
+	}
 }

@@ -15,6 +15,7 @@ type Configurations struct {
 
 type ApplicationConfiguration struct {
 	Name			string
+	HeartbeatPort	string
 }
 
 type DatabaseConfiguration struct {

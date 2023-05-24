@@ -1,7 +1,9 @@
+// Package operation manages the generic operations in Cheops,
+// keeping all necessary information and providing different functions to
+// manage the different possible operations.
 package operation
 
 import (
-	"cheops.com/endpoint"
 	"cheops.com/utils"
 	"encoding/json"
 	"fmt"
@@ -12,8 +14,17 @@ import (
 	"strings"
 )
 
-
-
+// Operation is the generic type to describe operations in Cheops.
+// Operation is the operator (collaboration) used, like ',', '&',
+// '%'. Sites is the list of sites needed for the operation like '["Site1",
+// "Site2"]'. Platform is the application used like 'openstack' or
+// 'kubernetes'. Resource is the involved resource, such as 'server',
+// 'deployment'. Instance. PlatformOperation is the crud operation involved,
+// for example 'create',
+// 'delete'. Request is the full request that was made to deduce this
+// operation and ExtraArgs if there was something more in the request needed
+// for the operation. Redirection is the bool to know whether the operation
+// was requested directly on this site or if it was sent from another site.
 type Operation struct {
 	Operation         string   `json:"Operation"`
 	Sites             []string `json:"Sites"`
@@ -60,6 +71,8 @@ func CreateOperationAPI(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(key)
 }
 
+
+
 func ExecuteOperationAPI(w http.ResponseWriter,	r *http.Request) {
 	var op Operation
 	reqBody, _ := ioutil.ReadAll(r.Body)
@@ -85,6 +98,8 @@ func ExecuteOperationAPI(w http.ResponseWriter,	r *http.Request) {
 	//json.NewEncoder(w).Encode(resps)
 
 
+// ExecRequestLocally takes an operation and executes the command locally.
+// It returns the response or error while executing the command.
 func ExecRequestLocally(operation Operation) (out string) {
 	// slice the request
 	f := strings.Fields(operation.Request)
@@ -104,16 +119,11 @@ func ExecRequestLocally(operation Operation) (out string) {
 	return string(stdout)
 }
 
+// ExecRequestLocallyAPI
 func ExecRequestLocallyAPI(w http.ResponseWriter, r *http.Request) {
-	var op Operation
-	reqBody, _ := ioutil.ReadAll(r.Body)
-	err := json.Unmarshal([]byte(reqBody), &op)
-	if err != nil {
-		fmt.Fprintf(w, "There was an error reading the json: %s\n ", err)
-		log.Fatal(err)
-	}
+	op := ReadOperationFromRequest(r, w)
 	out := ExecRequestLocally(op)
-	_, err = w.Write([]byte(out))
+	_, err := w.Write([]byte(out))
 	if err != nil {
 		fmt.Fprintf(w, "There was an error while returning the result: %s\n ",
 			err)
@@ -121,15 +131,22 @@ func ExecRequestLocallyAPI(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func SearchSites(op Operation) []string {
-	var addresses []string
-	for _, site := range op.Sites {
-		address := endpoint.GetSiteAddress(site)
-		addresses = append(addresses, address)
-	}
-	return addresses
-}
 
 func SendRequestToBroker(op Operation) {
 	// call to Broker API with address and the op jsonified
+}
+
+// ReadOperationFromRequest takes a request and a response to fill.
+// Reads the request to extract the operation.
+// Returns the operation from the request,
+// writes an error in the response otherwise.
+func ReadOperationFromRequest(r *http.Request, w http.ResponseWriter) Operation {
+	var op Operation
+	reqBody, _ := ioutil.ReadAll(r.Body)
+	err := json.Unmarshal([]byte(reqBody), &op)
+	if err != nil {
+		fmt.Fprintf(w, "There was an error reading the json: %s\n ", err)
+		log.Fatal(err)
+	}
+	return op
 }
