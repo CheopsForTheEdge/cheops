@@ -9,4 +9,5 @@ venv.bak/
 create-benchmark.json
 delete-benchmark.json
 target/
-.idea/
+.idea/cheops.com
+cheops.com

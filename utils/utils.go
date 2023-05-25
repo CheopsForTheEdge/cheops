@@ -3,12 +3,12 @@
 package utils
 
 import (
-	"cheops.com/endpoint"
+	//"cheops.com/endpoint"
 	"fmt"
 	"github.com/segmentio/ksuid"
 	"log"
-	"net"
-	"time"
+	//"net"
+	//"time"
 )
 
 
@@ -20,7 +20,9 @@ func CreateMetaId() string {
 
 
 // Heartbeat sends a heartbeat to the given site and updates the latency to it
+/*
 func Heartbeat(site endpoint.Site) {
+
 	host := site.Address
 	port := Conf.Application.HeartbeatPort
 	timeout := time.Duration(1 * time.Second)
@@ -40,7 +42,7 @@ func Heartbeat(site endpoint.Site) {
 	UpdateResource("sites", id, update)
 	conn.Close()
 }
-
+	*/
 
 
 func SendHeartbeats() {
@@ -52,6 +54,7 @@ func SendHeartbeats() {
 	}
 	for _, site := range interf {
 		// TODO check if it could be possible to send the key also
-		Heartbeat(site.(endpoint.Site))
+		fmt.Println(site)
+		//Heartbeat(site.(endpoint.Site))
 	}
 }

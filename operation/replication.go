@@ -1,7 +1,7 @@
 package operation
 
 import (
-	"cheops.com/client"
+	//"cheops.com/client"
 	"cheops.com/endpoint"
 	"cheops.com/utils"
 	"encoding/json"
@@ -173,6 +173,7 @@ func DeleteReplicantWithID(id string) {
 	var sites []string
 	var isLeader bool
 	utils.SearchResource(colnamerep, "MetaID", id, &rep)
+	fmt.Println(w)
 	if rep != nil {
 		isLeader = (rep.Leader == utils.Conf.LocalSite.SiteName)
 		if isLeader {
@@ -193,7 +194,8 @@ func DeleteReplicantWithID(id string) {
 				Request: "/replicant/" + id,
 				Redirection: true,
 			}
-			client.SendThisOperationToSites(op, w)
+			fmt.Println(op)
+			//client.SendThisOperationToSites(op, w)
 		}
 	} else {
 		sites = append(sites, rep.Leader)
@@ -206,7 +208,8 @@ func DeleteReplicantWithID(id string) {
 			Request: "/replicant/" + id,
 			Redirection: true,
 		}
-		client.SendThisOperationToSites(op, w)
+		fmt.Println(op)
+		//client.SendThisOperationToSites(op, w)
 	}
 }
 
@@ -287,7 +290,7 @@ func ExecuteReplication(op Operation, conf utils.Configurations) {
 			// TODO: ExecRequestLocallyAPI for the broker
 			resp, err := http.Post(execAddress, "application/json",
 				opReader)
-			
+
 			if err != nil {
 				fmt.Printf("Error in executing command %s \n", execAddress)
 				log.Fatal(err)
