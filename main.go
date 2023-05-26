@@ -10,6 +10,8 @@ import (
 	"time"
 	// "cheops.com/client"
 	"cheops.com/operation"
+	"cheops.com/kubernetes"
+	"context"
 )
 
 var app = "k8s"
@@ -58,5 +60,6 @@ func main() {
 
 	}
 
+	kubernetes.Run(context.Background())
 	api.Routing()
 }
