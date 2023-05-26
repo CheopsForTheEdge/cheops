@@ -30,12 +30,6 @@ func main() {
 
 	test_file := "/root/test"
 	if _, err := os.Stat(test_file); os.IsNotExist(err) {
-/*		for _, site := range conf.Sites.Site {
-			prepSite := endpoint.Site{SiteName: site.name}
-		}*/
-		endpoint.CreateSite("Site1", "172.16.96.11")
-        endpoint.CreateSite("Site2", "172.16.96.12")
-        endpoint.CreateSite("Site3", "172.16.96.13")
 
 		col := utils.ConnectionToCorrectCollection("replications")
 
