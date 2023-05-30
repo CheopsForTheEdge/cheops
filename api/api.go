@@ -6,7 +6,6 @@ import (
 	"cheops.com/endpoint"
 	"cheops.com/operation"
 	"cheops.com/request"
-	"cheops.com/kubernetes"
 	"fmt"
 	"github.com/gorilla/mux"
 	"io/ioutil"
@@ -58,9 +57,6 @@ func Routing() {
 	// router.HandleFunc("/cross/", cli.CrossHandler)
 	// router.HandleFunc("/replica/", cli.ReplicaHandler)
 	router.HandleFunc("/sendoperation", cli.SendOperationToSites)
-
-	// kubernetes specific
-	router.HandleFunc("/kubernetes/pods", kubernetes.GetPodsHandler)
 
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
