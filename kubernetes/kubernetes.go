@@ -3,6 +3,7 @@ package kubernetes
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"io/ioutil"
 	"log"
@@ -85,5 +86,11 @@ func Proxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("-> %s\n<- %s\n", r.URL.String(), string(respbuf))
+	indent := func(b []byte) string {
+		var obj map[string]interface{}
+		json.Unmarshal(b, &obj)
+		indented, _ := json.MarshalIndent(obj, "", "\t")
+		return string(indented)
+	}
+	log.Printf("-> %s\n-> %s\n<- %s\n", r.URL.String(), indent(reqbuf), indent(respbuf))
 }
