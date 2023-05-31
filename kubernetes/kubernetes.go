@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -92,5 +93,18 @@ func Proxy(w http.ResponseWriter, r *http.Request) {
 		indented, _ := json.MarshalIndent(obj, "", "\t")
 		return string(indented)
 	}
-	log.Printf("-> %s\n-> %s\n<- %s\n", r.URL.String(), indent(reqbuf), indent(respbuf))
+	headers := func(h http.Header) string {
+		var asstring string
+		for key, val := range h {
+			asstring += fmt.Sprintf("%s=%s\n", key, val)
+		}
+		return asstring
+	}
+
+	log.Printf(`-> %s
+-> %s
+-> %s
+<- %s
+<- %s
+`, r.URL.String(), headers(newreq.Header), indent(reqbuf), headers(resp.Header), indent(respbuf))
 }
