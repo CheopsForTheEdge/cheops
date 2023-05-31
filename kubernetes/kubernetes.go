@@ -17,13 +17,15 @@ func Run(ctx context.Context) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	for _ = range time.Tick(1 * time.Second) {
-		resp, err := http.Get("http://localhost:8283/api/v1/pods")
-		if err != nil {
-			log.Println("error with kube")
+	if false {
+		for _ = range time.Tick(1 * time.Second) {
+			resp, err := http.Get("http://localhost:8283/api/v1/pods")
+			if err != nil {
+				log.Println("error with kube")
+			}
+			io.Copy(os.Stderr, resp.Body)
+			resp.Body.Close()
 		}
-		io.Copy(os.Stderr, resp.Body)
-		resp.Body.Close()
 	}
 }
 
