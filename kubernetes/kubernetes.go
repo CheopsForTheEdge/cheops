@@ -57,7 +57,7 @@ func Proxy(w http.ResponseWriter, r *http.Request) {
 		log.Printf("%s=%s ", key, vals)
 	}
 	log.Print("\n")
-	log.Printf("->\n%s", string(reqbuf))
+	log.Printf("-> req:\n%s\n\n", string(reqbuf))
 
 	resp, err := http.DefaultClient.Do(newreq)
 	if err != nil {
