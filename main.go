@@ -33,9 +33,18 @@ func main() {
 /*		for _, site := range conf.Sites.Site {
 			prepSite := endpoint.Site{SiteName: site.name}
 		}*/
-		endpoint.CreateSite("Site1", "172.16.96.11")
-        endpoint.CreateSite("Site2", "172.16.96.12")
-        endpoint.CreateSite("Site3", "172.16.96.13")
+		// endpoint.CreateSite("SiteA", "172.16.96.11")
+        // endpoint.CreateSite("SiteB", "172.16.96.12")
+        // endpoint.CreateSite("SiteC", "172.16.96.13")
+
+		// add sites here
+
+		endpoint.CreateSite(conf.LocalSite.SiteName, conf.LocalSite.Address)
+
+		for _, site := range conf.KnownSites {
+			endpoint.CreateSite(site.SiteName, site.Address)
+		}
+
 
 		col := utils.ConnectionToCorrectCollection("replications")
 
