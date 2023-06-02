@@ -1,7 +1,6 @@
 package operation
 
 import (
-	"cheops.com/client"
 	"cheops.com/endpoint"
 	"cheops.com/utils"
 	"encoding/json"
@@ -169,12 +168,16 @@ func DeleteReplicant(w http.ResponseWriter, r *http.Request) {
 func DeleteReplicantWithID(id string) {
 	var rep *Replicant
 	var op Operation
-	var w http.ResponseWriter
+//	var w http.ResponseWriter
 	var sites []string
 	var isLeader bool
 	utils.SearchResource(colnamerep, "MetaID", id, &rep)
+	isLeader = (rep.Leader == utils.Conf.LocalSite.SiteName)
+	siteaddress := conf.LocalSite.Address
+	// using the ExecRequestLocally on each involved site
+	execAddress := "http://" + siteaddress + ":8080" + "/operation" +
+		"/sendoperation"
 	if rep != nil {
-		isLeader = (rep.Leader == utils.Conf.LocalSite.SiteName)
 		if isLeader {
 			utils.DeleteResource(colnamerep, id)
 			fmt.Printf("The replicant with ID %s has been deleted" +
@@ -193,7 +196,12 @@ func DeleteReplicantWithID(id string) {
 				Request: "/replicant/" + id,
 				Redirection: true,
 			}
-			client.SendThisOperationToSites(op, w)
+			operation, _ := json.Marshal(op)
+			opReader := strings.NewReader(string(operation))
+			// TODO manage err and resp
+			http.Post(execAddress, "application/json",
+				opReader)
+			// client.SendOperationToSites(operation, w)
 		}
 	} else {
 		sites = append(sites, rep.Leader)
@@ -206,7 +214,12 @@ func DeleteReplicantWithID(id string) {
 			Request: "/replicant/" + id,
 			Redirection: true,
 		}
-		client.SendThisOperationToSites(op, w)
+		operation, _ := json.Marshal(op)
+		opReader := strings.NewReader(string(operation))
+		// TODO manage err and resp
+		http.Post(execAddress, "application/json",
+			opReader)
+		// client.SendThisOperationToSites(op, w)
 	}
 }
 
