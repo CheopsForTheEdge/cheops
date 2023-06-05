@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	_ "cheops.com/kubernetes"
@@ -17,71 +18,29 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-/*
-This function creates a router with no care for trailing slash.
-It adds handlers and routes to the router. Finally,
-it runs the listening on defined port with those routes.
-*/
 func Routing() {
-	/*
-		router.HandleFunc("/", homeLink)
-		//commonHandlers := alice.New(CheckRequestFilledHandler)
-		// Replication
-		// router.Handle("/replication", commonHandlers.ThenFunc(operation.CreateLeaderFromOperationAPI)).Methods("POST")
-		// router.HandleFunc("/replicationLeader",
-		//operation.CreateLeaderFromOperationAPI).Methods("POST")
-		router.HandleFunc("/replication", operation.CreateReplicantAPI).Methods(
-			"POST")
-		router.HandleFunc("/replicant/{metaID}", operation.GetReplicantAPI).Methods("GET")
-		router.HandleFunc("/replicant/{metaID}", operation.AddReplica).Methods("PUT")
-		router.HandleFunc("/replicant/{metaID}", operation.DeleteReplicant).Methods("DELETE")
-		//router.Handle("/replicants", commonHandlers.ThenFunc(operation.GetAllReplicantsAPI)).Methods("GET")
-		// Endpoint
-		router.HandleFunc("/endpoint", endpoint.CreateEndpointAPI).Methods("POST")
-		router.HandleFunc("/endpoint/createsite/{Site}/{Address}", endpoint.CreateSiteAPI).Methods("POST")
-		router.HandleFunc("/endpoint/getaddress/{Site}",
-			endpoint.GetSiteAddressAPI).Methods("GET")
-		// Database
-		// Operation
-		router.HandleFunc("/operation", operation.CreateOperationAPI).Methods("POST")
-		router.HandleFunc("/operation/execute", operation.ExecuteOperationAPI).Methods("POST")
-		router.HandleFunc("/operation/localrequest",
-			operation.ExecRequestLocallyAPI).
-			Methods("POST")
-		// Broker - Driver
-		router.HandleFunc("/scope", request.ExtractScope).Methods("GET")
-		router.HandleFunc("/scope/forward", request.RedirectRequest).Methods("POST")
-		router.HandleFunc("/Appb/{flexible:.*}", request.Appb).Methods("GET")
-		router.HandleFunc("/SendRemote", request.SendRemote).Methods("GET")
-		router.HandleFunc("/RegisterRemoteSite", request.RegisterRemoteSite).Methods("POST")
-		router.HandleFunc("/GetRemoteSite/{site}", request.GetRemoteSite).Methods("GET")
-		// Client
-		router.HandleFunc("/get", cli.GetHandler)
-		router.HandleFunc("/deploy", cli.DeployHandler)
-		// router.HandleFunc("/cross/", cli.CrossHandler)
-		// router.HandleFunc("/replica/", cli.ReplicaHandler)
-		router.HandleFunc("/sendoperation", cli.SendOperationToSites)
-	*/
-	router := mux.NewRouter().StrictSlash(true)
-
-	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	router := mux.NewRouter()
+	router.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		index := 0
 		g, ctx := errgroup.WithContext(r.Context())
 
 		for site := range sites {
 			site := site
+			header := fmt.Sprintf("X-status-%s", site)
 			if index == 0 {
-				w.Header().Add("Trailer", fmt.Sprintf("X-status-%s", site))
+				w.Header().Add("Trailer", header)
 				g.Go(func() error {
 					return proxy(ctx, site, w, r)
 				})
+			} else {
+				g.Go(func() error {
+					e := emptyResponseWriter{}
+					err := proxy(ctx, site, e, r)
+					w.Header().Set(header, string(e.statusCode))
+					return err
+
+				})
 			}
-			g.Go(func() error {
-				e := emptyResponseWriter{}
-				err := proxy(ctx, site, e, r)
-				w.Header().Set(fmt.Sprintf("X-status-%s", site), string(e.statusCode))
-				return err
-			})
 			index++
 		}
 
@@ -118,7 +77,13 @@ func proxy(ctx context.Context, host string, w http.ResponseWriter, r *http.Requ
 	}
 
 	u := r.URL
-	u.Host = host
+
+	parts := strings.Split(host, ":")
+	if len(parts) == 2 {
+		u.Host = host
+	} else {
+		u.Host = host + ":8283"
+	}
 
 	// Not filled by default
 	u.Scheme = "http"
