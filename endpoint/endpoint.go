@@ -2,24 +2,23 @@
 package endpoint
 
 import (
-	"cheops.com/utils"
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/mux"
 	"log"
 	"net/http"
-)
 
+	"cheops.com/utils"
+	"github.com/gorilla/mux"
+)
 
 // Endpoints are for services on a site
 type Endpoint struct {
-	Service 	string `json:"Service"`
-	Address 	string `json:"Address"`
+	Service string `json:"Service"`
+	Address string `json:"Address"`
 }
 
 // Collection name variable
 var colname = "endpoints"
-
 
 // CreateEndpoint Constructor
 func CreateEndpoint(service string, address string) string {
@@ -36,7 +35,7 @@ func CreateEndpointAPI(w http.ResponseWriter, r *http.Request) {
 
 func GetEndpointAddress(service string) string {
 	query := "FOR end IN endpoint FILTER end.Service == @name RETURN end"
-	bindvars := map[string]interface{}{ "name": service }
+	bindvars := map[string]interface{}{"name": service}
 	result := Endpoint{}
 	utils.ExecuteQuery(query, bindvars, &result)
 	if result.Address == "" {
@@ -46,7 +45,6 @@ func GetEndpointAddress(service string) string {
 	}
 	return result.Address
 }
-
 
 func GetEndpointAddressAPI(w http.ResponseWriter, r *http.Request) {
 	service := mux.Vars(r)["Service"]
@@ -59,8 +57,8 @@ func GetEndpointAddressAPI(w http.ResponseWriter, r *http.Request) {
 }
 
 // Contact an endpoint with a GET
-func ContactEndpoint(service string) *http.Response  {
+func ContactEndpoint(service string) *http.Response {
 	address := GetEndpointAddress(service)
-	response,_ := http.Get(address)
+	response, _ := http.Get(address)
 	return response
 }

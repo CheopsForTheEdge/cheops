@@ -2,32 +2,32 @@
 package client
 
 import (
-	"cheops.com/endpoint"
-	"cheops.com/operation"
-	"cheops.com/utils"
 	"encoding/json"
 	"fmt"
-	amqp "github.com/rabbitmq/amqp091-go"
 	"io"
 	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
 	"os"
+
+	"cheops.com/endpoint"
+	"cheops.com/operation"
+	"cheops.com/utils"
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 var knownsites = utils.Conf.KnownSites
 
+var def_Cluster = []string{"amqp://guest:guest@172.16.192.10:5672/", "amqp://guest:guest@172.16.192.11:5672/", "amqp://guest:guest@172.16.192.13:5672/"}
+var check_cluster = []string{"cluster1", "cluster2", "cluster3"}
 
-var def_Cluster = []string{"amqp://guest:guest@172.16.192.10:5672/","amqp://guest:guest@172.16.192.11:5672/","amqp://guest:guest@172.16.192.13:5672/"}
-var check_cluster = []string{"cluster1","cluster2","cluster3"}
 func randomString(l int) string {
 	bytes := make([]byte, l)
 	for i := 0; i < l; i++ {
 		bytes[i] = byte(randInt(65, 90))
 	}
 	return string(bytes)
-
 
 }
 
@@ -37,8 +37,7 @@ func randInt(min int, max int) int {
 	return min + rand.Intn(max-min)
 }
 
-
-func Broker_Client(url string, deploy []byte ) string {
+func Broker_Client(url string, deploy []byte) string {
 	conn, err := amqp.Dial(url)
 	failOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
@@ -90,18 +89,15 @@ func Broker_Client(url string, deploy []byte ) string {
 			break
 		}
 	}
-	log.Printf("\n\n\n&s",res)
+	log.Printf("\n\n\n&s", res)
 	return res
 }
-
-
 
 func failOnError(err error, msg string) {
 	if err != nil {
 		log.Fatalf("%s: %s", msg, err)
 	}
 }
-
 
 // SendThisOperationToSites takes an operation and a response to fill.
 // Sends the operation to the involved sites in the operation.
@@ -124,10 +120,9 @@ func SendThisOperationToSites(op operation.Operation, w http.ResponseWriter) {
 // SendThisOperationToSites to send an operation from a request to involved
 // sites.
 func SendOperationToSites(w http.ResponseWriter, r *http.Request) {
- 	op := operation.ReadOperationFromRequest(r, w)
+	op := operation.ReadOperationFromRequest(r, w)
 	SendThisOperationToSites(op, w)
 }
-
 
 func DeployHandler(w http.ResponseWriter, r *http.Request) {
 	jsonFile, err := os.Open("deployment.json")
@@ -139,7 +134,6 @@ func DeployHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("%s", res1)
 	io.WriteString(w, res1)
 }
-
 
 func GetHandler(w http.ResponseWriter, r *http.Request) {
 	//fmt.Fprintf(w, "Hello!")
@@ -153,7 +147,6 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 	io.WriteString(w, Final_res)
 
 }
-
 
 /*func ReplicaHandler(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
@@ -221,7 +214,6 @@ func crossHandler(w http.ResponseWriter, r *http.Request) {
     return b.Bytes(), err
 }*/
 
-
 /*func Comm(clusters []string, content []byte) string{
 	res1 := ""
 	log.Println(strings.TrimSpace(strings.Join(clusters, "")))
@@ -247,8 +239,6 @@ func crossHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	return res1
 }*/
-
-
 
 /*func CrossHandler(w http.ResponseWriter, r *http.Request){
 	path := r.URL.Path
@@ -326,15 +316,15 @@ func crossHandler(w http.ResponseWriter, r *http.Request) {
 }*/
 
 //func main() {
-	//	Cluster1 := "amqp://guest:guest@172.16.192.9:5672/"
-	//	Cluster2 := "amqp://guest:guest@172.16.192.9:5672/"
-	//	Cluster3 := "amqp://guest:guest@172.16.192.9:5672/"
-	//http.HandleFunc("/get", getHandler)
-	//http.HandleFunc("/deploy",deployHandler)
-	//http.HandleFunc("/cross/", crossHandler)
-	//http.HandleFunc("/replica/", replicaHandler)
-	//fmt.Printf("Starting server at port 8080\n")
-	//if err := http.ListenAndServe(":8080", nil); err != nil {
-	//	log.Fatal(err)
-	//}
+//	Cluster1 := "amqp://guest:guest@172.16.192.9:5672/"
+//	Cluster2 := "amqp://guest:guest@172.16.192.9:5672/"
+//	Cluster3 := "amqp://guest:guest@172.16.192.9:5672/"
+//http.HandleFunc("/get", getHandler)
+//http.HandleFunc("/deploy",deployHandler)
+//http.HandleFunc("/cross/", crossHandler)
+//http.HandleFunc("/replica/", replicaHandler)
+//fmt.Printf("Starting server at port 8080\n")
+//if err := http.ListenAndServe(":8080", nil); err != nil {
+//	log.Fatal(err)
+//}
 //}

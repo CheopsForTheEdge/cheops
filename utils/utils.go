@@ -5,19 +5,18 @@ package utils
 import (
 	//"cheops.com/endpoint"
 	"fmt"
-	"github.com/segmentio/ksuid"
 	"log"
+
+	"github.com/segmentio/ksuid"
 	//"net"
 	//"time"
 )
-
 
 func CreateMetaId() string {
 	id := ksuid.New()
 	cheopsID := "CHEOPS_" + id.String()
 	return cheopsID
 }
-
 
 // Heartbeat sends a heartbeat to the given site and updates the latency to it
 /*
@@ -42,15 +41,14 @@ func Heartbeat(site endpoint.Site) {
 	UpdateResource("sites", id, update)
 	conn.Close()
 }
-	*/
-
+*/
 
 func SendHeartbeats() {
 	var interf []interface{}
 	interf = GetAll(interf, "sites")
 	if interf == nil {
 		log.Fatal()
-		fmt.Println("Document cannot be read." )
+		fmt.Println("Document cannot be read.")
 	}
 	for _, site := range interf {
 		// TODO check if it could be possible to send the key also

@@ -2,49 +2,48 @@ package operation
 
 import (
 	//"cheops.com/client"
-	"cheops.com/endpoint"
-	"cheops.com/utils"
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/mux"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"reflect"
 	"strings"
 	"time"
+
+	"cheops.com/endpoint"
+	"cheops.com/utils"
+	"github.com/gorilla/mux"
 )
 
 type Replica struct {
-	Site 	endpoint.Site `json:"Site"`
-	ID 		string        `json:"ID"`
-	Status  string        `json:"Status"`
-	Logs    []Log         `json:"Logs"`
+	Site   endpoint.Site `json:"Site"`
+	ID     string        `json:"ID"`
+	Status string        `json:"Status"`
+	Logs   []Log         `json:"Logs"`
 }
 
 type Replicant struct {
-	MetaID      string    `json:"MetaID"`
-	Replicas	[]Replica `json:"Replicas"`
-	Leader		string    `json:"Leader"`
+	MetaID   string    `json:"MetaID"`
+	Replicas []Replica `json:"Replicas"`
+	Leader   string    `json:"Leader"`
 }
 
 type Log struct {
 	Operation string    `json:"Operation"`
-	Date time.Time		`json:"Date"`
+	Date      time.Time `json:"Date"`
 }
 
 // Test replicants (allReplicants and Replicants)
 type allReplicants []Replicant
 
-
 var Nantes = endpoint.Site{SiteName: "Nantes", Address: "127.0.0.1"}
 var Paris = endpoint.Site{SiteName: "Paris", Address: "127.0.0.1"}
 
-
 var Replicants = allReplicants{
 	{
-		MetaID:      utils.CreateMetaId(),
-		Replicas:     []Replica{
+		MetaID: utils.CreateMetaId(),
+		Replicas: []Replica{
 			Replica{Site: Paris, ID: "65"},
 			Replica{Site: Nantes, ID: "42"},
 		},
@@ -53,7 +52,6 @@ var Replicants = allReplicants{
 
 // Collection name variable
 var colnamerep = "replications"
-
 
 // CreateReplicant Creates a replicant with a meta ID, probably needs to add also the locations
 func CreateReplicant() string {
@@ -65,7 +63,7 @@ func CreateReplicant() string {
 	return key
 }
 
-//CreateReplicantFromOperation Creates the first Replicant for the replicas
+// CreateReplicantFromOperation Creates the first Replicant for the replicas
 func CreateReplicantFromOperation(op Operation, leader string) string {
 	rep := new(Replicant)
 	rep.MetaID = utils.CreateMetaId()
@@ -75,10 +73,10 @@ func CreateReplicantFromOperation(op Operation, leader string) string {
 	for _, siteName := range op.Sites {
 		site = endpoint.GetSite(siteName)
 		rep.Replicas = append(rep.Replicas, Replica{Site: site,
-													ID: "",
-													Logs: []Log{Log{Operation: "creation",
-																	Date: date}},
-													})
+			ID: "",
+			Logs: []Log{Log{Operation: "creation",
+				Date: date}},
+		})
 	}
 	rep.Leader = leader
 	key := utils.CreateResource(colnamerep, rep)
@@ -98,13 +96,12 @@ func CreateReplicantFromOperationAPI(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(key)
 }
 
-
 // CreateReplicantAPI Creates a replicant with given information
-func CreateReplicantAPI(w http.ResponseWriter, r *http.Request)  {
+func CreateReplicantAPI(w http.ResponseWriter, r *http.Request) {
 	var newReplicant Replicant
 	reqBody, _ := ioutil.ReadAll(r.Body)
 
-	err:= json.Unmarshal(reqBody, &newReplicant)
+	err := json.Unmarshal(reqBody, &newReplicant)
 	if err != nil {
 		fmt.Fprintf(w, "There was an error reading the json: %s\n ", err)
 		return
@@ -124,7 +121,7 @@ func GetReplicantAPI(w http.ResponseWriter, r *http.Request) {
 }
 
 // getReplicant Gets a specific replicant from its meta ID
-func getReplicant(metaID string) (Replicant, string){
+func getReplicant(metaID string) (Replicant, string) {
 	var rep Replicant
 	_, key := utils.SearchResource(colnamerep, "metaID", metaID, &rep)
 	return rep, key
@@ -178,21 +175,21 @@ func DeleteReplicantWithID(id string) {
 		isLeader = (rep.Leader == utils.Conf.LocalSite.SiteName)
 		if isLeader {
 			utils.DeleteResource(colnamerep, id)
-			fmt.Printf("The replicant with ID %s has been deleted" +
-				" successfully \n",	id)
+			fmt.Printf("The replicant with ID %s has been deleted"+
+				" successfully \n", id)
 			for _, replica := range rep.Replicas {
 				if !isLeader {
 					sites = append(sites, replica.Site.SiteName)
 				}
 			}
 			op = Operation{Operation: "deleteResource",
-				Sites: sites,
-				Platform: "Cheops",
-				Resource: "Replication",
-				Instance: rep.MetaID,
+				Sites:             sites,
+				Platform:          "Cheops",
+				Resource:          "Replication",
+				Instance:          rep.MetaID,
 				PlatformOperation: "DeleteReplicant",
-				Request: "/replicant/" + id,
-				Redirection: true,
+				Request:           "/replicant/" + id,
+				Redirection:       true,
 			}
 			fmt.Println(op)
 			//client.SendThisOperationToSites(op, w)
@@ -200,19 +197,18 @@ func DeleteReplicantWithID(id string) {
 	} else {
 		sites = append(sites, rep.Leader)
 		op = Operation{Operation: "deleteResource",
-			Sites: sites,
-			Platform: "Cheops",
-			Resource: "Replication",
-			Instance: rep.MetaID,
+			Sites:             sites,
+			Platform:          "Cheops",
+			Resource:          "Replication",
+			Instance:          rep.MetaID,
 			PlatformOperation: "DeleteReplicant",
-			Request: "/replicant/" + id,
-			Redirection: true,
+			Request:           "/replicant/" + id,
+			Redirection:       true,
 		}
 		fmt.Println(op)
 		//client.SendThisOperationToSites(op, w)
 	}
 }
-
 
 // CheckIfReplicant Returns true if the id is in the database
 func CheckIfReplicant(id string) bool {
@@ -220,7 +216,6 @@ func CheckIfReplicant(id string) bool {
 	utils.SearchResource(colnamerep, "MetaID", id, &rep)
 	return rep != nil
 }
-
 
 // CheckReplicasLog Checks if replicas are up to date
 func CheckReplicasLog(id string) {
@@ -251,9 +246,8 @@ func CheckReplicasLog(id string) {
 	//TODO: return a list of NEQUAL replicas?
 }
 
-
 // getLeader Returns the leader of a replicant
-func getLeader (replicant Replicant) *Replica {
+func getLeader(replicant Replicant) *Replica {
 	var replica Replica
 	for _, rep := range replicant.Replicas {
 		if rep.Site.SiteName == replicant.Leader {

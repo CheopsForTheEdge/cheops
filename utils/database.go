@@ -3,11 +3,12 @@ package utils
 import (
 	"context"
 	"fmt"
-	driver "github.com/arangodb/go-driver"
-	"github.com/arangodb/go-driver/http"
 	"log"
 	"os/exec"
 	"time"
+
+	driver "github.com/arangodb/go-driver"
+	"github.com/arangodb/go-driver/http"
 )
 
 var dbcheops = "cheops"
@@ -21,7 +22,6 @@ func LaunchDatabase() {
 	}
 	fmt.Println("Database ready")
 }
-
 
 func Connection() driver.Client {
 	conn, err := http.NewConnection(http.ConnectionConfig{
@@ -42,7 +42,6 @@ func Connection() driver.Client {
 	return c
 }
 
-
 func CreateDatabase(client driver.Client) driver.Database {
 	ctx := context.Background()
 	exists, err := client.DatabaseExists(ctx, dbcheops)
@@ -52,9 +51,9 @@ func CreateDatabase(client driver.Client) driver.Database {
 	}
 	if !exists {
 		dbdefault := driver.CreateDatabaseDefaultOptions{}
-		user:= driver.CreateDatabaseUserOptions{UserName: database.DBUser,
+		user := driver.CreateDatabaseUserOptions{UserName: database.DBUser,
 			Password: database.DBPassword}
-		options := &driver.CreateDatabaseOptions{Users:[]driver.CreateDatabaseUserOptions{user},
+		options := &driver.CreateDatabaseOptions{Users: []driver.CreateDatabaseUserOptions{user},
 			Options: dbdefault}
 		db, err := client.CreateDatabase(ctx, dbcheops, options)
 		if err != nil {
@@ -65,7 +64,6 @@ func CreateDatabase(client driver.Client) driver.Database {
 	}
 	return nil
 }
-
 
 func ConnectToDatabase(client driver.Client) driver.Database {
 	ctx := context.Background()
@@ -86,8 +84,7 @@ func ConnectToDatabase(client driver.Client) driver.Database {
 	return nil
 }
 
-
-func ConnectToCollection(db driver.Database, colName string) driver.Collection  {
+func ConnectToCollection(db driver.Database, colName string) driver.Collection {
 	ctx := context.Background()
 	exists, err := db.CollectionExists(ctx, colName)
 	if err != nil {
@@ -109,7 +106,6 @@ func ConnectToCollection(db driver.Database, colName string) driver.Collection  
 	}
 	return nil
 }
-
 
 func CreateCollection(db driver.Database, colName string) driver.Collection {
 	ctx := context.Background()
@@ -163,7 +159,6 @@ func CreateCollectionWithIndexes(db driver.Database, colName string, fields []st
 	return nil
 }
 
-
 func PrepareForExecution() (driver.Database,
 	[]driver.Collection) {
 	//LaunchDatabase()
@@ -179,33 +174,32 @@ func PrepareForExecution() (driver.Database,
 	return db, cols
 }
 
-
-func ConnectionToCheopsDatabase() (driver.Database){
+func ConnectionToCheopsDatabase() driver.Database {
 	c := Connection()
 	db := ConnectToDatabase(c)
 	return db
 }
 
-func ConnectionToCorrectCollection(colname string) (driver.Collection){
+func ConnectionToCorrectCollection(colname string) driver.Collection {
 	c := Connection()
 	db := ConnectToDatabase(c)
 	col := ConnectToCollection(db, colname)
 	return col
 }
 
- func ExecuteQuery(query string, bindVars map[string]interface{},
- result interface{}) (
- 	cursor driver.Cursor) {
- 	ctx := context.Background()
- 	db := ConnectionToCheopsDatabase()
- 	cursor, err := db.Query(ctx, query, bindVars)
- 	if err != nil {
-		 fmt.Println("Can't execute the query")
-		 log.Fatal(err)
-		 // handle error
- 	}
+func ExecuteQuery(query string, bindVars map[string]interface{},
+	result interface{}) (
+	cursor driver.Cursor) {
+	ctx := context.Background()
+	db := ConnectionToCheopsDatabase()
+	cursor, err := db.Query(ctx, query, bindVars)
+	if err != nil {
+		fmt.Println("Can't execute the query")
+		log.Fatal(err)
+		// handle error
+	}
 	cursor.ReadDocument(ctx, &result)
- 	return cursor
+	return cursor
 }
 
 func CreateResource(colname string, doc interface{}) string {
@@ -220,7 +214,6 @@ func CreateResource(colname string, doc interface{}) string {
 	return meta.Key
 }
 
-
 func ReadResource(colname string, key string, doc interface{}) {
 	ctx := context.Background()
 	col := ConnectionToCorrectCollection(colname)
@@ -230,7 +223,6 @@ func ReadResource(colname string, key string, doc interface{}) {
 		log.Fatal(err)
 	}
 }
-
 
 // Key is ArangoDB key, patch is the changed part
 func UpdateResource(colname string, key string, patch interface{}) {
@@ -276,7 +268,6 @@ func DeleteResourceFromSearch(colname string, key string, value string) {
 //	return lst
 //}
 
-
 func SearchResource(colname string, key string,
 	value string, result interface{}) (interface{}, string) {
 	ctx := context.Background()
@@ -284,27 +275,27 @@ func SearchResource(colname string, key string,
 	query := "FOR doc IN @colname\n" +
 		"SEARCH @key == @value\n" +
 		"RETURN doc"
-	bindvars := map[string]interface{} { "@colname": colname, "@key": key,
+	bindvars := map[string]interface{}{"@colname": colname, "@key": key,
 		"@value": value}
-	cursor, err := db.Query(ctx, query,	bindvars)
-		if err != nil {
-			fmt.Println("Can't execute the query")
-			log.Fatal(err)
-			// handle error
-		}
-	docmeta, _  := cursor.ReadDocument(ctx, &result)
+	cursor, err := db.Query(ctx, query, bindvars)
+	if err != nil {
+		fmt.Println("Can't execute the query")
+		log.Fatal(err)
+		// handle error
+	}
+	docmeta, _ := cursor.ReadDocument(ctx, &result)
 	fmt.Println(result)
 	defer cursor.Close()
 	return &result, docmeta.Key
 }
 
-func GetAll(result []interface{}, colname string) ([]interface{}) {
+func GetAll(result []interface{}, colname string) []interface{} {
 	var res interface{}
 	ctx := context.Background()
 	db := ConnectionToCheopsDatabase()
 	query := "FOR doc IN @colname" + "RETURN doc"
-	bindvars := map[string]interface{} { "@colname": colname}
-	cursor, err := db.Query(ctx, query,	bindvars)
+	bindvars := map[string]interface{}{"@colname": colname}
+	cursor, err := db.Query(ctx, query, bindvars)
 	if err != nil {
 		fmt.Println("Can't execute the query")
 		log.Fatal(err)
@@ -315,7 +306,7 @@ func GetAll(result []interface{}, colname string) ([]interface{}) {
 		if driver.IsNoMoreDocuments(err) {
 			break
 		} else if err != nil {
-			fmt.Println("Document cannot be read." )
+			fmt.Println("Document cannot be read.")
 			log.Fatal(err)
 		}
 		result = append(result, meta)
