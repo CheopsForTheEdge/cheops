@@ -1,21 +1,14 @@
-#!/usr/bin/env python
-
-__author__ = "Matthieu Rakotojaona Rainimangavelo, Marie Delavergne"
-__credits__ = ["Matthieu Rakotojaona Rainimangavelo", "Marie Delavergne"]
-
-
 import enoslib as en
 
 en.init_logging()
 
-
-time = "05:00:00"
+time = "08:00:00"
 site = "rennes"
 cluster = "paravance"
 nb_nodes = 3
 
 cheops_location = "/tmp/cheops"
-cheops_version = "a8c0be19"
+cheops_version = "master"
 
 
 
@@ -186,7 +179,7 @@ EOF
 
 with en.actions(roles=roles["cheops"], gather_facts=True) as p:
     p.shell(cmd="curl -OL https://golang.org/dl/go1.17.linux-amd64.tar.gz || rm -rf /usr/local/go && tar -C /usr/local -xzf go1.17.linux-amd64.tar.gz")
-    p.lineinfile(dest="/root/.profile",
+    p.lineinfile(dest="/root/.bashrc",
                  line="export PATH=$PATH:/usr/local/go/bin",
                  insertafter="EOF",
                  regexp="export PATH=\$PATH:/usr/local/go/bin",
@@ -202,7 +195,7 @@ with en.actions(roles=roles["cheops"], gather_facts=True) as p:
                  regexp="export GOBIN=\$GOPATH/bin",
                  state="present")
     p.shell(cmd=". /root/.bashrc")
-    p.shell(cmd="go get github.com/gorilla/mux || go get  github.com/justinas/alice || go get github.com/arangodb/go-driver || go get github.com/arangodb/go-driver/http || go get github.com/segmentio/ksuid || go get github.com/rabbitmq/amqp091-go")
+    p.shell(cmd="go get github.com/gorilla/mux || go get github.com/justinas/alice || go get github.com/arangodb/go-driver || go get github.com/arangodb/go-driver/http || go get github.com/segmentio/ksuid || go get github.com/rabbitmq/amqp091-go")
 
 
 # Run RabbitMQ
@@ -212,11 +205,11 @@ with en.actions(roles=roles["cheops"], gather_facts=True) as p:
 
 # Get and run Cheops
 with en.actions(roles=roles["cheops"], gather_facts=True) as p:
-    p.git(
-        repo="https://gitlab.inria.fr/discovery/cheops.git",
-        dest=cheops_location,
-        version=cheops_version
-    )
+    # p.git(
+    #     repo="https://gitlab.inria.fr/discovery/cheops.git",
+    #     dest=cheops_location,
+    #     version=cheops_version
+    # )
     p.shell(
         cmd="go build",
         chdir=cheops_location
@@ -224,13 +217,47 @@ with en.actions(roles=roles["cheops"], gather_facts=True) as p:
 
 # Allow to add sites to the main file (crappy, but useful)
 
+# for index, node in enumerate(roles["cheops"], start=1):
+#     address = node.address
+#     go_line = 'endpoint.CreateSite("Site{i}", "{add}")'.format(i=index, add=address)
+#     with en.actions(roles=roles["cheops"], gather_facts=True) as p:
+#         p.lineinfile(dest=cheops_location+"/main.go",
+#                      line=go_line,
+#                      insertafter="add sites here",
+#                      regexp=go_line,
+#                      state="present"
+#                      )
+
+
+
+sites = {}
+
+
 for index, node in enumerate(roles["cheops"], start=1):
-    address = node.address
-    go_line = 'endpoint.CreateSite("Site{i}", "{add}")'.format(i=index, add=address)
+    site_name = "Site{i}".format(i=index)
+    hostname = node.alias
+    site_address = node.address
+    site = "  - sitename: {name}\n    address: {address}".format(name=site_name, address=site_address)
     with en.actions(roles=roles["cheops"], gather_facts=True) as p:
-        p.lineinfile(dest=cheops_location+"/main.go",
-                     line=go_line,
-                     insertafter="add sites here",
-                     regexp=go_line,
+        p.lineinfile(dest=cheops_location+"/config.yml",
+                     line=site,
+                     insertafter="knownsites:\n",
+                     regexp=site,
+                     state="present"
+                     )
+    sites[hostname] = {"site_name":site_name, "site_address":site_address}
+
+
+for index, node in enumerate(roles["cheops"]):
+    hostname = node.alias
+    site_name = sites[hostname]["site_name"]
+    site_address = sites[hostname]["site_address"]
+    print(hostname, site_name, site_address)
+    site = "  - sitename: {name}\n    address: {address}".format(name=site_name, address=site_address)
+    with en.actions(roles=node, gather_facts=True) as p:
+        p.lineinfile(dest=cheops_location+"/config.yml",
+                     line=site,
+                     insertafter="localsite:\n",
+                     regexp=site,
                      state="present"
                      )
