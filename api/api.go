@@ -6,6 +6,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"strconv"
+
 	"io"
 	"io/ioutil"
 	"log"
@@ -19,6 +22,11 @@ import (
 )
 
 func Routing() {
+	myip, ok := os.LookupEnv("MYIP")
+	if !ok {
+		log.Fatal("My IP must be given with the MYIP environment variable !")
+	}
+
 	router := mux.NewRouter()
 	router.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		index := 0
@@ -33,10 +41,15 @@ func Routing() {
 					return proxy(ctx, site, w, r)
 				})
 			} else {
+				if isAlreadyForwarded(r, sites) {
+					continue
+				}
+
 				g.Go(func() error {
 					e := emptyResponseWriter{}
+					r.Header.Add("X-Forwarded-For", myip)
 					err := proxy(ctx, site, e, r)
-					w.Header().Set(header, string(e.statusCode))
+					w.Header().Set(header, strconv.Itoa(e.statusCode))
 					return err
 
 				})
@@ -51,6 +64,15 @@ func Routing() {
 	})
 
 	log.Fatal(http.ListenAndServe(":8080", router))
+}
+
+func isAlreadyForwarded(r *http.Request, sites map[string]struct{}) bool {
+	for _, ff := range r.Header.Values("X-Forwarded-For") {
+		if _, known := sites[ff]; known {
+			return true
+		}
+	}
+	return false
 }
 
 // emptyResponseWriter stores the status code and discards everything else
