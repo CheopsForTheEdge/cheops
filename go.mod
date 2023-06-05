@@ -8,9 +8,9 @@ replace (
 	cheops.com/config => ./config
 	cheops.com/database => ./database
 	cheops.com/k8s => ./glue/k8s/
+	cheops.com/kubernetes => ./kubernetes
 	cheops.com/openstack => ./glue/openstack
 	cheops.com/operation => ./operation
-	cheops.com/kubernetes => ./kubernetes
 )
 
 require (
@@ -20,4 +20,5 @@ require (
 	github.com/segmentio/ksuid v1.0.4
 	github.com/spf13/viper v1.11.0
 	github.com/tcnksm/go-httpstat v0.2.0
+	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 )
