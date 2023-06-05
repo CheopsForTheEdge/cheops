@@ -4,16 +4,14 @@ package api
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
-	"strconv"
+	"strings"
 
 	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
-	"strings"
 	"time"
 
 	_ "cheops.com/kubernetes"
@@ -22,20 +20,15 @@ import (
 )
 
 func Routing() {
-	myip, ok := os.LookupEnv("MYIP")
-	if !ok {
-		log.Fatal("My IP must be given with the MYIP environment variable !")
-	}
 
 	router := mux.NewRouter()
 	router.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		index := 0
 		g, ctx := errgroup.WithContext(r.Context())
-
 		for site := range sites {
 			site := site
-			header := fmt.Sprintf("X-status-%s", site)
-			if index == 0 {
+			host := strings.Split(site, ":")[0]
+			header := fmt.Sprintf("X-status-%s", host)
+			if site == "127.0.0.1" {
 				w.Header().Add("Trailer", header)
 				g.Go(func() error {
 					return proxy(ctx, site, w, r)
@@ -47,14 +40,12 @@ func Routing() {
 
 				g.Go(func() error {
 					e := emptyResponseWriter{}
-					r.Header.Add("X-Forwarded-For", myip)
 					err := proxy(ctx, site, e, r)
-					w.Header().Set(header, strconv.Itoa(e.statusCode))
+					w.Header().Set(header, fmt.Sprintf("%d", e.statusCode))
 					return err
 
 				})
 			}
-			index++
 		}
 
 		err := g.Wait()
@@ -67,9 +58,14 @@ func Routing() {
 }
 
 func isAlreadyForwarded(r *http.Request, sites map[string]struct{}) bool {
-	for _, ff := range r.Header.Values("X-Forwarded-For") {
-		if _, known := sites[ff]; known {
-			return true
+	// TODO: sites should be hostnames, so this can't always work
+	for site := range sites {
+		parts := strings.Split(site, ":")
+		host := parts[0]
+		for _, ff := range r.Header.Values("X-Forwarded-For") {
+			if ff == host {
+				return true
+			}
 		}
 	}
 	return false
@@ -91,6 +87,14 @@ func (e emptyResponseWriter) Write(p []byte) (n int, err error) {
 }
 
 func proxy(ctx context.Context, host string, w http.ResponseWriter, r *http.Request) error {
+
+	myip, ok := os.LookupEnv("MYIP")
+	if !ok {
+		log.Fatal("My IP must be given with the MYIP environment variable !")
+	}
+	log.Printf("my ip: %s\n", myip)
+	r.Header.Add("X-Forwarded-For", myip)
+
 	defer r.Body.Close()
 	reqbuf, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -99,13 +103,7 @@ func proxy(ctx context.Context, host string, w http.ResponseWriter, r *http.Requ
 	}
 
 	u := r.URL
-
-	parts := strings.Split(host, ":")
-	if len(parts) == 2 {
-		u.Host = host
-	} else {
-		u.Host = host + ":8283"
-	}
+	u.Host = host
 
 	// Not filled by default
 	u.Scheme = "http"
@@ -160,12 +158,6 @@ func proxy(ctx context.Context, host string, w http.ResponseWriter, r *http.Requ
 		return nil
 	}
 
-	indent := func(b []byte) string {
-		var obj map[string]interface{}
-		json.Unmarshal(b, &obj)
-		indented, _ := json.MarshalIndent(obj, "", "\t")
-		return string(indented)
-	}
 	headers := func(h http.Header) string {
 		var asstring string
 		for key, val := range h {
@@ -177,7 +169,7 @@ func proxy(ctx context.Context, host string, w http.ResponseWriter, r *http.Requ
 	log.Printf(`->[%s] %s %s
 -> [%s] %s
 <- [%s] %s
-`, host, r.Method, r.URL.String(), host, indent(reqbuf), headers(resp.Header), host, indent(respbuf))
+`, host, r.Method, r.URL.String(), host, headers(newreq.Header), host, headers(resp.Header))
 	return nil
 
 }
