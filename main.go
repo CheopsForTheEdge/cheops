@@ -39,7 +39,7 @@ func main() {
 
 		// add sites here
 
-		endpoint.CreateSite(conf.LocalSite.SiteName, conf.LocalSite.Address)
+		// endpoint.CreateSite(conf.LocalSite.SiteName, conf.LocalSite.Address)
 
 		for _, site := range conf.KnownSites {
 			endpoint.CreateSite(site.SiteName, site.Address)
