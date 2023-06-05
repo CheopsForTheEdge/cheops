@@ -1,3 +1,8 @@
+#!/usr/bin/env python
+
+__author__ = "Matthieu Rakotojaona Rainimangavelo, Marie Delavergne"
+__credits__ = ["Matthieu Rakotojaona Rainimangavelo", "Marie Delavergne"]
+
 import enoslib as en
 
 en.init_logging()
