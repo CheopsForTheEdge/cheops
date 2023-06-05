@@ -76,7 +76,7 @@ func LoadConfig() Configurations {
 
 	err := viper.Unmarshal(&conf)
 	if err != nil {
-		fmt.Printf("Unable to decode into struct, %v", err)
+		fmt.Printf("Unable to decode into struct, %v \n", err)
 	}
 
 	return conf
