@@ -3,12 +3,7 @@
 package utils
 
 import (
-	"cheops.com/endpoint"
-	"fmt"
 	"github.com/segmentio/ksuid"
-	"log"
-	"net"
-	"time"
 )
 
 
@@ -18,7 +13,7 @@ func CreateMetaId() string {
 	return cheopsID
 }
 
-
+/*
 // Heartbeat sends a heartbeat to the given site and updates the latency to it
 func Heartbeat(site endpoint.Site) {
 	host := site.Address
@@ -55,3 +50,4 @@ func SendHeartbeats() {
 		Heartbeat(site.(endpoint.Site))
 	}
 }
+*/
