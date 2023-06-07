@@ -154,6 +154,7 @@ func proxyWaitBeforeWritingReply(ctx context.Context, host string, w http.Respon
 }
 
 func proxyWriteReply(resp *http.Response, w http.ResponseWriter, host string) error {
+	w.WriteHeader(resp.StatusCode)
 	defer resp.Body.Close()
 
 	respbuf, err := ioutil.ReadAll(resp.Body)
@@ -177,7 +178,6 @@ func proxyWriteReply(resp *http.Response, w http.ResponseWriter, host string) er
 		// Not a blocking error
 		return nil
 	}
-	w.WriteHeader(resp.StatusCode)
 
 	log.Printf(`<- [%s] %d %s`, host, resp.StatusCode, resp.Request.URL.String())
 	return nil
