@@ -23,35 +23,69 @@ func Routing() {
 
 	router := mux.NewRouter()
 	router.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		g, ctx := errgroup.WithContext(r.Context())
+		log.Printf(`* %s %s`, r.Method, r.URL.String())
 		for site := range sites {
 			site := site
 			host := strings.Split(site, ":")[0]
 			header := fmt.Sprintf("X-status-%s", host)
-			if site == "127.0.0.1" {
-				w.Header().Add("Trailer", header)
-				g.Go(func() error {
-					return proxy(ctx, site, w, r)
-				})
-			} else {
-				if isAlreadyForwarded(r, sites) {
-					continue
-				}
+			w.Header().Add("Trailer", header)
+		}
 
-				g.Go(func() error {
-					e := &emptyResponseWriter{}
-					err := proxy(ctx, site, e, r)
-					w.Header().Set(header, fmt.Sprintf("%d", e.statusCode))
-					return err
-
-				})
+		localRespChan := make(chan (*http.Response), 1)
+		go func() {
+			resp, err := proxyWaitBeforeWritingReply(r.Context(), "127.0.0.1:8283", w, r)
+			if err != nil {
+				log.Println(err)
 			}
+			localRespChan <- resp
+		}()
+
+		if isAlreadyForwarded(r, sites) {
+			return
+		}
+
+		myip, ok := os.LookupEnv("MYIP")
+		if !ok {
+			log.Fatal("My IP must be given with the MYIP environment variable !")
+		}
+		log.Printf("my ip: %s\n", myip)
+		r.Header.Add("X-Forwarded-For", myip)
+
+		timeoutContext, timeoutCancel := context.WithTimeout(r.Context(), 3*time.Second)
+		defer timeoutCancel()
+		g, ctx := errgroup.WithContext(timeoutContext)
+
+		// status holds status by site
+		// it's ok to use this because concurrent changes happen on different keys
+		statuses := make(map[string]int)
+
+		for site := range sites {
+			site := site
+			host := strings.Split(site, ":")[0]
+			header := fmt.Sprintf("X-status-%s", host)
+			g.Go(func() error {
+				e := &emptyResponseWriter{
+					// by default, assume other sites are unreachable
+					statusCode: http.StatusInternalServerError,
+				}
+				err := proxy(ctx, site, e, r)
+				statuses[header] = e.statusCode
+				return err
+			})
 		}
 
 		err := g.Wait()
 		if err != nil {
 			log.Println(err)
+			// Not blocking, we don't return yet
 		}
+
+		localResp := <-localRespChan
+
+		for header, code := range statuses {
+			w.Header().Set(header, fmt.Sprintf("%d", code))
+		}
+		proxyWriteReply(localResp, w, "127.0.0.1:8283")
 	})
 
 	log.Fatal(http.ListenAndServe(":8080", router))
@@ -86,20 +120,12 @@ func (e *emptyResponseWriter) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-func proxy(ctx context.Context, host string, w http.ResponseWriter, r *http.Request) error {
-
-	myip, ok := os.LookupEnv("MYIP")
-	if !ok {
-		log.Fatal("My IP must be given with the MYIP environment variable !")
-	}
-	log.Printf("my ip: %s\n", myip)
-	r.Header.Add("X-Forwarded-For", myip)
-
+func proxyWaitBeforeWritingReply(ctx context.Context, host string, w http.ResponseWriter, r *http.Request) (*http.Response, error) {
 	defer r.Body.Close()
 	reqbuf, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "can't read request body", http.StatusInternalServerError)
-		return err
+		return nil, err
 	}
 
 	u := r.URL
@@ -113,7 +139,7 @@ func proxy(ctx context.Context, host string, w http.ResponseWriter, r *http.Requ
 
 	if err != nil {
 		http.Error(w, "can't build proxy request", http.StatusInternalServerError)
-		return err
+		return nil, err
 	}
 
 	for key, vals := range r.Header {
@@ -122,18 +148,21 @@ func proxy(ctx context.Context, host string, w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	timeout, _ := time.ParseDuration("3s")
-	client := &http.Client{
-		Timeout: timeout,
-	}
-	resp, err := client.Do(newreq)
+	resp, err := http.DefaultClient.Do(newreq)
 	if err != nil {
 		http.Error(w, "can't send to backend", http.StatusInternalServerError)
 		log.Println(err)
 
 		// Not a blocking error
-		return nil
+		return nil, nil
 	}
+
+	log.Printf(`->[%s] %s %s`, host, newreq.Method, newreq.URL.String())
+
+	return resp, nil
+}
+
+func proxyWriteReply(resp *http.Response, w http.ResponseWriter, host string) error {
 	defer resp.Body.Close()
 
 	respbuf, err := ioutil.ReadAll(resp.Body)
@@ -158,20 +187,17 @@ func proxy(ctx context.Context, host string, w http.ResponseWriter, r *http.Requ
 		return nil
 	}
 
-	headers := func(h http.Header) string {
-		var asstring string
-		for key, val := range h {
-			asstring += fmt.Sprintf("%s=%s\n", key, val)
-		}
-		return asstring
-	}
-
-	log.Printf(`->[%s] %s %s
--> [%s] %s
-<- [%s] %s
-`, host, r.Method, r.URL.String(), host, headers(newreq.Header), host, headers(resp.Header))
+	log.Printf(`<- [%s] %d %s`, host, resp.StatusCode, resp.Request.URL.String())
 	return nil
 
+}
+
+func proxy(ctx context.Context, host string, w http.ResponseWriter, r *http.Request) error {
+	resp, err := proxyWaitBeforeWritingReply(ctx, host, w, r)
+	if err != nil {
+		return err
+	}
+	return proxyWriteReply(resp, w, host)
 }
 
 // Checks if the request has data
