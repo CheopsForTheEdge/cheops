@@ -186,6 +186,7 @@ func proxyWriteReply(resp *http.Response, w http.ResponseWriter, host string) er
 		// Not a blocking error
 		return nil
 	}
+	w.WriteHeader(resp.StatusCode)
 
 	log.Printf(`<- [%s] %d %s`, host, resp.StatusCode, resp.Request.URL.String())
 	return nil
