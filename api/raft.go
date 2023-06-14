@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -29,25 +30,17 @@ var (
 	raftServer *grpc.Server
 	router     *mux.Router
 
-	raftPort    int
-	raftgroups  *groups
-	stateDIR    string
-	initGroupID uint64
-	nodeID      uint64
+	raftPort   int
+	raftgroups *groups
+	stateDIR   string
 )
 
 func init() {
-	initGroupID = 1
-
-	/*
-	   flag.StringVar(&raftAddr, "raft", "", "raft server address")
-	   flag.StringVar(&joinAddr, "join", "", "join cluster address")
-	   flag.StringVar(&httpAddr, "api", "", "api server address")
-	   flag.StringVar(&stateDIR, "state_dir", "", "raft state directory (WAL, Snapshots)")
-	   flag.Uint64Var(&initGroupID, "initial_group_id", 1, "initial group id this node will join")
-	   flag.Uint64Var(&nodeID, "id", 0, "raft node id")
-	   flag.Parse()
-	*/
+	dir, ok := os.LookupEnv("STATE_DIR")
+	if !ok {
+		log.Fatal("My FQDN must be given with the MYFQDN environment variable !")
+	}
+	stateDIR = dir
 }
 
 func Raft(port int) {
@@ -90,8 +83,6 @@ func Raft(port int) {
 			log.Fatal(err)
 		}
 	}()
-
-	raftgroups.createAndStart(initGroupID, "")
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
@@ -175,28 +166,13 @@ func newGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := json.Unmarshal(buf, new(createGroup)); err != nil {
+	var c createGroup
+	if err := json.Unmarshal(buf, &c); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), time.Second)
-	defer cancel()
-
-	rep := replicate{
-		CMD:  "group",
-		Data: buf,
-	}
-
-	buf, err = json.Marshal(&rep)
-	if err != nil {
-		panic(err)
-	}
-
-	if err := raftgroups.getNode(initGroupID).raftnode.Replicate(ctx, buf); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	raftgroups.createAndStart(c.GroupID, c.Peers)
 }
 
 func save(w http.ResponseWriter, r *http.Request) {
@@ -282,36 +258,6 @@ func (s *stateMachine) Apply(data []byte) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		s.kv[e.Key] = e.Value
-	case "group":
-		var c createGroup
-		if err := json.Unmarshal(rep.Data, &c); err != nil {
-			log.Println("unable to Unmarshal createGroup", err)
-			return
-		}
-
-		myid := raftgroups.getNode(initGroupID).raftnode.Whoami()
-		found := false
-		for _, id := range c.IDs {
-			if id == myid {
-				found = true
-				break
-			}
-		}
-
-		if !found {
-			raftlog.Info("ignore create group cmd; this node not part of it.")
-			return
-		}
-
-		addr := c.JoinAddr
-		if c.JoinAddr == myfqdn+":"+strconv.Itoa(raftPort) {
-			addr = ""
-		} else {
-			// workaround to wait until first group node started before sending join.
-			time.Sleep(time.Second * 5)
-		}
-
-		raftgroups.createAndStart(c.GroupID, addr)
 	}
 }
 
@@ -354,30 +300,43 @@ type groups struct {
 	nodes map[uint64]*localNode
 }
 
-func (g *groups) createAndStart(groupID uint64, joinAddr string) {
-	var fallback raft.StartOption
+func (g *groups) createAndStart(groupID uint64, peers []peer) {
+	log.Printf("Creating group %d with peers %v\n", groupID, peers)
 	lg := raftlog.New(0, fmt.Sprintf("[GROUP %d]", groupID), os.Stderr, io.Discard)
 	logger := raft.WithLogger(lg)
-	raw := raft.WithMembers(raft.RawMember{
-		Address: ":" + strconv.Itoa(raftPort),
-		ID:      nodeID,
+
+	sort.Slice(peers, func(i, j int) bool {
+		if peers[i].Address == myfqdn+":7070" {
+			return true
+		} else if peers[j].Address == myfqdn+":7070" {
+			return false
+		}
+		return false
 	})
+	members := make([]raft.RawMember, 1)
+	for _, peer := range peers {
+		if strings.Contains(peer.Address, myfqdn) {
+			members[0] = raft.RawMember{
+				Address: peer.Address,
+				ID:      peer.ID,
+			}
+		} else {
+			members = append(members, raft.RawMember{
+				Address: peer.Address,
+				ID:      peer.ID,
+			})
+		}
+	}
+
+	raw := raft.WithMembers(members...)
 	if _, err := os.Stat(stateDIR); os.IsNotExist(err) {
 		os.MkdirAll(stateDIR, 0600)
 	}
 	state := raft.WithStateDIR(filepath.Join(stateDIR, fmt.Sprintf("%d", groupID)))
-	if joinAddr != "" {
-		fallback = raft.WithFallback(
-			raft.WithForceJoin(joinAddr, time.Second),
-			raft.WithRestart(),
-		)
-	} else {
-		fallback = raft.WithFallback(
-			raft.WithInitCluster(),
-			raft.WithRestart(),
-		)
-	}
-
+	fallback := raft.WithFallback(
+		raft.WithInitCluster(),
+		raft.WithRestart(),
+	)
 	fsm := newstateMachine()
 	node := g.Create(groupID, fsm, state, logger)
 	g.mu.Lock()
@@ -413,9 +372,13 @@ type replicate struct {
 }
 
 type createGroup struct {
-	GroupID  uint64
-	IDs      []uint64
-	JoinAddr string
+	GroupID uint64
+	Peers   []peer
+}
+
+type peer struct {
+	Address string
+	ID      uint64
 }
 
 type entry struct {
