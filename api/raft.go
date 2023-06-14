@@ -12,7 +12,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -301,18 +300,9 @@ type groups struct {
 }
 
 func (g *groups) createAndStart(groupID uint64, peers []peer) {
-	log.Printf("Creating group %d with peers %v\n", groupID, peers)
 	lg := raftlog.New(0, fmt.Sprintf("[GROUP %d]", groupID), os.Stderr, io.Discard)
 	logger := raft.WithLogger(lg)
 
-	sort.Slice(peers, func(i, j int) bool {
-		if peers[i].Address == myfqdn+":7070" {
-			return true
-		} else if peers[j].Address == myfqdn+":7070" {
-			return false
-		}
-		return false
-	})
 	members := make([]raft.RawMember, 1)
 	for _, peer := range peers {
 		if strings.Contains(peer.Address, myfqdn) {
@@ -328,6 +318,7 @@ func (g *groups) createAndStart(groupID uint64, peers []peer) {
 		}
 	}
 
+	log.Printf("Creating group %d with peers %v\n", groupID, members)
 	raw := raft.WithMembers(members...)
 	if _, err := os.Stat(stateDIR); os.IsNotExist(err) {
 		os.MkdirAll(stateDIR, 0600)
