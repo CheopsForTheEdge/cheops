@@ -292,32 +292,9 @@ func getOrCreateNodeWithSites(ctx context.Context, sites []string) *localNode {
 				}
 			}
 		}
-		newgroup := createGroup{
-			GroupID: maxGroupID + 1,
-			Peers:   peers,
-		}
-		buf, err := json.Marshal(&newgroup)
-		if err != nil {
-			log.Printf("Can't marshal content: %v\n", newgroup)
-		}
 
-		rep := replicate{
-			CMD:  "groups",
-			Data: buf,
-		}
-
-		buf, err = json.Marshal(&rep)
-		if err != nil {
-			log.Printf("Can't marshal content: %v\n", rep)
-			return nil
-		}
-
-		if err := node0.raftnode.Replicate(ctx, buf); err != nil {
-			log.Printf("Can't replicate group creation: %v\n", err)
-			return nil
-		}
-
-		groupID, _ = findGroup(node0.fsm.ReadGroups(), sites)
+		groupID = maxGroupID + 1
+		raftgroups.createAndStart(groupID, peers)
 	}
 
 	return raftgroups.getNode(groupID)
