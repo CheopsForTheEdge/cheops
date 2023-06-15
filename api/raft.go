@@ -194,6 +194,7 @@ func newGroup(w http.ResponseWriter, r *http.Request) {
 
 func save(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
+	log.Printf("form: %v\n", r.Form)
 	sites, ok := r.Form["sites"]
 	if !ok {
 		http.Error(w, "missing sites in request", http.StatusBadRequest)
@@ -252,6 +253,8 @@ func getOrCreateNodeWithSites(ctx context.Context, sites []string) *localNode {
 
 	findGroup := func(groups []createGroup, sites []string) (groupID, maxGroupID uint64) {
 		for _, group := range groups {
+			log.Printf("Find group for %v\n", sites)
+			log.Printf("Tentative: %v\n", group)
 			match := 0
 			for _, peer := range group.Peers {
 				for _, site := range sites {
@@ -260,6 +263,7 @@ func getOrCreateNodeWithSites(ctx context.Context, sites []string) *localNode {
 					}
 				}
 			}
+			log.Printf("match=%d len=%d\n", match, len(group.Peers))
 			if match == len(group.Peers) {
 				groupID = group.GroupID
 			}
