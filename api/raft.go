@@ -337,7 +337,14 @@ func getNodeFromgroup(r *http.Request) (*localNode, error) {
 
 	lnode := raftgroups.getNode(gid)
 	if lnode == nil {
-		return nil, fmt.Errorf("group %s does not exist", sid)
+		raftgroups.mu.Lock()
+		existing := make([]uint64, 0)
+		for id := range raftgroups.nodes {
+			existing = append(existing, id)
+		}
+		raftgroups.mu.Unlock()
+
+		return nil, fmt.Errorf("group %s does not exist, we have %v", sid, existing)
 	}
 
 	return lnode, nil
