@@ -18,10 +18,11 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/shaj13/raft"
-	"github.com/shaj13/raft/raftlog"
-	"github.com/shaj13/raft/transport"
-	"github.com/shaj13/raft/transport/raftgrpc"
+	"github.com/rakoo/raft"
+	"github.com/rakoo/raft/raftlog"
+	"github.com/rakoo/raft/transport"
+	"github.com/rakoo/raft/transport/raftgrpc"
+
 	"google.golang.org/grpc"
 )
 
