@@ -215,7 +215,6 @@ func newGroup(w http.ResponseWriter, r *http.Request) {
 
 func save(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-	log.Printf("form: %v\n", r.Form)
 	sites, ok := r.Form["sites"]
 	if !ok {
 		http.Error(w, "missing sites in request", http.StatusBadRequest)
@@ -230,7 +229,6 @@ func save(w http.ResponseWriter, r *http.Request) {
 
 	err = Save(r.Context(), sites, req)
 	if err != nil {
-
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	} else {
 		w.WriteHeader(http.StatusCreated)
@@ -250,6 +248,8 @@ func Save(ctx context.Context, sites []string, operation []byte) error {
 		CMD:  "operation",
 		Data: operation,
 	}
+
+	log.Printf("rep: %v\n", rep)
 
 	buf, err := json.Marshal(&rep)
 	if err != nil {
@@ -392,6 +392,7 @@ func (s *stateMachine) Apply(data []byte) {
 	case "operation":
 		s.mu.Lock()
 		defer s.mu.Unlock()
+		log.Printf("Storing operation: %v\n", rep.Data)
 		s.operations = append(s.operations, string(rep.Data))
 	case "groups":
 		var c createGroup
@@ -434,7 +435,10 @@ func (s *stateMachine) Restore(r io.ReadCloser) error {
 func (s *stateMachine) Read() []byte {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	st, _ := json.Marshal(s.operations)
+	st, err := json.Marshal(s.operations)
+	if err != nil {
+		log.Printf("Couldn't unmarshal operations: %v\n", err)
+	}
 	return st
 }
 
