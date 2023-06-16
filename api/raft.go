@@ -319,7 +319,30 @@ func getOrCreateNodeWithSites(ctx context.Context, sites []string) *localNode {
 		}
 
 		groupID = maxGroupID + 1
-		raftgroups.createAndStart(groupID, peers)
+
+		c := createGroup{
+			GroupID: groupID,
+			Peers:   peers,
+		}
+
+		cbuf, err := json.Marshal(c)
+		if err != nil {
+			return nil
+		}
+		rep := replicate{
+			CMD:  "groups",
+			Data: cbuf,
+		}
+
+		buf, err := json.Marshal(&rep)
+		if err != nil {
+			return nil
+		}
+
+		if err := node0.raftnode.Replicate(ctx, buf); err != nil {
+			log.Printf("Can't replicate group creation: %v\n", err)
+			return nil
+		}
 	}
 
 	return raftgroups.getNode(groupID)
@@ -370,6 +393,14 @@ func (s *stateMachine) Apply(data []byte) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		s.operations = append(s.operations, string(rep.Data))
+	case "groups":
+		var c createGroup
+		err := json.Unmarshal(rep.Data, &c)
+		if err != nil {
+			log.Printf("Couldn't unmarshal: %v\n", err)
+			break
+		}
+		raftgroups.createAndStart(c.GroupID, c.Peers)
 	}
 }
 
