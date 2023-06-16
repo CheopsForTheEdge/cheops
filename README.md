@@ -11,6 +11,7 @@ Cheops work is supported by [Inria](https://www.inria.fr/),
 [IMT Atlantique](https://www.imt-atlantique.fr/) and
 [Orange Labs](https://www.orange.com/).
 
+[Cheops OpenInfra 2022 Video presentation](https://www.youtube.com/watch?app=desktop&v=7EZ63DMRJhc)
 
 ### Update
 
