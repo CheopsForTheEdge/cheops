@@ -267,8 +267,6 @@ wait:
 		Data: operation,
 	}
 
-	log.Printf("rep: %v\n", rep)
-
 	buf, err := json.Marshal(&rep)
 	if err != nil {
 		return err
@@ -410,7 +408,6 @@ func (s *stateMachine) Apply(data []byte) {
 	case "operation":
 		s.mu.Lock()
 		defer s.mu.Unlock()
-		log.Printf("Storing operation: %v\n", rep.Data)
 		s.operations = append(s.operations, string(rep.Data))
 	case "groups":
 		var c createGroup
