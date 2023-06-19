@@ -214,15 +214,7 @@ func newGroup(w http.ResponseWriter, r *http.Request) {
 }
 
 func save(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
-	sites, ok := r.Form["sites"]
-	if !ok {
-		http.Error(w, "missing sites in request", http.StatusBadRequest)
-		return
-	}
-
 	defer r.Body.Close()
-
 	req, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -230,6 +222,13 @@ func save(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("body: %s\n", req)
+
+	r.ParseForm()
+	sites, ok := r.Form["sites"]
+	if !ok {
+		http.Error(w, "missing sites in request", http.StatusBadRequest)
+		return
+	}
 
 	err = Save(r.Context(), sites, req)
 	if err != nil {
