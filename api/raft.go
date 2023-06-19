@@ -229,6 +229,8 @@ func save(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("body: %s\n", req)
+
 	err = Save(r.Context(), sites, req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
