@@ -271,7 +271,7 @@ func Save(ctx context.Context, sites []string, operation []byte) error {
 	}
 	if err := node.raftnode.Replicate(ctx, buf); err != nil {
 		log.Printf("Can't replicate group creation: %v\n", err)
-		return nil
+		return err
 	}
 	return nil
 }
