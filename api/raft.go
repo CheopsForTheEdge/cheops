@@ -276,6 +276,8 @@ wait:
 }
 
 func getOrCreateNodeWithSites(ctx context.Context, sites []string) *localNode {
+	log.Printf("Fetching node sites=%v\n", sites)
+
 	node0 := raftgroups.getNode(0)
 
 	ctx, cancel := context.WithTimeout(ctx, time.Second)
@@ -313,6 +315,7 @@ func getOrCreateNodeWithSites(ctx context.Context, sites []string) *localNode {
 	groupID, maxGroupID := findGroup(existingGroups, sites)
 
 	if groupID == 0 {
+		log.Printf("No group found, creating sites=%v\n", sites)
 		// Create group and reread
 
 		// Find exact address and id from group 0 where everyone is
