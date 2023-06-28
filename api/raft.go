@@ -207,7 +207,12 @@ func newGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	raftgroups.createAndStart(c.GroupID, c.Peers)
+	ok := raftgroups.createAndStart(c.GroupID, c.Peers)
+	if ok {
+		w.WriteHeader(http.StatusCreated)
+	} else {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
 }
 
 func save(w http.ResponseWriter, r *http.Request) {
@@ -242,21 +247,6 @@ func Save(ctx context.Context, sites []string, operation []byte) error {
 	node := getOrCreateNodeWithSites(ctx, sites)
 	if node == nil {
 		return fmt.Errorf("Couldn't get node for %v", sites)
-	}
-
-	waitctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-
-wait:
-	for {
-		select {
-		case <-waitctx.Done():
-			return fmt.Errorf("Timeout waiting for cluster to form")
-		case <-time.After(1 * time.Second):
-			if node.raftnode.Leader() != 0 {
-				break wait
-			}
-		}
 	}
 
 	rep := replicate{
@@ -463,7 +453,7 @@ type groups struct {
 	nodes map[uint64]*localNode
 }
 
-func (g *groups) createAndStart(groupID uint64, peers []peer) {
+func (g *groups) createAndStart(groupID uint64, peers []peer) bool {
 	lg := raftlog.New(0, fmt.Sprintf("[GROUP %d]", groupID), os.Stderr, io.Discard)
 	logger := raft.WithLogger(lg)
 
@@ -495,24 +485,36 @@ func (g *groups) createAndStart(groupID uint64, peers []peer) {
 	fsm := newstateMachine()
 
 	node := g.Create(groupID, fsm, state, logger)
-
-	g.mu.Lock()
-	g.nodes[groupID] = &localNode{
-		fsm:      fsm,
-		raftnode: node,
-	}
-	g.mu.Unlock()
-
 	go func() {
 		err := node.Start(fallback, raw)
 		if err != nil && err != raft.ErrNodeStopped {
-			g.mu.Lock()
-			delete(g.nodes, groupID)
-			g.mu.Unlock()
-
-			log.Printf("Group %d failed: %v\n", err)
+			log.Printf("Group %d failed: %v\n", groupID, err)
 		}
 	}()
+
+	waitctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	for {
+		select {
+		case <-waitctx.Done():
+			log.Printf("Group %d: timeout waiting for cluster to form", groupID)
+			return false
+		case <-time.After(1 * time.Second):
+			if node.Leader() != 0 {
+				g.mu.Lock()
+				g.nodes[groupID] = &localNode{
+					fsm:      fsm,
+					raftnode: node,
+				}
+				g.mu.Unlock()
+
+				return true
+
+			}
+		}
+	}
+
 }
 
 func (g *groups) getNode(groupID uint64) *localNode {
