@@ -506,7 +506,11 @@ func (g *groups) createAndStart(groupID uint64, peers []peer) {
 	go func() {
 		err := node.Start(fallback, raw)
 		if err != nil && err != raft.ErrNodeStopped {
-			log.Fatal(err)
+			g.mu.Lock()
+			delete(g.nodes, groupID)
+			g.mu.Unlock()
+
+			log.Printf("Group %d failed: %v\n", err)
 		}
 	}()
 }
