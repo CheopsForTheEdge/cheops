@@ -112,9 +112,6 @@ func dump(ctx context.Context) ([]createGroup, error) {
 
 	groups := make([]createGroup, 0)
 	for groupID, node := range raftgroups.nodes {
-		if err := node.raftnode.LinearizableRead(ctx); err != nil {
-			return nil, err
-		}
 		peers := make([]peer, 0)
 		for _, member := range node.raftnode.Members() {
 			peers = append(peers, peer{
