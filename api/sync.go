@@ -26,10 +26,16 @@ func Sync(port int) {
 			return
 		}
 
+		err = r.ParseForm()
+		if err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+
 		log.Printf("method=%v path=%v body=%d\n", method, path, len(body))
 
 		sitesAsSlice := make([]string, 0)
-		for site := range sites {
+		for _, site := range r.Form["sites"] {
 			site := site
 			host := strings.Split(site, ":")[0]
 			header := fmt.Sprintf("X-status-%s", host)
