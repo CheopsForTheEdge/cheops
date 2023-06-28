@@ -472,7 +472,7 @@ func (g *groups) createAndStart(groupID uint64, peers []peer) bool {
 		}
 	}
 
-	log.Printf("Creating group %d with peers %v\n", groupID, members)
+	log.Printf("Creating group %d with members%v from peers %v\n", groupID, members, peers)
 	raw := raft.WithMembers(members...)
 	if _, err := os.Stat(stateDIR); os.IsNotExist(err) {
 		os.MkdirAll(stateDIR, 0600)
