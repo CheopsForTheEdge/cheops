@@ -26,5 +26,5 @@ func init() {
 type Request struct {
 	Method string
 	Path   string
-	Body   []byte
+	Body   string
 }
