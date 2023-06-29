@@ -240,6 +240,7 @@ func save(w http.ResponseWriter, r *http.Request) {
 // Save gets the group associated to the sites and creates one if it doesn't exist
 // Note: the sites will be fqdn, they won't have the raft port
 func Save(ctx context.Context, sites []string, operation []byte) error {
+	log.Printf("Save ['%s'] for %v\n", string(operation), sites)
 	node := getOrCreateNodeWithSites(ctx, sites)
 	if node == nil {
 		return fmt.Errorf("Couldn't get node for %v", sites)
@@ -260,7 +261,11 @@ wait:
 		}
 	}
 
-	log.Printf("Ready to replicate operation ['%v']\n", operation)
+	mem := make([]string, 0)
+	for _, m := range node.raftnode.Members() {
+		mem = append(mem, m.Address())
+	}
+	log.Printf("Ready to replicate operation ['%s'] on node %v\n", string(operation), mem)
 
 	rep := replicate{
 		CMD:  "operation",
@@ -272,7 +277,7 @@ wait:
 		return err
 	}
 	if err := node.raftnode.Replicate(ctx, buf); err != nil {
-		log.Printf("Can't replicate group creation: %v\n", err)
+		log.Printf("Can't replicate operation: %v\n", err)
 		return err
 	}
 	return nil
@@ -485,7 +490,7 @@ func (g *groups) createAndStart(groupID uint64, peers []peer) {
 		}
 	}
 
-	log.Printf("Creating group %d with members %v from peers %v\n", groupID, members, peers)
+	log.Printf("Creating group %d with members%v from peers %v\n", groupID, members, peers)
 	raw := raft.WithMembers(members...)
 	if _, err := os.Stat(stateDIR); os.IsNotExist(err) {
 		os.MkdirAll(stateDIR, 0600)

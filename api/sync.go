@@ -32,7 +32,7 @@ func Sync(port int) {
 			return
 		}
 
-		log.Printf("method=%v path=%v body=%d\n", method, path, len(body))
+		log.Printf("method=%v path=%v body=%s\n", method, path, string(body))
 
 		sitesAsSlice := make([]string, 0)
 		for _, site := range r.Form["sites"] {
