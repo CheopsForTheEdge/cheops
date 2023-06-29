@@ -57,7 +57,7 @@ func Raft(port int) {
 	raftgrpc.RegisterHandler(raftServer, raftgroups.Handler())
 
 	router = mux.NewRouter()
-	router.HandleFunc("/", http.HandlerFunc(save)).Methods("PUT", "POST")
+	router.HandleFunc("/", http.HandlerFunc(saveOrGet))
 
 	router.HandleFunc("/{groupID}", http.HandlerFunc(get)).Methods("GET")
 
@@ -96,7 +96,7 @@ func Raft(port int) {
 }
 
 func dumphttp(w http.ResponseWriter, r *http.Request) {
-	groups, err := dump(r.Context())
+	groups, err := dump()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -105,7 +105,7 @@ func dumphttp(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte{'\n'})
 }
 
-func dump(ctx context.Context) ([]createGroup, error) {
+func dump() ([]createGroup, error) {
 
 	raftgroups.mu.Lock()
 	defer raftgroups.mu.Unlock()
@@ -211,6 +211,16 @@ func newGroup(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
+func saveOrGet(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "PUT" || r.Method == "POST" {
+		save(w, r)
+	} else if r.Method == "GET" {
+		get(w, r)
+	} else {
+		http.Error(w, "method not managed", http.StatusBadRequest)
+	}
+}
+
 func save(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	req, err := ioutil.ReadAll(r.Body)
@@ -283,19 +293,10 @@ wait:
 	return nil
 }
 
-func getOrCreateNodeWithSites(ctx context.Context, sites []string) *localNode {
+func getGroupIdForSites(ctx context.Context, sites []string) uint64 {
 	log.Printf("Fetching node sites=%v\n", sites)
 
-	node0 := raftgroups.getNode(0)
-
-	ctx, cancel := context.WithTimeout(ctx, time.Second)
-	defer cancel()
-
-	if err := node0.raftnode.LinearizableRead(ctx); err != nil {
-		return nil
-	}
-
-	findGroup := func(groups []createGroup, sites []string) (groupID, maxGroupID uint64) {
+	findGroup := func(groups []createGroup, sites []string) (groupID uint64) {
 		for _, group := range groups {
 			match := 0
 			for _, peer := range group.Peers {
@@ -308,65 +309,77 @@ func getOrCreateNodeWithSites(ctx context.Context, sites []string) *localNode {
 			if match == len(group.Peers) {
 				groupID = group.GroupID
 			}
-			if group.GroupID > maxGroupID {
-				maxGroupID = group.GroupID
-			}
 		}
 
 		return
 	}
 
-	existingGroups, err := dump(ctx)
+	existingGroups, err := dump()
+	if err != nil {
+		return 0
+	}
+
+	groupID := findGroup(existingGroups, sites)
+	if groupID != 0 {
+		return groupID
+	} else {
+		return 0
+	}
+}
+
+func getOrCreateNodeWithSites(ctx context.Context, sites []string) *localNode {
+	groupID := getGroupIdForSites(ctx, sites)
+	if groupID != 0 {
+		return raftgroups.getNode(groupID)
+	}
+
+	existingGroups, err := dump()
 	if err != nil {
 		return nil
 	}
-	groupID, maxGroupID := findGroup(existingGroups, sites)
+	groupID = uint64(len(existingGroups) + 1)
 
-	if groupID == 0 {
-		log.Printf("No group found, creating sites=%v\n", sites)
-		// Create group and reread
+	log.Printf("No group found, creating sites=%v\n", sites)
+	// Create group and reread
 
-		// Find exact address and id from group 0 where everyone is
-		peers := make([]peer, 0)
-		node0 := raftgroups.getNode(0)
+	// Find exact address and id from group 0 where everyone is
+	peers := make([]peer, 0)
+	node0 := raftgroups.getNode(0)
 
-		membs := node0.raftnode.Members()
-		for _, m := range membs {
-			for _, site := range sites {
-				if strings.Contains(m.Address(), site) {
-					peers = append(peers, peer{
-						Address: m.Address(),
-						ID:      m.ID(),
-					})
-				}
+	membs := node0.raftnode.Members()
+	for _, m := range membs {
+		for _, site := range sites {
+			if strings.Contains(m.Address(), site) {
+				peers = append(peers, peer{
+					Address: m.Address(),
+					ID:      m.ID(),
+				})
 			}
 		}
+	}
 
-		groupID = maxGroupID + 1
+	c := createGroup{
+		GroupID: groupID,
+		Peers:   peers,
+	}
 
-		c := createGroup{
-			GroupID: groupID,
-			Peers:   peers,
-		}
+	cbuf, err := json.Marshal(c)
+	if err != nil {
+		return nil
+	}
+	rep := replicate{
+		CMD:  "groups",
+		Data: cbuf,
+	}
 
-		cbuf, err := json.Marshal(c)
-		if err != nil {
-			return nil
-		}
-		rep := replicate{
-			CMD:  "groups",
-			Data: cbuf,
-		}
+	buf, err := json.Marshal(&rep)
+	if err != nil {
+		return nil
+	}
 
-		buf, err := json.Marshal(&rep)
-		if err != nil {
-			return nil
-		}
-
-		if err := node0.raftnode.Replicate(ctx, buf); err != nil {
-			log.Printf("Can't replicate group creation: %v\n", err)
-			return nil
-		}
+	if err := node0.raftnode.Replicate(ctx, buf); err != nil {
+		log.Printf("Can't replicate group creation: %v\n", err)
+		return nil
 	}
 
 	return raftgroups.getNode(groupID)
