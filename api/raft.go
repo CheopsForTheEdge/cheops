@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -33,6 +34,11 @@ var (
 	raftPort   int
 	raftgroups *groups
 	stateDIR   string
+)
+
+var (
+	// Redefine this error from raftengine because we need it
+	ErrNoLeader = errors.New("raft: no elected cluster leader")
 )
 
 func init() {
@@ -256,21 +262,6 @@ func Save(ctx context.Context, sites []string, operation []byte) error {
 		return fmt.Errorf("Couldn't get node for %v", sites)
 	}
 
-	waitctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-
-wait:
-	for {
-		select {
-		case <-waitctx.Done():
-			return fmt.Errorf("Timeout waiting for cluster to form")
-		case <-time.After(1 * time.Second):
-			if node.raftnode.Leader() != 0 {
-				break wait
-			}
-		}
-	}
-
 	mem := make([]string, 0)
 	for _, m := range node.raftnode.Members() {
 		mem = append(mem, m.Address())
@@ -286,9 +277,19 @@ wait:
 	if err != nil {
 		return err
 	}
-	if err := node.raftnode.Replicate(ctx, buf); err != nil {
-		log.Printf("Can't replicate operation: %v\n", err)
-		return err
+
+	maxtries := 10
+	for {
+		if err := node.raftnode.Replicate(ctx, buf); err != nil {
+			if err == ErrNoLeader && maxtries > 0 {
+				log.Println("No leader yet, waiting 1 second")
+				maxtries--
+				<-time.After(1 * time.Second)
+			} else {
+				log.Printf("Can't replicate operation: %v\n", err)
+				return err
+			}
+		}
 	}
 	return nil
 }
