@@ -393,6 +393,12 @@ func getOrCreateNodeWithSites(ctx context.Context, sites []string) *localNode {
 }
 
 func getNodeFromgroup(r *http.Request) (*localNode, error) {
+	r.ParseForm()
+	groupID := getGroupIdForSites(r.Context(), r.Form["sites"])
+	if groupID != 0 {
+		return raftgroups.getNode(groupID), nil
+	}
+
 	sid := mux.Vars(r)["groupID"]
 	gid, err := strconv.ParseUint(sid, 0, 64)
 	if err != nil {
