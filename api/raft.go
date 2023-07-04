@@ -256,6 +256,10 @@ func save(w http.ResponseWriter, r *http.Request) {
 // Save gets the group associated to the sites and creates one if it doesn't exist
 // Note: the sites will be fqdn, they won't have the raft port
 func Save(ctx context.Context, sites []string, operation []byte) error {
+	if len(sites) < 3 {
+		return fmt.Errorf("Can't save with raft, need at least three sites")
+	}
+
 	log.Printf("Save ['%s'] for %v\n", string(operation), sites)
 	node := getOrCreateNodeWithSites(ctx, sites)
 	if node == nil {
