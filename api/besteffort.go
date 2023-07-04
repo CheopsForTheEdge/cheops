@@ -4,6 +4,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"strings"
 
 	"log"
@@ -18,7 +19,17 @@ func BestEffort(port int) {
 
 	router := mux.NewRouter()
 	router.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Printf(`* %s %s`, r.Method, r.URL.String())
+		method := r.Method
+		path := r.URL.EscapedPath()
+
+		defer r.Body.Close()
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+
+		log.Printf(`* %s %s`, method, r.URL.String())
 
 		timeoutContext, timeoutCancel := context.WithTimeout(r.Context(), 3*time.Second)
 		defer timeoutCancel()
@@ -44,13 +55,13 @@ func BestEffort(port int) {
 					statusCode: http.StatusInternalServerError,
 				}
 
-				err := proxy(ctx, site, e, r)
+				err := proxy(ctx, site, e, method, path, r.Header, body)
 				statuses[header] = e.statusCode
 				return err
 			})
 		}
 
-		resp, err := proxyWaitBeforeWritingReply(r.Context(), "127.0.0.1:8283", w, r)
+		resp, err := proxyWaitBeforeWritingReply(r.Context(), "127.0.0.1:8283", w, method, path, r.Header, body)
 		if err != nil {
 			log.Println(err)
 			return

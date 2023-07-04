@@ -3,35 +3,29 @@ package api
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 )
 
-func proxyWaitBeforeWritingReply(ctx context.Context, host string, w http.ResponseWriter, r *http.Request) (*http.Response, error) {
-	defer r.Body.Close()
-	reqbuf, err := ioutil.ReadAll(r.Body)
+func proxyWaitBeforeWritingReply(ctx context.Context, host string, w http.ResponseWriter, method string, path string, header http.Header, body []byte) (*http.Response, error) {
+
+	u, err := url.Parse(fmt.Sprintf("http://%s/%s", host, path))
 	if err != nil {
-		http.Error(w, "can't read request body", http.StatusInternalServerError)
 		return nil, err
 	}
 
-	u := r.URL
-	u.Host = host
-
-	// Not filled by default
-	u.Scheme = "http"
-
-	newreq, err := http.NewRequestWithContext(ctx, r.Method, u.String(), bytes.NewReader(reqbuf))
-	defer r.Body.Close()
+	newreq, err := http.NewRequestWithContext(ctx, method, u.String(), bytes.NewReader(body))
 
 	if err != nil {
 		http.Error(w, "can't build proxy request", http.StatusInternalServerError)
 		return nil, err
 	}
 
-	for key, vals := range r.Header {
+	for key, vals := range header {
 		for _, val := range vals {
 			newreq.Header.Add(key, val)
 		}
@@ -93,8 +87,8 @@ func proxyWriteReply(resp *http.Response, w http.ResponseWriter, host string) er
 
 }
 
-func proxy(ctx context.Context, host string, w http.ResponseWriter, r *http.Request) error {
-	resp, err := proxyWaitBeforeWritingReply(ctx, host, w, r)
+func proxy(ctx context.Context, host string, w http.ResponseWriter, method string, path string, header http.Header, body []byte) error {
+	resp, err := proxyWaitBeforeWritingReply(ctx, host, w, method, path, header, body)
 	if err != nil {
 		return err
 	}
