@@ -8,7 +8,7 @@ replace (
 	cheops.com/config => ./config
 	cheops.com/database => ./database
 	cheops.com/k8s => ./glue/k8s/
-	cheops.com/kubernetes => ./kubernetes
+	cheops.com/backends => ./backends
 	cheops.com/openstack => ./glue/openstack
 	cheops.com/operation => ./operation
 )

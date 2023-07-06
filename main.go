@@ -7,14 +7,14 @@ import (
 	// "cheops.com/client"
 	"context"
 
-	"cheops.com/kubernetes"
+	"cheops.com/backends"
 )
 
 var app = "k8s"
 
 func main() {
 
-	kubernetes.Run(context.Background())
+	backends.Kubernetes(context.Background())
 	go api.Admin(8081)
 	go api.BestEffort(8080)
 	go api.Sync(8079)

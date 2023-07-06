@@ -63,7 +63,7 @@ func Raft(port int) {
 	raftgrpc.RegisterHandler(raftServer, raftgroups.Handler())
 
 	router = mux.NewRouter()
-	router.HandleFunc("/", http.HandlerFunc(saveOrGet))
+	router.HandleFunc("/", http.HandlerFunc(get))
 
 	router.HandleFunc("/{groupID}", http.HandlerFunc(get)).Methods("GET")
 
@@ -217,50 +217,18 @@ func newGroup(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-func saveOrGet(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "PUT" || r.Method == "POST" {
-		save(w, r)
-	} else if r.Method == "GET" {
-		get(w, r)
-	} else {
-		http.Error(w, "method not managed", http.StatusBadRequest)
-	}
-}
-
-func save(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
-	req, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	log.Printf("body: %s\n", req)
-
-	r.ParseForm()
-	sites, ok := r.Form["sites"]
-	if !ok {
-		http.Error(w, "missing sites in request", http.StatusBadRequest)
-		return
-	}
-
-	err = Save(r.Context(), sites, req)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	} else {
-		w.WriteHeader(http.StatusCreated)
-	}
-
-}
-
-// Save gets the group associated to the sites and creates one if it doesn't exist
+// Do gets the group associated to the sites and creates one if it doesn't exist
 // Note: the sites will be fqdn, they won't have the raft port
-func Save(ctx context.Context, sites []string, operation []byte) error {
+// It then distributes the request in raft, waits for the reply, and gives it back
+func Do(ctx context.Context, sites []string, operation Payload) error {
 	if len(sites) < 3 {
 		return fmt.Errorf("Can't save with raft, need at least three sites")
 	}
+	buf, err := json.Marshal(operation)
+	if err != nil {
+		return err
+	}
 
-	log.Printf("Save ['%s'] for %v\n", string(operation), sites)
 	node := getOrCreateNodeWithSites(ctx, sites)
 	if node == nil {
 		return fmt.Errorf("Couldn't get node for %v", sites)
@@ -270,14 +238,13 @@ func Save(ctx context.Context, sites []string, operation []byte) error {
 	for _, m := range node.raftnode.Members() {
 		mem = append(mem, m.Address())
 	}
-	log.Printf("Ready to replicate operation ['%s'] on node %v\n", string(operation), mem)
 
 	rep := replicate{
 		CMD:  "operation",
-		Data: operation,
+		Data: buf,
 	}
 
-	buf, err := json.Marshal(&rep)
+	buf2, err := json.Marshal(&rep)
 	if err != nil {
 		return err
 	}

@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -48,18 +47,14 @@ func Sync(port int) {
 			return
 		}
 
-		req := Request{
+		req := Payload{
 			Method: method,
+			Header: r.Header,
 			Path:   path,
 			Body:   string(body),
 		}
-		buf, err := json.Marshal(req)
-		if err != nil {
-			http.Error(w, "bad request", http.StatusBadRequest)
-			return
-		}
 
-		err = Save(r.Context(), sitesAsSlice, buf)
+		err = Do(r.Context(), sitesAsSlice, req)
 		if err != nil {
 			log.Println(err)
 			http.Error(w, "internal error", http.StatusInternalServerError)
