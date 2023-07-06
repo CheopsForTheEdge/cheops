@@ -249,7 +249,7 @@ func Do(ctx context.Context, sites []string, operation Payload) error {
 		return err
 	}
 
-	return node.replicateWithRetries(ctx, buf)
+	return node.replicateWithRetries(ctx, buf2)
 }
 
 func getGroupIdForSites(ctx context.Context, sites []string) uint64 {
@@ -378,13 +378,16 @@ func getNodeFromgroup(r *http.Request) (*localNode, error) {
 	return lnode, nil
 }
 
-func newstateMachine() *stateMachine {
+func newstateMachine(groupID uint64) *stateMachine {
 	return &stateMachine{
+		groupID:    groupID,
 		operations: make([]string, 0),
 	}
 }
 
 type stateMachine struct {
+	groupID uint64
+
 	mu         sync.Mutex
 	operations []string
 }
@@ -484,7 +487,7 @@ func (g *groups) createAndStart(groupID uint64, peers []peer) {
 		raft.WithInitCluster(),
 		raft.WithRestart(),
 	)
-	fsm := newstateMachine()
+	fsm := newstateMachine(groupID)
 
 	node := g.Create(groupID, fsm, state, logger)
 	g.mu.Lock()
