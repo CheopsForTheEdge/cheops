@@ -517,6 +517,10 @@ type localNode struct {
 	fsm      *stateMachine
 }
 
+// replicateWithRetries tries at most 10 times to replicate the buffer
+// retries are done when there is no leader because it is considered
+// a transient error; another error is considered more problematic and is
+// returned
 func (n *localNode) replicateWithRetries(ctx context.Context, buf []byte) error {
 	maxtries := 10
 	for {
