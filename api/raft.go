@@ -404,6 +404,7 @@ func (s *stateMachine) Apply(data []byte) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		s.operations = append(s.operations, string(rep.Data))
+		//s.enqueue(s.groupID, len(s.operations) - 1, rep.Data)
 	case "groups":
 		var c createGroup
 		err := json.Unmarshal(rep.Data, &c)
@@ -452,6 +453,16 @@ func (s *stateMachine) Read() []byte {
 	return st
 }
 
+// enqueue puts data in the queue for this groupID with the index as a key
+// for the consumer.
+// Considering that data must be processed sequentially, it is expected that
+// only one consumer processes it.
+// The queue is a list of files, where the name is the index, and the content
+// is the data. inotify manages waking up the consumer when needed
+func (s *stateMachine) enqueue(groupID uint64, index int, data []byte) {
+	filename := fmt.Sprintf("/var/cheops/queue/%d/%d", groupID, index)
+	os.WriteFile(filename, data, 0600)
+}
 type groups struct {
 	*raft.NodeGroup
 	mu    sync.Mutex
