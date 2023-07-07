@@ -6,8 +6,8 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"strings"
 
+	"cheops.com/backends"
 	"github.com/gorilla/mux"
 )
 
@@ -17,6 +17,7 @@ func Sync(port int) {
 	router.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		method := r.Method
 		path := r.URL.EscapedPath()
+		header := r.Header
 
 		defer r.Body.Close()
 		body, err := ioutil.ReadAll(r.Body)
@@ -33,16 +34,20 @@ func Sync(port int) {
 
 		log.Printf("method=%v path=%v body=%s\n", method, path, string(body))
 
-		sitesAsSlice := make([]string, 0)
-		for _, site := range r.Form["sites"] {
-			site := site
-			host := strings.Split(site, ":")[0]
-			header := fmt.Sprintf("X-status-%s", host)
-			w.Header().Add("Trailer", header)
-			sitesAsSlice = append(sitesAsSlice, site)
+		sites, err := backends.SitesFor(method, path, header, body)
+		if err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
 		}
 
-		if len(sitesAsSlice) == 0 {
+		for _, site := range sites {
+			header := fmt.Sprintf("X-status-%s", site)
+			w.Header().Add("Trailer", header)
+		}
+
+		log.Printf("sites=%v\n", sites)
+
+		if len(sites) == 0 {
 			proxy(r.Context(), "127.0.0.1:8283", w, r.Method, path, r.Header, body)
 			return
 		}
@@ -51,10 +56,10 @@ func Sync(port int) {
 			Method: method,
 			Header: r.Header,
 			Path:   path,
-			Body:   string(body),
+			Body:   body,
 		}
 
-		err = Do(r.Context(), sitesAsSlice, req)
+		err = Do(r.Context(), sites, req)
 		if err != nil {
 			log.Println(err)
 			http.Error(w, "internal error", http.StatusInternalServerError)

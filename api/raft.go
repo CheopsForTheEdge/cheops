@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base32"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	"cheops.com/backends"
 	"github.com/gorilla/mux"
 	"github.com/rakoo/raft"
 	"github.com/rakoo/raft/raftlog"
@@ -249,7 +252,44 @@ func Do(ctx context.Context, sites []string, operation Payload) error {
 		return err
 	}
 
-	return node.replicateWithRetries(ctx, buf2)
+	err = node.replicateWithRetries(ctx, buf2)
+	if err != nil {
+		return err
+	}
+
+	replies := make([]Payload, 0, len(sites))
+	for i := 0; i < len(sites); i++ {
+		select {
+		case reply := <-replyBus(node.groupID, hash(buf2)):
+			replies = append(replies, reply)
+		case <-time.After(20 * time.Second):
+			// timeout
+			// happens when the node didn't do the request locally
+			// but request comes from raft (could be optimized by creating
+			// the channel here only, so we know)
+			// or when the reply doesn't arrive locally.
+			//
+			// Because there are multiple cases, let's leave it like that,
+			// some goroutines will wait for nothing, that's alright
+			continue
+		}
+	}
+	return nil
+}
+
+var (
+	// groupId -> requestId -> chan
+	replyBuses map[uint64]map[string]chan Payload
+)
+
+func replyBus(groupId uint64, requestId string) chan Payload {
+	if _, ok := replyBuses[groupId]; !ok {
+		replyBuses[groupId] = make(map[string]chan Payload)
+	}
+	if _, ok := replyBuses[groupId][requestId]; !ok {
+		replyBuses[groupId][requestId] = make(chan Payload)
+	}
+	return replyBuses[groupId][requestId]
 }
 
 func getGroupIdForSites(ctx context.Context, sites []string) uint64 {
@@ -382,6 +422,7 @@ func newstateMachine(groupID uint64) *stateMachine {
 	return &stateMachine{
 		groupID:    groupID,
 		operations: make([]string, 0),
+		replies:    make(map[string]map[string]Payload),
 	}
 }
 
@@ -390,6 +431,10 @@ type stateMachine struct {
 
 	mu         sync.Mutex
 	operations []string
+
+	// request id -> site -> reply
+	muResp  sync.Mutex
+	replies map[string]map[string]Payload
 }
 
 func (s *stateMachine) Apply(data []byte) {
@@ -402,9 +447,30 @@ func (s *stateMachine) Apply(data []byte) {
 	switch rep.CMD {
 	case "operation":
 		s.mu.Lock()
-		defer s.mu.Unlock()
 		s.operations = append(s.operations, string(rep.Data))
+		index := len(s.operations) - 1
+		s.mu.Unlock()
 		//s.enqueue(s.groupID, len(s.operations) - 1, rep.Data)
+		go handleNewOperation(s.groupID, index, rep.Data)
+	case "reply":
+		var pm PayloadWithMeta
+		err := json.Unmarshal(rep.Data, &pm)
+		if err != nil {
+			log.Printf("Couldn't unmarshal: %v\n", err)
+			break
+		}
+
+		s.muResp.Lock()
+		_, ok := s.replies[pm.RequestId]
+		if !ok {
+			s.replies[pm.RequestId] = make(map[string]Payload)
+		}
+		s.replies[pm.RequestId][pm.Site] = pm.Payload
+		s.muResp.Unlock()
+
+		go func() {
+			replyBus(s.groupID, pm.RequestId) <- pm.Payload
+		}()
 	case "groups":
 		var c createGroup
 		err := json.Unmarshal(rep.Data, &c)
@@ -463,6 +529,50 @@ func (s *stateMachine) enqueue(groupID uint64, index int, data []byte) {
 	filename := fmt.Sprintf("/var/cheops/queue/%d/%d", groupID, index)
 	os.WriteFile(filename, data, 0600)
 }
+
+func handleNewOperation(groupID uint64, index int, operation []byte) {
+	var p Payload
+	err := json.Unmarshal(operation, &p)
+	if err != nil {
+		log.Printf("Couldn't unmarshal payload: %v\n", err)
+		return
+	}
+
+	headerOut, bodyOut, err := backends.HandleKubernetes(p.Method, p.Path, p.Header, p.Body)
+	if err != nil {
+		log.Printf("Couldn't run locally: %v\n", err)
+		return
+	}
+
+	resp := PayloadWithMeta{
+		Payload: Payload{
+			Header: headerOut,
+			Body:   bodyOut,
+		},
+		Site:      myfqdn,
+		RequestId: hash(operation),
+	}
+
+	buf, err := json.Marshal(resp)
+	if err != nil {
+		log.Printf("Couldn't marshall: %v\n", err)
+		return
+	}
+
+	rep := replicate{
+		CMD:  "reply",
+		Data: buf,
+	}
+
+	buf2, err := json.Marshal(&rep)
+	if err != nil {
+		log.Printf("Couldn't marshal: %v\n", err)
+	}
+
+	node := raftgroups.getNode(groupID)
+	node.replicateWithRetries(context.Background(), buf2)
+}
+
 type groups struct {
 	*raft.NodeGroup
 	mu    sync.Mutex
@@ -503,6 +613,7 @@ func (g *groups) createAndStart(groupID uint64, peers []peer) {
 	node := g.Create(groupID, fsm, state, logger)
 	g.mu.Lock()
 	g.nodes[groupID] = &localNode{
+		groupID:  groupID,
 		fsm:      fsm,
 		raftnode: node,
 	}
@@ -527,6 +638,7 @@ func (g *groups) getNode(groupID uint64) *localNode {
 }
 
 type localNode struct {
+	groupID  uint64
 	raftnode *raft.Node
 	fsm      *stateMachine
 }
@@ -569,4 +681,15 @@ type createGroup struct {
 type peer struct {
 	Address string
 	ID      uint64
+}
+
+type PayloadWithMeta struct {
+	Payload
+	RequestId string
+	Site      string
+}
+
+func hash(in []byte) string {
+	b := sha256.Sum256(in)
+	return base32.StdEncoding.EncodeToString(b[:])
 }

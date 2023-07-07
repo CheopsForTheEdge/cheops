@@ -28,5 +28,5 @@ type Payload struct {
 	Method string
 	Header http.Header
 	Path   string
-	Body   string
+	Body   []byte
 }
