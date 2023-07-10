@@ -279,7 +279,7 @@ func Do(ctx context.Context, sites []string, operation Payload) error {
 
 var (
 	// groupId -> requestId -> chan
-	replyBuses map[uint64]map[string]chan Payload
+	replyBuses = make(map[uint64]map[string]chan Payload)
 )
 
 func replyBus(groupId uint64, requestId string) chan Payload {
