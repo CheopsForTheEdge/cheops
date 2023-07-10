@@ -39,6 +39,10 @@ func ensureProxyRunning(ctx context.Context) error {
 }
 
 func SitesFor(method string, path string, headers http.Header, body []byte) ([]string, error) {
+	if body == nil || len(body) == 0 {
+		return make([]string, 0), nil
+	}
+
 	doc, err := yaml.Parse(string(body))
 	if err != nil {
 		return nil, err
@@ -48,7 +52,11 @@ func SitesFor(method string, path string, headers http.Header, body []byte) ([]s
 	if err != nil {
 		return nil, err
 	}
-	locations := strings.Split(meta.ObjectMeta.Annotations["locations"], ",")
+	locationsString, ok := meta.ObjectMeta.Annotations["locations"]
+	if !ok {
+		return make([]string, 0), nil
+	}
+	locations := strings.Split(locationsString, ",")
 	locTrimmed := make([]string, 0)
 	for _, loc := range locations {
 		locTrimmed = append(locTrimmed, strings.TrimSpace(loc))

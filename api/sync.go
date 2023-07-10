@@ -36,6 +36,7 @@ func Sync(port int) {
 
 		sites, err := backends.SitesFor(method, path, header, body)
 		if err != nil {
+			log.Printf("Error parsing sites: %v\n", err)
 			http.Error(w, "bad request", http.StatusBadRequest)
 			return
 		}
