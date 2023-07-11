@@ -16,7 +16,7 @@ func Sync(port int) {
 	router := mux.NewRouter()
 	router.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		method := r.Method
-		path := r.URL.EscapedPath()
+		path := r.URL.RequestURI()
 		header := r.Header
 
 		defer r.Body.Close()
