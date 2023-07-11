@@ -260,6 +260,8 @@ func Do(ctx context.Context, sites []string, operation Payload) error {
 	replies := make([]Payload, 0, len(sites))
 	for i := 0; i < len(sites); i++ {
 		select {
+		case <-ctx.Done():
+			break
 		case reply := <-replyBus(node.groupID, hash(buf2)):
 			replies = append(replies, reply)
 		case <-time.After(20 * time.Second):
