@@ -635,7 +635,7 @@ func (g *groups) createAndStart(groupID uint64, peers []peer) {
 			delete(g.nodes, groupID)
 			g.mu.Unlock()
 
-			log.Printf("Group %d failed: %v\n", err)
+			log.Printf("Group %d failed: %v\n", groupID, err)
 		}
 	}()
 }
