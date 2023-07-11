@@ -641,9 +641,6 @@ func (g *groups) createAndStart(groupID uint64, peers []peer) {
 	fsm := newstateMachine(groupID)
 
 	node := g.Create(groupID, fsm, state, logger)
-	if err := node.LinearizableRead(context.Background()); err != nil {
-		log.Printf("Can't make node linearizable read: %v\n", err)
-	}
 
 	g.mu.Lock()
 	g.nodes[groupID] = &localNode{
@@ -686,6 +683,9 @@ func (n *localNode) replicateWithRetries(ctx context.Context, buf []byte) error 
 	for {
 		err := n.raftnode.Replicate(ctx, buf)
 		if err == nil {
+			if err := n.raftnode.LinearizableRead(ctx); err != nil {
+				log.Printf("Can't make node linearizable read: %v\n", err)
+			}
 			break
 		}
 
