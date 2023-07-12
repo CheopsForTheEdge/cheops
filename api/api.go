@@ -25,8 +25,9 @@ func init() {
 }
 
 type Payload struct {
-	Method string
-	Header http.Header
-	Path   string
-	Body   []byte
+	RequestId string
+	Method    string
+	Header    http.Header
+	Path      string
+	Body      []byte
 }
