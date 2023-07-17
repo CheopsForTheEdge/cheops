@@ -1,4 +1,4 @@
-package api
+package replicator
 
 import (
 	"context"
@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"cheops.com/backends"
+	"cheops.com/env"
 	"github.com/gorilla/mux"
 	"github.com/rakoo/raft"
 	"github.com/rakoo/raft/raftlog"
@@ -31,46 +32,57 @@ import (
 )
 
 var (
-	raftServer *grpc.Server
-	router     *mux.Router
-
-	raftPort   int
-	raftgroups *groups
-	stateDIR   string
-)
-
-var (
 	// Redefine this error from raftengine because we need it
 	ErrNoLeader = errors.New("raft: no elected cluster leader")
 )
 
 func init() {
+}
+
+type Raft struct {
+	stateDir string
+
+	raftPort   int
+	raftgroups *groups
+}
+
+func RaftDoer(port int) *Raft {
 	dir, ok := os.LookupEnv("STATE_DIR")
 	if !ok {
 		log.Fatal("My FQDN must be given with the MYFQDN environment variable !")
 	}
-	stateDIR = dir
+
+	raftgroups := &groups{
+		NodeGroup: raft.NewNodeGroup(transport.GRPC),
+		nodes:     make(map[uint64]*localNode),
+		stateDir:  dir,
+	}
+
+	r := &Raft{
+		stateDir:   dir,
+		raftPort:   port,
+		raftgroups: raftgroups,
+	}
+	r.raftgroups.handleNewOperation = r.handleNewOperation
+
+	r.listen()
+	return r
 }
 
-func Raft(port int) {
-	raftPort = port
+func (r *Raft) listen() {
 	raftgrpc.Register(
 		raftgrpc.WithDialOptions(grpc.WithInsecure()),
 	)
-	raftgroups = &groups{
-		NodeGroup: raft.NewNodeGroup(transport.GRPC),
-		nodes:     make(map[uint64]*localNode),
-	}
 
-	raftServer = grpc.NewServer()
-	raftgrpc.RegisterHandler(raftServer, raftgroups.Handler())
+	raftServer := grpc.NewServer()
+	raftgrpc.RegisterHandler(raftServer, r.raftgroups.Handler())
 
-	router = mux.NewRouter()
-	router.HandleFunc("/", http.HandlerFunc(dump))
-	router.HandleFunc("/mgmt/groups", http.HandlerFunc(newGroup)).Methods("PUT", "POST")
+	router := mux.NewRouter()
+	router.HandleFunc("/", http.HandlerFunc(r.dump))
+	router.HandleFunc("/mgmt/groups", http.HandlerFunc(r.newGroup)).Methods("PUT", "POST")
 
 	go func() {
-		lis, err := net.Listen("tcp", ":"+strconv.Itoa(port))
+		lis, err := net.Listen("tcp", ":"+strconv.Itoa(r.raftPort))
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -81,9 +93,9 @@ func Raft(port int) {
 		}
 	}()
 
-	go raftgroups.Start()
+	go r.raftgroups.Start()
 	go func() {
-		err := http.ListenAndServe(":"+strconv.Itoa(port+1), router)
+		err := http.ListenAndServe(":"+strconv.Itoa(r.raftPort+1), router)
 		if err != nil && err != http.ErrServerClosed {
 			log.Fatal(err)
 		}
@@ -105,15 +117,15 @@ type GroupDump struct {
 
 type LogDump struct {
 	Request Payload
-	Replies []PayloadWithMeta
+	Replies []Payload
 }
 
-func dump(w http.ResponseWriter, r *http.Request) {
-	raftgroups.mu.Lock()
-	defer raftgroups.mu.Unlock()
+func (r *Raft) dump(w http.ResponseWriter, req *http.Request) {
+	r.raftgroups.mu.Lock()
+	defer r.raftgroups.mu.Unlock()
 
 	groups := make([]GroupDump, 0)
-	for groupID, node := range raftgroups.nodes {
+	for groupID, node := range r.raftgroups.nodes {
 		members := make([]string, 0)
 		for _, member := range node.raftnode.Members() {
 			members = append(members, member.Address())
@@ -135,16 +147,12 @@ func dump(w http.ResponseWriter, r *http.Request) {
 		for _, operation := range operations {
 			replies, ok := allReplies[operation.RequestId]
 			if !ok {
-				replies = make(map[string]Payload)
-			}
-			repliesSlice := make([]PayloadWithMeta, 0)
-			for site, payload := range replies {
-				repliesSlice = append(repliesSlice, PayloadWithMeta{payload, site})
+				replies = make([]Payload, 0)
 			}
 
 			logs = append(logs, LogDump{
 				Request: operation,
-				Replies: repliesSlice,
+				Replies: replies,
 			})
 		}
 
@@ -157,12 +165,12 @@ func dump(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte{'\n'})
 }
 
-func getGroups() []createGroup {
-	raftgroups.mu.Lock()
-	defer raftgroups.mu.Unlock()
+func (r *Raft) getGroups() []createGroup {
+	r.raftgroups.mu.Lock()
+	defer r.raftgroups.mu.Unlock()
 
 	groups := make([]createGroup, 0)
-	for groupID, node := range raftgroups.nodes {
+	for groupID, node := range r.raftgroups.nodes {
 		peers := make([]peer, 0)
 		for _, member := range node.raftnode.Members() {
 			peers = append(peers, peer{
@@ -180,8 +188,8 @@ func getGroups() []createGroup {
 	return groups
 }
 
-func newGroup(w http.ResponseWriter, r *http.Request) {
-	buf, err := ioutil.ReadAll(r.Body)
+func (r *Raft) newGroup(w http.ResponseWriter, req *http.Request) {
+	buf, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -193,14 +201,14 @@ func newGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	raftgroups.createAndStart(c.GroupID, c.Peers)
+	r.raftgroups.createAndStart(c.GroupID, c.Peers)
 	w.WriteHeader(http.StatusCreated)
 }
 
-// doRaft appends the operation to the raft log related to those sites (will create a group if
+// Do appends the operation to the raft log related to those sites (will create a group if
 // there is none yet). Once committed each site executes the operation and writes the reply
 // in the raft log. The caller will then collect the replies and return the first one that arrives
-func doRaft(ctx context.Context, sites []string, operation Payload) (reply Payload, err error) {
+func (r *Raft) Do(ctx context.Context, sites []string, operation Payload) (reply Payload, err error) {
 	reply = Payload{}
 	if len(sites) < 3 {
 		return reply, fmt.Errorf("Can't save with raft, need at least three sites")
@@ -216,7 +224,7 @@ func doRaft(ctx context.Context, sites []string, operation Payload) (reply Paylo
 		return reply, err
 	}
 
-	node := getOrCreateNodeWithSites(ctx, sites)
+	node := r.getOrCreateNodeWithSites(ctx, sites)
 	if node == nil {
 		return reply, fmt.Errorf("Couldn't get node for %v", sites)
 	}
@@ -272,36 +280,10 @@ func doRaft(ctx context.Context, sites []string, operation Payload) (reply Paylo
 	return reply, fmt.Errorf("No replies")
 }
 
-type replyBus struct {
-	// groupId -> requestId -> chan
-	mu    sync.Mutex
-	buses map[uint64]map[string]chan Payload
-}
-
-var (
-	bus = &replyBus{
-		buses: make(map[uint64]map[string]chan Payload),
-	}
-)
-
-func (rb *replyBus) For(groupId uint64, requestId string) chan Payload {
-	rb.mu.Lock()
-	if _, ok := rb.buses[groupId]; !ok {
-		rb.buses[groupId] = make(map[string]chan Payload)
-	}
-	if _, ok := rb.buses[groupId][requestId]; !ok {
-		rb.buses[groupId][requestId] = make(chan Payload)
-	}
-	c := rb.buses[groupId][requestId]
-	rb.mu.Unlock()
-
-	return c
-}
-
-func getGroupIdForSites(ctx context.Context, sites []string) uint64 {
+func (r *Raft) getGroupIdForSites(ctx context.Context, sites []string) uint64 {
 	log.Printf("Fetching node sites=%v\n", sites)
 
-	existingGroups := getGroups()
+	existingGroups := r.getGroups()
 	findGroup := func(groups []createGroup, sites []string) (groupID uint64) {
 		for _, group := range groups {
 			match := 0
@@ -328,13 +310,13 @@ func getGroupIdForSites(ctx context.Context, sites []string) uint64 {
 	}
 }
 
-func getOrCreateNodeWithSites(ctx context.Context, sites []string) *localNode {
-	groupID := getGroupIdForSites(ctx, sites)
+func (r *Raft) getOrCreateNodeWithSites(ctx context.Context, sites []string) *localNode {
+	groupID := r.getGroupIdForSites(ctx, sites)
 	if groupID != 0 {
-		return raftgroups.getNode(groupID)
+		return r.raftgroups.getNode(groupID)
 	}
 
-	existingGroups := getGroups()
+	existingGroups := r.getGroups()
 	max := uint64(0)
 	for _, g := range existingGroups {
 		if max <= g.GroupID {
@@ -348,7 +330,7 @@ func getOrCreateNodeWithSites(ctx context.Context, sites []string) *localNode {
 
 	// Find exact address and id from group 0 where everyone is
 	peers := make([]peer, 0)
-	node0 := raftgroups.getNode(0)
+	node0 := r.raftgroups.getNode(0)
 
 	membs := node0.raftnode.Members()
 	for _, m := range membs {
@@ -386,30 +368,30 @@ func getOrCreateNodeWithSites(ctx context.Context, sites []string) *localNode {
 		return nil
 	}
 
-	return raftgroups.getNode(groupID)
+	return r.raftgroups.getNode(groupID)
 }
 
-func getNodeFromgroup(r *http.Request) (*localNode, error) {
-	r.ParseForm()
-	groupID := getGroupIdForSites(r.Context(), r.Form["sites"])
+func (r *Raft) getNodeFromgroup(req *http.Request) (*localNode, error) {
+	req.ParseForm()
+	groupID := r.getGroupIdForSites(req.Context(), req.Form["sites"])
 	if groupID != 0 {
-		return raftgroups.getNode(groupID), nil
+		return r.raftgroups.getNode(groupID), nil
 	}
 
-	sid := mux.Vars(r)["groupID"]
+	sid := mux.Vars(req)["groupID"]
 	gid, err := strconv.ParseUint(sid, 0, 64)
 	if err != nil {
 		return nil, err
 	}
 
-	lnode := raftgroups.getNode(gid)
+	lnode := r.raftgroups.getNode(gid)
 	if lnode == nil {
-		raftgroups.mu.Lock()
+		r.raftgroups.mu.Lock()
 		existing := make([]uint64, 0)
-		for id := range raftgroups.nodes {
+		for id := range r.raftgroups.nodes {
 			existing = append(existing, id)
 		}
-		raftgroups.mu.Unlock()
+		r.raftgroups.mu.Unlock()
 
 		return nil, fmt.Errorf("group %s does not exist, we have %v", sid, existing)
 	}
@@ -417,11 +399,12 @@ func getNodeFromgroup(r *http.Request) (*localNode, error) {
 	return lnode, nil
 }
 
-func newstateMachine(groupID uint64) *stateMachine {
+func newstateMachine(groupID uint64, handleNewOperation func(groupID uint64, payload Payload), handleNewGroup func(groupID uint64, peers []peer)) *stateMachine {
 	return &stateMachine{
-		groupID:    groupID,
-		operations: make([]Payload, 0),
-		replies:    make(map[string]map[string]Payload),
+		groupID:            groupID,
+		operations:         make([]Payload, 0),
+		replies:            make(map[string][]Payload),
+		handleNewOperation: handleNewOperation,
 	}
 }
 
@@ -433,7 +416,13 @@ type stateMachine struct {
 
 	// request id -> site -> reply
 	muResp  sync.Mutex
-	replies map[string]map[string]Payload
+	replies map[string][]Payload
+
+	// handleNewOperation is called whenever a new operation is registered
+	handleNewOperation func(groupID uint64, payload Payload)
+
+	// handleNewGroup is called whenever a new group creation request is received
+	handleNewGroup func(groupID uint64, peers []peer)
 }
 
 func (s *stateMachine) Apply(data []byte) {
@@ -458,27 +447,27 @@ func (s *stateMachine) Apply(data []byte) {
 		s.operations = append(s.operations, p)
 		s.mu.Unlock()
 		//s.enqueue(s.groupID, len(s.operations) - 1, rep.Data)
-		go handleNewOperation(s.groupID, p)
+		go s.handleNewOperation(s.groupID, p)
 	case "reply":
-		var pm PayloadWithMeta
-		err := json.Unmarshal(rep.Data, &pm)
+		var p Payload
+		err := json.Unmarshal(rep.Data, &p)
 		if err != nil {
 			log.Printf("Couldn't unmarshal: %v\n", err)
 			break
 		}
 
-		log.Printf("Received reply to %v from %v\n", pm.Payload.RequestId, pm.Site)
+		log.Printf("Received reply to %v from %v\n", p.RequestId, p.Site)
 
 		s.muResp.Lock()
-		_, ok := s.replies[pm.RequestId]
+		_, ok := s.replies[p.RequestId]
 		if !ok {
-			s.replies[pm.RequestId] = make(map[string]Payload)
+			s.replies[p.RequestId] = make([]Payload, 0)
 		}
-		s.replies[pm.RequestId][pm.Site] = pm.Payload
+		s.replies[p.RequestId] = append(s.replies[p.RequestId], p)
 		s.muResp.Unlock()
 
 		go func() {
-			bus.For(s.groupID, pm.Payload.RequestId) <- pm.Payload
+			bus.For(s.groupID, p.RequestId) <- p
 		}()
 	case "groups":
 		var c createGroup
@@ -487,7 +476,7 @@ func (s *stateMachine) Apply(data []byte) {
 			log.Printf("Couldn't unmarshal: %v\n", err)
 			break
 		}
-		raftgroups.createAndStart(c.GroupID, c.Peers)
+		s.handleNewGroup(c.GroupID, c.Peers)
 	}
 }
 
@@ -529,20 +518,18 @@ func (s *stateMachine) enqueue(groupID uint64, index int, data []byte) {
 	os.WriteFile(filename, data, 0600)
 }
 
-func handleNewOperation(groupID uint64, p Payload) {
+func (r *Raft) handleNewOperation(groupID uint64, p Payload) {
 	headerOut, bodyOut, err := backends.HandleKubernetes(p.Method, p.Path, p.Header, p.Body)
 	if err != nil {
 		log.Printf("Couldn't run locally: %v\n", err)
 		return
 	}
 
-	resp := PayloadWithMeta{
-		Payload: Payload{
-			RequestId: p.RequestId,
-			Header:    headerOut,
-			Body:      bodyOut,
-		},
-		Site: myfqdn,
+	resp := Payload{
+		RequestId: p.RequestId,
+		Header:    headerOut,
+		Body:      bodyOut,
+		Site:      env.Myfqdn,
 	}
 
 	buf, err := json.Marshal(resp)
@@ -561,7 +548,7 @@ func handleNewOperation(groupID uint64, p Payload) {
 		log.Printf("Couldn't marshal: %v\n", err)
 	}
 
-	node := raftgroups.getNode(groupID)
+	node := r.raftgroups.getNode(groupID)
 	node.replicateWithRetries(context.Background(), buf2)
 }
 
@@ -569,6 +556,9 @@ type groups struct {
 	*raft.NodeGroup
 	mu    sync.Mutex
 	nodes map[uint64]*localNode
+
+	handleNewOperation func(groupID uint64, payload Payload)
+	stateDir           string
 }
 
 func (g *groups) createAndStart(groupID uint64, peers []peer) {
@@ -578,7 +568,7 @@ func (g *groups) createAndStart(groupID uint64, peers []peer) {
 	includesMe := false
 	members := make([]raft.RawMember, 1)
 	for _, peer := range peers {
-		if strings.Contains(peer.Address, myfqdn) {
+		if strings.Contains(peer.Address, env.Myfqdn) {
 			members[0] = raft.RawMember{
 				Address: peer.Address,
 				ID:      peer.ID,
@@ -599,15 +589,15 @@ func (g *groups) createAndStart(groupID uint64, peers []peer) {
 
 	log.Printf("Creating group %d with members %v from peers %v\n", groupID, members, peers)
 	raw := raft.WithMembers(members...)
-	if _, err := os.Stat(stateDIR); os.IsNotExist(err) {
-		os.MkdirAll(stateDIR, 0600)
+	if _, err := os.Stat(g.stateDir); os.IsNotExist(err) {
+		os.MkdirAll(g.stateDir, 0600)
 	}
-	state := raft.WithStateDIR(filepath.Join(stateDIR, fmt.Sprintf("%d", groupID)))
+	state := raft.WithStateDIR(filepath.Join(g.stateDir, fmt.Sprintf("%d", groupID)))
 	fallback := raft.WithFallback(
 		raft.WithInitCluster(),
 		raft.WithRestart(),
 	)
-	fsm := newstateMachine(groupID)
+	fsm := newstateMachine(groupID, g.handleNewOperation, g.createAndStart)
 
 	node := g.Create(groupID, fsm, state, logger)
 
@@ -686,7 +676,28 @@ type peer struct {
 	ID      uint64
 }
 
-type PayloadWithMeta struct {
-	Payload
-	Site string
+type replyBus struct {
+	// groupId -> requestId -> chan
+	mu    sync.Mutex
+	buses map[uint64]map[string]chan Payload
+}
+
+var (
+	bus = &replyBus{
+		buses: make(map[uint64]map[string]chan Payload),
+	}
+)
+
+func (rb *replyBus) For(groupId uint64, requestId string) chan Payload {
+	rb.mu.Lock()
+	if _, ok := rb.buses[groupId]; !ok {
+		rb.buses[groupId] = make(map[string]chan Payload)
+	}
+	if _, ok := rb.buses[groupId][requestId]; !ok {
+		rb.buses[groupId][requestId] = make(chan Payload)
+	}
+	c := rb.buses[groupId][requestId]
+	rb.mu.Unlock()
+
+	return c
 }

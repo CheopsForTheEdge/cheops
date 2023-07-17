@@ -3,8 +3,8 @@ package main
 
 import (
 	"cheops.com/api"
+	"cheops.com/replicator"
 
-	// "cheops.com/client"
 	"context"
 
 	"cheops.com/backends"
@@ -14,10 +14,17 @@ var app = "k8s"
 
 func main() {
 
+	// We want something layer by layer, like
+	//
+	// back := backends.Kubernetes()
+	//
+	// repl := replicator.Raft(7070, back.SitesExtractor, back.Executor)
+	// // or
+	// repl := replicator.Raft(7070, back)
+	//
+	// go api.Sync(8079, repl)
+
 	backends.Kubernetes(context.Background())
-	go api.Admin(8081)
-	go api.BestEffort(8080)
-	go api.Sync(8079)
-	go api.Raft(7070)
+	go api.Sync(8079, replicator.RaftDoer(7070))
 	select {}
 }

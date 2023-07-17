@@ -9,6 +9,8 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+
+	"cheops.com/env"
 )
 
 func proxyWaitBeforeWritingReply(ctx context.Context, host string, w http.ResponseWriter, method string, path string, header http.Header, body []byte) (*http.Response, error) {
@@ -30,7 +32,7 @@ func proxyWaitBeforeWritingReply(ctx context.Context, host string, w http.Respon
 			newreq.Header.Add(key, val)
 		}
 	}
-	newreq.Header.Add("X-Forwarded-For", myip)
+	newreq.Header.Add("X-Forwarded-For", env.Myip)
 
 	resp, err := http.DefaultClient.Do(newreq)
 	if err != nil {
