@@ -22,6 +22,18 @@ func init() {
 	}
 	myfqdn = fqdn
 
+	m, ok := os.LookupEnv("MODE")
+	if !ok {
+		log.Fatal("My FQDN must be given with the MYFQDN environment variable !")
+	}
+	switch m {
+	case "raft":
+		mode = raftMode
+	case "crdt":
+		mode = crdtMode
+	default:
+		log.Fatalf("Invalid MODE, want 'raft' or 'crdt', got [%v]\n", m)
+	}
 }
 
 type Payload struct {
