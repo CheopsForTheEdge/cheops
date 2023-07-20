@@ -3,8 +3,28 @@ package replicator
 
 import (
 	"context"
+	"log"
 	"net/http"
+	"os"
 )
+
+func NewDoer() Doer {
+	m, ok := os.LookupEnv("MODE")
+	if !ok {
+		log.Fatal("My FQDN must be given with the MYFQDN environment variable !")
+	}
+	switch m {
+	case "raft":
+		return newRaft(7070)
+	case "crdt":
+		return newCrdt()
+	default:
+		log.Fatalf("Invalid MODE, want 'raft' or 'crdt', got [%v]\n", m)
+	}
+
+	// unreachable
+	return nil
+}
 
 // Doer is the interface that replicators must implement
 type Doer interface {
