@@ -125,6 +125,8 @@ func (c *Crdt) Do(ctx context.Context, sites []string, operation Payload) (reply
 	}()
 
 	replies := make([]Payload, 0, len(sites))
+
+wait:
 	for i := 0; i < len(sites); i++ {
 		log.Printf("Waiting for reply %d\n", i)
 		select {
@@ -143,7 +145,7 @@ func (c *Crdt) Do(ctx context.Context, sites []string, operation Payload) (reply
 			//
 			// Because there are multiple cases, let's leave it like that,
 			// some goroutines will wait for nothing, that's alright
-			continue
+			break wait
 		}
 	}
 	if len(replies) > 0 {
