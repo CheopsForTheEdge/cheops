@@ -1,7 +1,10 @@
 package api
 
 import (
+	"crypto/rand"
+	"encoding/base32"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -54,11 +57,17 @@ func Sync(port int, d replicator.Doer) {
 			return
 		}
 
+		randBytes, err := io.ReadAll(&io.LimitedReader{R: rand.Reader, N: 64})
+		if err != nil {
+			return
+		}
+
 		req := replicator.Payload{
-			Method: method,
-			Header: r.Header,
-			Path:   path,
-			Body:   body,
+			Method:    method,
+			Header:    r.Header,
+			Path:      path,
+			Body:      body,
+			RequestId: base32.StdEncoding.EncodeToString(randBytes),
 		}
 
 		reply, err := d.Do(r.Context(), sites, req)
