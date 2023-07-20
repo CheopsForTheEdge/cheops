@@ -11,6 +11,7 @@ import (
 	"strconv"
 
 	"cheops.com/backends"
+	"cheops.com/env"
 	"cheops.com/replicator"
 	"github.com/gorilla/mux"
 )
@@ -68,6 +69,7 @@ func Sync(port int, d replicator.Doer) {
 			Path:      path,
 			Body:      body,
 			RequestId: base32.StdEncoding.EncodeToString(randBytes),
+			Site:      env.Myfqdn,
 		}
 
 		reply, err := d.Do(r.Context(), sites, req)
