@@ -37,8 +37,7 @@ func (c *Crdt) Do(ctx context.Context, sites []string, operation Payload) (reply
 	}
 	max := uint64(0)
 	for _, d := range docs {
-		if d.Payload.Method == "" {
-			// this is a reply
+		if !d.Payload.IsRequest() {
 			continue
 		}
 		if d.Generation >= max {
@@ -109,7 +108,7 @@ func (c *Crdt) Do(ctx context.Context, sites []string, operation Payload) (reply
 			if d.Doc.Payload.RequestId != replicatedOperationId {
 				continue
 			}
-			if d.Doc.Payload.Method != "" {
+			if d.Doc.Payload.IsRequest() {
 				continue
 			}
 
@@ -214,7 +213,7 @@ func (c *Crdt) run(requestId string, sites []string) {
 
 	requests := make([]crdtDocument, 0)
 	for _, doc := range docs {
-		if doc.Payload.Method != "" {
+		if doc.Payload.IsRequest() {
 			requests = append(requests, doc)
 		} else if doc.Payload.RequestId == requestId {
 			// we already have a reply for this request, don't re-run it
