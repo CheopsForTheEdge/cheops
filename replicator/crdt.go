@@ -75,46 +75,48 @@ func (c *Crdt) Do(ctx context.Context, sites []string, operation Payload) (reply
 	feedCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	for {
-		req, err := http.NewRequestWithContext(feedCtx, "GET", "http://localhost:5984/cheops/_changes?include_docs=true&feed=continuous", nil)
-		if err != nil {
-			log.Printf("Couldn't create request with context: %v\n", err)
-			break
-		}
-		feed, err := http.DefaultClient.Do(req)
-		if err != nil {
-			log.Fatal(err)
-		}
-		if feed.StatusCode != 200 {
-			log.Fatal(fmt.Errorf("Can't get _changes feed: %s", feed.Status))
-		}
-
-		defer feed.Body.Close()
-
-		scanner := bufio.NewScanner(feed.Body)
-		for scanner.Scan() {
-			s := strings.TrimSpace(scanner.Text())
-			if s == "" {
-				continue
-			}
-
-			var d DocChange
-			err := json.NewDecoder(strings.NewReader(s)).Decode(&d)
+	go func() {
+		for {
+			req, err := http.NewRequestWithContext(feedCtx, "GET", "http://localhost:5984/cheops/_changes?include_docs=true&feed=continuous", nil)
 			if err != nil {
-				log.Printf("Couldn't decode: %s", err)
-				continue
+				log.Printf("Couldn't create request with context: %v\n", err)
+				break
+			}
+			feed, err := http.DefaultClient.Do(req)
+			if err != nil {
+				log.Fatal(err)
+			}
+			if feed.StatusCode != 200 {
+				log.Fatal(fmt.Errorf("Can't get _changes feed: %s", feed.Status))
 			}
 
-			if d.Doc.Payload.RequestId != replicatedOperationId {
-				continue
-			}
-			if d.Doc.Payload.IsRequest() {
-				continue
-			}
+			defer feed.Body.Close()
 
-			repliesChan <- d.Doc.Payload
+			scanner := bufio.NewScanner(feed.Body)
+			for scanner.Scan() {
+				s := strings.TrimSpace(scanner.Text())
+				if s == "" {
+					continue
+				}
+
+				var d DocChange
+				err := json.NewDecoder(strings.NewReader(s)).Decode(&d)
+				if err != nil {
+					log.Printf("Couldn't decode: %s", err)
+					continue
+				}
+
+				if d.Doc.Payload.RequestId != replicatedOperationId {
+					continue
+				}
+				if d.Doc.Payload.IsRequest() {
+					continue
+				}
+
+				repliesChan <- d.Doc.Payload
+			}
 		}
-	}
+	}()
 
 	replies := make([]Payload, 0, len(sites))
 	for i := 0; i < len(sites); i++ {
