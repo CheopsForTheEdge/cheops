@@ -329,9 +329,6 @@ func (c *Crdt) replicate() {
 				continue
 			}
 
-			log.Printf("Found doc with locations %v\n", d.Doc.Locations)
-			log.Printf("Already know about jobs %v\n", existingJobs)
-
 			for _, location := range d.Doc.Locations {
 				if location == env.Myfqdn {
 					continue
