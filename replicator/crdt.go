@@ -139,7 +139,7 @@ wait:
 		case <-time.After(20 * time.Second):
 			// timeout
 			// happens when the node didn't do the request locally
-			// but request comes from raft (could be optimized by creating
+			// but request comes from replication group (could be optimized by creating
 			// the channel here only, so we know)
 			// or when the reply doesn't arrive locally.
 			//
