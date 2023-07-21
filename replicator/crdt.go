@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -169,6 +168,7 @@ func (c *Crdt) watchRequests() {
 
 	go func() {
 		since := ""
+		run := 0
 		for {
 			u := "http://localhost:5984/cheops/_changes?include_docs=true&feed=continuous"
 			if since != "" {
@@ -188,7 +188,7 @@ func (c *Crdt) watchRequests() {
 			idx := 0
 			for scanner.Scan() {
 				idx++
-				fmt.Printf("idx: %d\n", idx)
+				log.Printf("run=%d idx=%d\n", run, idx)
 				s := strings.TrimSpace(scanner.Text())
 				if s == "" {
 					continue
@@ -209,10 +209,12 @@ func (c *Crdt) watchRequests() {
 					continue
 				}
 
-				log.Printf("Running from %d at %d on %v\n", os.Getpid(), idx, d.Doc)
+				log.Printf("Running from %d at %d on %v\n", run, idx, d.Doc)
 				c.run(d.Doc.Locations)
 				since = d.Seq
 			}
+
+			run++
 		}
 	}()
 }
