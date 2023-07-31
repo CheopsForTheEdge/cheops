@@ -397,6 +397,7 @@ func newstateMachine(groupID uint64, handleNewOperation func(groupID uint64, pay
 		operations:         make([]Payload, 0),
 		replies:            make(map[string][]Payload),
 		handleNewOperation: handleNewOperation,
+		handleNewGroup:     handleNewGroup,
 	}
 }
 
