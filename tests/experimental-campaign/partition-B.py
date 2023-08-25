@@ -177,7 +177,10 @@ with en.actions(roles=roles["cheops"], gather_facts=True) as p:
         name="kubelet",
         state="restarted"
     )
-
+    p.shell(
+        task_name="Correct 'pending' status",
+        cmd="kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml"
+    )
 
 # Run ArangoDB
 with en.actions(roles=roles["cheops"]) as p:
@@ -339,6 +342,12 @@ with en.actions(roles=roles["cheops"], gather_facts=True) as p:
         task_name="Get pods",
         cmd="kubectl get pods > /tmp/results/get_pods_$(date +'%Y-%m-%d_%H-%M-%S').log"
     )
+    p.shell(
+        task_name="Describe pod",
+        cmd="kubectl describe pod simpleapp-pod > /tmp/results/describe_pods_$(date +'%Y-%m-%d_%H-%M-%S').log",
+        ignore_errors=True
+    )
+
 
 
 # Pinging to check network constraints
@@ -366,13 +375,18 @@ with en.actions(roles=roles["cheops"][1], gather_facts=False) as p:
 
     r = results.filter(task="shell")
 
-time.sleep(20)
+time.sleep(40)
 
 
 with en.actions(roles=roles["cheops"], gather_facts=True) as p:
     p.shell(
         task_name="Get pods",
         cmd="kubectl get pods > /tmp/results/get_pods_after_update_$(date +'%Y-%m-%d_%H-%M-%S').log"
+    )
+    p.shell(
+        task_name="Describe pod",
+        cmd="kubectl describe pod simpleapp-pod > /tmp/results/describe_pods_after_update_$(date +'%Y-%m-%d_%H-%M-%S').log",
+        ignore_errors=True
     )
 
 

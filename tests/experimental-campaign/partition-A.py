@@ -177,6 +177,11 @@ with en.actions(roles=roles["cheops"], gather_facts=True) as p:
         name="kubelet",
         state="restarted"
     )
+    p.shell(
+        task_name="Correct 'pending' status",
+        cmd="kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml"
+    )
+
 
 
 # Run ArangoDB
@@ -332,13 +337,20 @@ with en.actions(roles=roles["cheops"][0], gather_facts=False) as p:
 
     r = results.filter(task="shell")
 
-time.sleep(20)
+time.sleep(40)
+
 
 with en.actions(roles=roles["cheops"], gather_facts=True) as p:
     p.shell(
         task_name="Get pods",
         cmd="kubectl get pods > /tmp/results/get_pods_$(date +'%Y-%m-%d_%H-%M-%S').log"
     )
+    p.shell(
+        task_name="Describe pod",
+        cmd="kubectl describe pod simpleapp-pod > /tmp/results/describe_pods_$(date +'%Y-%m-%d_%H-%M-%S').log",
+        ignore_errors=True
+    )
+
 
 # Pinging to check network constraints
 with en.actions(roles=roles["cheops"], gather_facts=False) as p:
@@ -367,6 +379,7 @@ backup_dir = "results/"+ filename + "_" + datetime.datetime.now().strftime("%Y-%
 back_dir = os.path.abspath(backup_dir)
 os.path.isdir(back_dir) or os.mkdir(back_dir)
 
+
 with en.actions(roles=roles["cheops"], gather_facts=False) as p:
     p.fetch(
         task_name="Fetching results",
@@ -382,7 +395,6 @@ for f in os.listdir(back_dir):
         f_path= back_dir + "/" + f
         where_dot = f_path.index('.')
         folder_name = f_path[:where_dot]
-        print(folder_name)
         tar = tarfile.open(f_path, "r:gz")
         tar.extractall(folder_name)
         tar.close()
