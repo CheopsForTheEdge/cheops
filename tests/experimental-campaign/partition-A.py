@@ -22,8 +22,8 @@ experience_time = "03:00:00"
 site = "rennes"
 cluster = "paravance"
 experience_name = "partition-A"
-nb_nodes = 5
-nb_replicas = 4
+nb_nodes = 4
+nb_replicas = 5
 
 cheops_location = "/tmp/cheops"
 cheops_version = "raft-stable"
@@ -41,7 +41,7 @@ conf = (
     .add_machine(
         roles=["cheops"],
         cluster=cluster,
-        nodes=nb_nodes-1,
+        nodes=nb_nodes,
         primary_network=network,
     )
     .add_machine(
@@ -178,9 +178,14 @@ with en.actions(roles=roles["cheops"], gather_facts=True) as p:
         state="restarted"
     )
     p.shell(
-        task_name="Correct 'pending' status",
+        task_name="Apply proper kube flannel",
         cmd="kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml"
     )
+    p.shell(
+        task_name="Removing taint from master node",
+        cmd="kubectl taint node {{ inventory_hostname  }} node-role.kubernetes.io/master:NoSchedule-"
+    )
+
 
 
 
@@ -361,6 +366,38 @@ with en.actions(roles=roles["cheops"], gather_facts=False) as p:
         )
 
 
+with en.actions(roles=roles["cheops"][0], gather_facts=False) as p:
+    p.lineinfile(
+        task_name="Edit simple-pod.yml to update",
+        search_string="    app.kubernetes.io/name: SimpleApp",
+        line="    app.kubernetes.io/name: UpdatedSimpleApp",
+        path=f"{cheops_location}/simple-pod.yml"
+    )
+    p.shell(
+        task_name="Apply pod config",
+        cmd=f"kubectl --kubeconfig ~/.kube/config.proxified apply -f {cheops_location}/simple-pod.yml --server-side=true > /tmp/results/update_pod_$(date +'%Y-%m-%d_%H-%M-%S').log",
+        ignore_errors=True
+    )
+    results = p.results
+
+    r = results.filter(task="shell")
+
+time.sleep(40)
+
+
+with en.actions(roles=roles["cheops"], gather_facts=True) as p:
+    p.shell(
+        task_name="Get pods",
+        cmd="kubectl get pods > /tmp/results/get_pods_after_update_$(date +'%Y-%m-%d_%H-%M-%S').log"
+    )
+    p.shell(
+        task_name="Describe pod",
+        cmd="kubectl describe pod simpleapp-pod > /tmp/results/describe_pods_after_update_$(date +'%Y-%m-%d_%H-%M-%S').log",
+        ignore_errors=True
+    )
+
+
+
 # Get results files from nodes after the experiments
 ## Tar results on nodes
 with en.actions(roles=roles["cheops"], gather_facts=False) as p:
@@ -375,7 +412,7 @@ with en.actions(roles=roles["cheops"], gather_facts=False) as p:
 ## In a results folder, we create a folder with the name of the experiment and the date
 ## Each node results will be in a separate tar.gz in this folder
 filename = os.path.splitext(os.path.basename(__file__))[0]
-backup_dir = "results/"+ filename + "_" + datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
+backup_dir = "results/" + datetime.datetime.now().strftime("%Y-%m-%d_%H-%M") + "_" + filename
 back_dir = os.path.abspath(backup_dir)
 os.path.isdir(back_dir) or os.mkdir(back_dir)
 

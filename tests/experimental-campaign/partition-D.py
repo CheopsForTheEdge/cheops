@@ -22,8 +22,8 @@ experience_time = "03:00:00"
 site = "rennes"
 cluster = "paravance"
 experience_name = "partition-D"
-nb_nodes = 5
-nb_replicas = 4
+nb_nodes = 4
+nb_replicas = 5
 
 cheops_location = "/tmp/cheops"
 cheops_version = "raft-stable"
@@ -40,7 +40,7 @@ conf = (
     .add_machine(
         roles=["cheops"],
         cluster=cluster,
-        nodes=nb_nodes-1,
+        nodes=nb_nodes,
         primary_network=network,
     )
     .add_machine(
@@ -180,6 +180,10 @@ with en.actions(roles=roles["cheops"], gather_facts=True) as p:
     p.shell(
         task_name="Correct 'pending' status",
         cmd="kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml"
+    )
+    p.shell(
+        task_name="Removing taint from master node",
+        cmd="kubectl taint node {{ inventory_hostname  }} node-role.kubernetes.io/master:NoSchedule-"
     )
 
 
@@ -467,7 +471,7 @@ with en.actions(roles=roles["cheops"], gather_facts=False) as p:
 ## In a results folder, we create a folder with the name of the experiment and the date
 ## Each node results will be in a separate tar.gz in this folder
 filename = os.path.splitext(os.path.basename(__file__))[0]
-backup_dir = "results/"+ filename + "_" + datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
+backup_dir = "results/" + datetime.datetime.now().strftime("%Y-%m-%d_%H-%M") + "_" + filename
 back_dir = os.path.abspath(backup_dir)
 os.path.isdir(back_dir) or os.mkdir(back_dir)
 
