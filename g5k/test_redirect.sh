@@ -16,8 +16,7 @@ eval "curl -s $LOCATIONS \"http://$nn1:8079\" --data-binary @simple-deployment.y
 
 read -p "Continue ? "
 
-sed "s/REPLICAS/2/ ; s/PORT/80/" ../simple-deployment.yml.tpl > simple-deployment-replicas.yml
+# Test on a second site, without locations
 sed "s/REPLICAS/1/ ; s/PORT/90/" ../simple-deployment.yml.tpl > simple-deployment-port.yml
 
-(eval "curl -s $LOCATIONS \"http://$nn2:8079\" --data-binary @simple-deployment-replicas.yml | jq '.'") &
-(eval "curl -s $LOCATIONS \"http://$nn3:8079\" --data-binary @simple-deployment-port.yml | jq '.'") &
+curl -s "http://$nn2:8079" --data-binary @simple-deployment-replicas.yml | jq '.'

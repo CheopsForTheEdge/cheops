@@ -3,7 +3,6 @@ package api
 import (
 	"crypto/rand"
 	"encoding/base32"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -38,24 +37,7 @@ func Sync(port int, d replicator.Doer) {
 			return
 		}
 
-		sites, err := backends.SitesFor(method, path, header, body)
-		if err != nil {
-			log.Printf("Error parsing sites: %v\n", err)
-			http.Error(w, "bad request", http.StatusBadRequest)
-			return
-		}
-
-		log.Printf("Found sites to apply: %v\n", sites)
-
-		for _, site := range sites {
-			header := fmt.Sprintf("X-status-%s", site)
-			w.Header().Add("Trailer", header)
-		}
-
-		if len(sites) == 0 {
-			proxy(r.Context(), "127.0.0.1:8283", w, r.Method, path, r.Header, body)
-			return
-		}
+		sites := header.Values("X-Cheops-Location")
 
 		randBytes, err := io.ReadAll(&io.LimitedReader{R: rand.Reader, N: 64})
 		if err != nil {

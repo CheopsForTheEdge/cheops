@@ -9,7 +9,6 @@ import (
 	"log"
 	"net/http"
 	"os/exec"
-	"strings"
 
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
@@ -37,29 +36,6 @@ func ResourceIdFor(method string, path string, headers http.Header, body []byte)
 	}
 
 	return fmt.Sprintf("%s:%s:%s", namespace, kind, name), nil
-}
-
-func SitesFor(method string, path string, headers http.Header, body []byte) ([]string, error) {
-	if body == nil || len(body) == 0 {
-		return make([]string, 0), nil
-	}
-
-	doc, err := yaml.Parse(string(body))
-	if err != nil {
-		return nil, err
-	}
-
-	locationsMap := doc.GetAnnotations("locations")
-	if len(locationsMap) == 0 {
-		return make([]string, 0), nil
-	}
-	locations := strings.Split(locationsMap["locations"], ",")
-	locTrimmed := make([]string, 0)
-	for _, loc := range locations {
-		locTrimmed = append(locTrimmed, strings.TrimSpace(loc))
-	}
-
-	return locTrimmed, nil
 }
 
 // runWithStdin runs a command with an input to be passed to standard input and returns the combined output (stdout and stderr) as a slice of bytes and an error.
