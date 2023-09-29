@@ -478,6 +478,26 @@ func (c *Crdt) run(ctx context.Context, sites []string, p Payload) {
 		return
 	}
 
+	// Post existence of doc in cheops-all
+	resourceDoc := MetaDocument{
+		Type:       "RESOURCE",
+		Site:       env.Myfqdn,
+		ResourceId: p.ResourceId,
+	}
+	bufResource, err := json.Marshal(resourceDoc)
+	if err != nil {
+		log.Printf("Couldn't marshal resource doc: %v\n", err)
+	}
+	respResource, err := http.Post("http://localhost:5984/cheops-all", "application/json", bytes.NewReader(bufResource))
+	if err != nil {
+		log.Printf("Couldn't send resource doc to cheops-all: %v\n", err)
+	}
+	defer respResource.Body.Close()
+
+	if respResource.StatusCode != 201 {
+		log.Printf("Couldn't send resource doc to cheops-all: %v\n", newresp.Status)
+	}
+
 	log.Printf("Ran %s %s\n", p.RequestId, env.Myfqdn)
 }
 
@@ -602,11 +622,14 @@ type DocChange struct {
 // MetaDocument are documents stored in the cheops-all database
 type MetaDocument struct {
 
-	// can be SITE
+	// can be SITE or RESOURCE
 	Type string `json:"type"`
 
-	// if type == SITE
+	// if type == SITE or type == RESOURCE
 	Site string `json:"site"`
+
+	// if type == RESOURCE
+	ResourceId string `json:",omitempty"`
 }
 
 func (c *Crdt) getExistingJobs() map[string]struct{} {
