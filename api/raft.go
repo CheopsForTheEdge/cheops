@@ -465,6 +465,8 @@ func (s *stateMachine) Apply(data []byte) {
 			break
 		}
 
+		log.Printf("Received reply to %v from %v\n", pm.Payload.RequestId, pm.Site)
+
 		s.muResp.Lock()
 		_, ok := s.replies[pm.RequestId]
 		if !ok {
