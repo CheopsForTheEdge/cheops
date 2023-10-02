@@ -546,7 +546,8 @@ func (c *Crdt) replicate() {
 			}
 
 			// Replication of cheops -> cheops
-			if _, ok := existingJobs[location]; !ok {
+			cheopsSite := fmt.Sprintf("http://%s:5984/cheops", location)
+			if _, ok := existingJobs[cheopsSite]; !ok {
 				body := fmt.Sprintf(`{"continuous": true, "source": "http://localhost:5984/cheops", "target": "http://%s:5984/cheops", "selector": {"Locations": {"$elemMatch": {"$eq": "%s"}}}}`, location, location)
 				resp, err := http.Post("http://admin:password@localhost:5984/_replicate", "application/json", strings.NewReader(body))
 				if err != nil {
@@ -555,7 +556,7 @@ func (c *Crdt) replicate() {
 				if resp.StatusCode != 202 {
 					log.Printf("Couldn't add replication: %s\n", resp.Status)
 				}
-				existingJobs[location] = struct{}{}
+				existingJobs[cheopsSite] = struct{}{}
 			}
 
 			// Maybe we just got informed of a new patch, we need to install the replication
