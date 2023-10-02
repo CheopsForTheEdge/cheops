@@ -300,7 +300,7 @@ func ExecuteReplication(op Operation, conf utils.Configurations) {
 			// TODO: ExecRequestLocallyAPI for the broker
 			resp, err := http.Post(execAddress, "application/json",
 				opReader)
-			
+
 			if err != nil {
 				fmt.Printf("Error in executing command %s \n", execAddress)
 				log.Fatal(err)

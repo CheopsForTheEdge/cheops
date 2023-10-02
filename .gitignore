@@ -11,4 +11,5 @@ delete-benchmark.json
 target/
 .idea/
 config.yml
+cheops.com
 cheops.log

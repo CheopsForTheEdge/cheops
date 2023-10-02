@@ -13,8 +13,8 @@ func CreateMetaId() string {
 	return cheopsID
 }
 
-/*
 // Heartbeat sends a heartbeat to the given site and updates the latency to it
+/*
 func Heartbeat(site endpoint.Site) {
 	host := site.Address
 	port := Conf.Application.HeartbeatPort
