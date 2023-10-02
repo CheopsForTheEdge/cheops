@@ -245,6 +245,23 @@ func Save(ctx context.Context, sites []string, operation []byte) error {
 		return fmt.Errorf("Couldn't get node for %v", sites)
 	}
 
+	waitctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+wait:
+	for {
+		select {
+		case <-waitctx.Done():
+			return fmt.Errorf("Timeout waiting for cluster to form")
+		case <-time.After(1 * time.Second):
+			if node.raftnode.Leader() != 0 {
+				break wait
+			}
+		}
+	}
+
+	log.Printf("Ready to replicate operation ['%v']\n", operation)
+
 	rep := replicate{
 		CMD:  "operation",
 		Data: operation,
@@ -491,28 +508,11 @@ func (g *groups) createAndStart(groupID uint64, peers []peer) {
 	go func() {
 		err := node.Start(fallback, raw)
 		if err != nil && err != raft.ErrNodeStopped {
-			log.Printf("Group %d failed: %v\n", groupID, err)
-		}
-	}()
+			g.mu.Lock()
+			delete(g.nodes, groupID)
+			g.mu.Unlock()
 
-	go func() {
-		waitctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		for {
-			select {
-			case <-waitctx.Done():
-				log.Printf("Group %d: timeout waiting for cluster to form", groupID)
-				g.mu.Lock()
-				delete(g.nodes, groupID)
-				g.mu.Unlock()
-				os.RemoveAll(stateDIR)
-				return
-			case <-time.After(1 * time.Second):
-				if node.Leader() != 0 {
-					return
-				}
-			}
+			log.Printf("Group %d failed: %v\n", err)
 		}
 	}()
 }
