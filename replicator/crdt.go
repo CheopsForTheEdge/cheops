@@ -216,6 +216,9 @@ func (c *Crdt) run(requestId string, sites []string) {
 	for _, doc := range docs {
 		if doc.Payload.Method != "" {
 			requests = append(requests, doc)
+		} else if doc.Payload.RequestId == requestId {
+			// we already have a reply for this request, don't re-run it
+			return
 		}
 	}
 	sortDocuments(requests)
