@@ -325,6 +325,10 @@ func (c *Crdt) replicate() {
 				continue
 			}
 
+			if len(d.Doc.Locations) == 0 {
+				continue
+			}
+
 			log.Printf("Found doc with locations %v\n", d.Doc.Locations)
 			log.Printf("Already know about jobs %v\n", existingJobs)
 
