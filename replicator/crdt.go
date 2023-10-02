@@ -395,7 +395,7 @@ func (c *Crdt) watch(ctx context.Context, db string, onNewDoc func(j json.RawMes
 				err := json.NewDecoder(strings.NewReader(s)).Decode(&d)
 				if err != nil {
 					log.Printf("Couldn't decode: %s", err)
-					return
+					continue
 				}
 				if len(d.Doc) == 0 {
 					continue
