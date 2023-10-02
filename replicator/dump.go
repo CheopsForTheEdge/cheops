@@ -4,14 +4,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 )
 
 func (c *Crdt) listenDump(port int) {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		io.WriteString(w, `{"cheops":`+"\n")
 		dumpCheops(r.Context(), w)
+		io.WriteString(w, `, "cheops-all":`+"\n")
 		dumpCheopsAll(r.Context(), w)
+		io.WriteString(w, `}`)
 	})
 	go func() {
 		err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
@@ -52,6 +56,9 @@ func dumpCheops(ctx context.Context, w http.ResponseWriter) {
 		return
 	}
 
+	// map keyed by resourceId -> list of maps keyed by requestId -> map keyed by site -> status
+	reply := make(map[string][]map[string]map[string]string)
+
 	docsByResource := make(map[string][]crdtDocument)
 	for _, row := range ad.Rows {
 		if _, ok := docsByResource[row.Doc.Payload.ResourceId]; !ok {
@@ -61,6 +68,11 @@ func dumpCheops(ctx context.Context, w http.ResponseWriter) {
 	}
 
 	for resourceId, docsForResource := range docsByResource {
+		if _, ok := reply[resourceId]; !ok {
+			reply[resourceId] = make([]map[string]map[string]string, 0)
+		}
+		r := reply[resourceId]
+
 		requests := make([]crdtDocument, 0)
 		for _, doc := range docsForResource {
 			if doc.Payload.IsRequest() {
@@ -68,15 +80,32 @@ func dumpCheops(ctx context.Context, w http.ResponseWriter) {
 			}
 		}
 
-		fmt.Fprintf(w, "%s\n", resourceId)
 		for _, request := range requests {
-			fmt.Fprintf(w, "\t%s\n", request.Payload.RequestId)
+			m := make(map[string]map[string]string)
+			requestId := request.Payload.RequestId
+			if _, ok := m[requestId]; !ok {
+				m[requestId] = make(map[string]string)
+			}
+
 			for _, doc := range docsForResource {
 				if doc.Payload.RequestId == request.Payload.RequestId && !doc.Payload.IsRequest() {
-					fmt.Fprintf(w, "\t\t%s: %s\n", doc.Payload.Site, doc.Payload.Status)
+					m[requestId][doc.Payload.Site] = doc.Payload.Status
 				}
 			}
+
+			r = append(r, m)
 		}
+
+		reply[resourceId] = r
+	}
+
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "\t")
+	enc.Encode(reply)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
 	}
 }
 
