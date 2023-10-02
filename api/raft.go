@@ -278,23 +278,7 @@ func Save(ctx context.Context, sites []string, operation []byte) error {
 		return err
 	}
 
-	maxtries := 10
-	for {
-		err := node.raftnode.Replicate(ctx, buf)
-		if err == nil {
-			break
-		}
-
-		if node.raftnode.Leader() == raft.None && maxtries > 0 {
-			log.Println("No leader yet, waiting 1 second")
-			maxtries--
-			<-time.After(1 * time.Second)
-		} else {
-			log.Printf("Can't replicate operation: %v\n", err)
-			return err
-		}
-	}
-	return nil
+	return node.replicateWithRetries(ctx, buf)
 }
 
 func getGroupIdForSites(ctx context.Context, sites []string) uint64 {
@@ -387,7 +371,7 @@ func getOrCreateNodeWithSites(ctx context.Context, sites []string) *localNode {
 		return nil
 	}
 
-	if err := node0.raftnode.Replicate(ctx, buf); err != nil {
+	if err := node0.replicateWithRetries(ctx, buf); err != nil {
 		log.Printf("Can't replicate group creation: %v\n", err)
 		return nil
 	}
@@ -560,6 +544,27 @@ func (g *groups) getNode(groupID uint64) *localNode {
 type localNode struct {
 	raftnode *raft.Node
 	fsm      *stateMachine
+}
+
+func (n *localNode) replicateWithRetries(ctx context.Context, buf []byte) error {
+	maxtries := 10
+	for {
+		err := n.raftnode.Replicate(ctx, buf)
+		if err == nil {
+			break
+		}
+
+		if n.raftnode.Leader() == raft.None && maxtries > 0 {
+			log.Println("No leader yet, waiting 1 second")
+			maxtries--
+			<-time.After(1 * time.Second)
+		} else {
+			log.Printf("Can't replicate operation: %v\n", err)
+			return err
+		}
+	}
+
+	return nil
 }
 
 type replicate struct {
