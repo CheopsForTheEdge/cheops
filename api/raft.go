@@ -243,6 +243,7 @@ func Do(ctx context.Context, sites []string, operation Payload) (reply Payload, 
 
 	replies := make([]Payload, 0, len(sites))
 	for i := 0; i < len(sites); i++ {
+		log.Printf("Waiting for reply %d\n", i)
 		select {
 		case <-ctx.Done():
 			if err := ctx.Err(); err != nil {
