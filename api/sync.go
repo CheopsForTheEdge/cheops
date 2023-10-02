@@ -43,6 +43,11 @@ func Sync(port int) {
 			sitesAsSlice = append(sitesAsSlice, site)
 		}
 
+		if len(sitesAsSlice) == 0 {
+			proxy(r.Context(), "127.0.0.1:8283", w, r)
+			return
+		}
+
 		req := Request{
 			Method: method,
 			Path:   path,
