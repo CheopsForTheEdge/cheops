@@ -375,32 +375,44 @@ func (c *Crdt) getDocsForSites(sites []string) ([]crdtDocument, error) {
 	for _, site := range sites {
 		locations = append(locations, fmt.Sprintf(`{"Locations": {"$all": ["%s"]}}`, site))
 	}
-	selector := fmt.Sprintf(`{"selector": {"$and": [%s]}}`, strings.Join(locations, ","))
 
-	fmt.Println(selector)
-	current, err := http.Post("http://localhost:5984/cheops/_find", "application/json", strings.NewReader(selector))
-	if err != nil {
-		return nil, err
+	docs := make([]crdtDocument, 0)
+	var bookmark string
+
+	for {
+		selector := fmt.Sprintf(`{"bookmark": "%s", "selector": {"$and": [%s]}}`, bookmark, strings.Join(locations, ","))
+
+		current, err := http.Post("http://localhost:5984/cheops/_find", "application/json", strings.NewReader(selector))
+		if err != nil {
+			return nil, err
+		}
+		if current.StatusCode != 200 {
+			return nil, fmt.Errorf("Post %s: %s", current.Request.URL.String(), current.Status)
+		}
+
+		var cr CouchResp
+
+		err = json.NewDecoder(current.Body).Decode(&cr)
+		current.Body.Close()
+		if err != nil {
+			return nil, err
+		}
+
+		log.Printf("docs=%d bookmark=%s\n", len(cr.Docs), cr.Bookmark)
+		bookmark = cr.Bookmark
+		docs = append(docs, cr.Docs...)
+
+		if len(cr.Docs) == 0 {
+			break
+		}
 	}
-	if current.StatusCode != 200 {
-		return nil, fmt.Errorf("Post %s: %s", current.Request.URL.String(), current.Status)
-	}
 
-	var cr CouchResp
-
-	err = json.NewDecoder(current.Body).Decode(&cr)
-	current.Body.Close()
-	if err != nil {
-		return nil, err
-	}
-
-	log.Println(cr.Bookmark)
-
-	return cr.Docs, nil
+	return docs, nil
 }
 
 type CouchResp struct {
-	Docs []crdtDocument `json:"docs"`
+	Bookmark string         `json:"bookmark"`
+	Docs     []crdtDocument `json:"docs"`
 }
 
 // replicate watches the _changes feed and makes sure the replication jobs
