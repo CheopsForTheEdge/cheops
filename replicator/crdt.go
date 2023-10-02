@@ -20,10 +20,23 @@ type Crdt struct {
 
 func newCrdt(port int) *Crdt {
 	c := &Crdt{}
+	c.ensureIndex()
 	c.replicate()
 	c.watchRequests()
 	c.listenDump(port)
 	return c
+}
+
+// ensureIndex makes sure that the _find call remains fast enough
+// by indexing on the Locations field
+func (c *Crdt) ensureIndex() {
+	idx, err := http.Post("http://admin:password@localhost:5984/cheops/_index", "application/json", strings.NewReader(`{"index": {"fields": ["Locations"]}}`))
+	if err != nil {
+		log.Fatal(err)
+	}
+	if idx.StatusCode != http.StatusCreated && idx.StatusCode != http.StatusOK {
+		log.Fatalf("Can't create index: %s\n", idx.Status)
+	}
 }
 
 func (c *Crdt) listenDump(port int) {
