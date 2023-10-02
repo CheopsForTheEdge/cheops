@@ -12,3 +12,4 @@ target/
 config.yml
 cheops.com
 cheops.log
+.*.swp
