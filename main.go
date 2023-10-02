@@ -79,5 +79,6 @@ func main() {
 	go api.Admin(8081)
 	go api.BestEffort(8080)
 	go api.Sync(8079)
+	go api.Raft(7070)
 	select {}
 }

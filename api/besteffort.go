@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"io"
@@ -131,11 +130,6 @@ func proxyWaitBeforeWritingReply(ctx context.Context, host string, w http.Respon
 		for _, val := range vals {
 			newreq.Header.Add(key, val)
 		}
-	}
-
-	myip, ok := os.LookupEnv("MYIP")
-	if !ok {
-		log.Fatal("My IP must be given with the MYIP environment variable !")
 	}
 	newreq.Header.Add("X-Forwarded-For", myip)
 
