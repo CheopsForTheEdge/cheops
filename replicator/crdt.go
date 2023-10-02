@@ -307,42 +307,57 @@ wait:
 }
 
 func (c *Crdt) watchRequests() {
-	c.watch(context.Background(), func(d DocChange) {
-		if len(d.Doc.Locations) == 0 {
-			// CouchDB status message, discard
-			return
-		}
-		if !d.Doc.Payload.IsRequest() {
+	c.watch(context.Background(), "cheops", func(j json.RawMessage) {
+		var d crdtDocument
+		err := json.Unmarshal(j, &d)
+		if err != nil {
+			log.Printf("Couldn't decode %s", err)
 			return
 		}
 
-		c.run(context.Background(), d.Doc.Locations, d.Doc.Payload)
+		if len(d.Locations) == 0 {
+			// CouchDB status message, discard
+			return
+		}
+		if !d.Payload.IsRequest() {
+			return
+		}
+
+		c.run(context.Background(), d.Locations, d.Payload)
 	})
 }
 
 func (c *Crdt) watchReplies(ctx context.Context, requestId string, repliesChan chan Payload) {
-	c.watch(ctx, func(d DocChange) {
-		if d.Doc.Payload.RequestId != requestId {
-			return
-		}
-		if d.Doc.Payload.IsRequest() {
+	c.watch(ctx, "cheops", func(j json.RawMessage) {
+		var d crdtDocument
+		err := json.Unmarshal(j, &d)
+		if err != nil {
+			log.Printf("Couldn't decode: %s", err)
 			return
 		}
 
-		repliesChan <- d.Doc.Payload
+		if d.Payload.RequestId != requestId {
+			return
+		}
+		if d.Payload.IsRequest() {
+			return
+		}
+
+		repliesChan <- d.Payload
 	})
 
 }
 
-// watch watches the _changes feed and runs a function when a new document is seen
+// watch watches the _changes feed of the given database and runs a function when a new document is seen.
+// The document is sent as a raw json string, to be decoded by the function.
 // The execution of the function blocks the loop; it is good to not have it run too long
-func (c *Crdt) watch(ctx context.Context, onNewDoc func(d DocChange)) {
+func (c *Crdt) watch(ctx context.Context, db string, onNewDoc func(j json.RawMessage)) {
 	ready := make(chan struct{})
 
 	go func() {
 		since := ""
 		for {
-			u := "http://localhost:5984/cheops/_changes?include_docs=true&feed=continuous"
+			u := fmt.Sprintf("http://localhost:5984/%s/_changes?include_docs=true&feed=continuous", db)
 			if since != "" {
 				u += fmt.Sprintf("&since=%s", since)
 			}
@@ -380,10 +395,13 @@ func (c *Crdt) watch(ctx context.Context, onNewDoc func(d DocChange)) {
 				err := json.NewDecoder(strings.NewReader(s)).Decode(&d)
 				if err != nil {
 					log.Printf("Couldn't decode: %s", err)
+					return
+				}
+				if len(d.Doc) == 0 {
 					continue
 				}
 
-				onNewDoc(d)
+				onNewDoc(d.Doc)
 				since = d.Seq
 			}
 
@@ -505,16 +523,28 @@ type CouchResp struct {
 // replicate watches the _changes feed and makes sure the replication jobs
 // are in place
 func (c *Crdt) replicate() {
+
+	// This map will be shared by multiple goroutines but it's ok because
+	// they don't write on the same keys (one for cheops dbs, one for cheops-all dbs)
 	existingJobs := c.getExistingJobs()
-	c.watch(context.Background(), func(d DocChange) {
-		if len(d.Doc.Locations) == 0 {
+
+	c.watch(context.Background(), "cheops", func(j json.RawMessage) {
+		var d crdtDocument
+		err := json.Unmarshal(j, &d)
+		if err != nil {
+			log.Printf("Couldn't decode: %s", err)
+			return
+		}
+		if len(d.Locations) == 0 {
 			return
 		}
 
-		for _, location := range d.Doc.Locations {
+		for _, location := range d.Locations {
 			if location == env.Myfqdn {
 				continue
 			}
+
+			// Replication of cheops -> cheops
 			if _, ok := existingJobs[location]; !ok {
 				body := fmt.Sprintf(`{"continuous": true, "source": "http://localhost:5984/cheops", "target": "http://%s:5984/cheops"}`, location)
 				resp, err := http.Post("http://admin:password@localhost:5984/_replicate", "application/json", strings.NewReader(body))
@@ -526,13 +556,60 @@ func (c *Crdt) replicate() {
 				}
 				existingJobs[location] = struct{}{}
 			}
+
+			// Maybe we just got informed of a new patch, we need to install the replication
+			// of metadata documents as well.
+			// Replication of cheops-all -> cheops-all
+			cheopsAllSite := fmt.Sprintf("http://%s:5984/cheops-all", location)
+			if _, ok := existingJobs[cheopsAllSite]; !ok {
+				createReplication("cheops-all", location)
+				existingJobs[cheopsAllSite] = struct{}{}
+			}
+		}
+	})
+
+	c.watch(context.Background(), "cheops-all", func(j json.RawMessage) {
+		var d MetaDocument
+		err := json.Unmarshal(j, &d)
+		if err != nil {
+			log.Printf("Couldn't decode: %s", err)
+			return
+		}
+
+		if d.Type == "SITE" && d.Site != env.Myfqdn {
+			remoteDatabase := fmt.Sprintf("http://%s:5984/cheops-all", d.Site)
+			if _, ok := existingJobs[remoteDatabase]; !ok {
+				createReplication("cheops-all", d.Site)
+				existingJobs[remoteDatabase] = struct{}{}
+			}
 		}
 	})
 }
 
+func createReplication(db, otherSite string) {
+	body := fmt.Sprintf(`{"continuous": true, "source": "http://localhost:5984/%s", "target": "http://%s:5984/%s"}`, db, otherSite, db)
+	resp, err := http.Post("http://admin:password@localhost:5984/_replicate", "application/json", strings.NewReader(body))
+	if err != nil {
+		log.Printf("Couldn't add replication: %s\n", err)
+	}
+	if resp.StatusCode != 202 {
+		log.Printf("Couldn't add replication: %s\n", resp.Status)
+	}
+}
+
 type DocChange struct {
-	Seq string       `json:"seq"`
-	Doc crdtDocument `json:"doc"`
+	Seq string          `json:"seq"`
+	Doc json.RawMessage `json:"doc"`
+}
+
+// MetaDocument are documents stored in the cheops-all database
+type MetaDocument struct {
+
+	// can be SITE
+	Type string `json:"type"`
+
+	// if type == SITE
+	Site string `json:"site"`
 }
 
 func (c *Crdt) getExistingJobs() map[string]struct{} {
