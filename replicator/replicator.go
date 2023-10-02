@@ -17,7 +17,7 @@ func NewDoer() Doer {
 	case "raft":
 		return newRaft(7070)
 	case "crdt":
-		return newCrdt()
+		return newCrdt(7070)
 	default:
 		log.Fatalf("Invalid MODE, want 'raft' or 'crdt', got [%v]\n", m)
 	}
@@ -52,4 +52,9 @@ type Payload struct {
 
 func (p Payload) IsRequest() bool {
 	return p.Method != ""
+}
+
+type LogDump struct {
+	Request Payload
+	Replies []Payload
 }

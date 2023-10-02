@@ -18,11 +18,73 @@ import (
 type Crdt struct {
 }
 
-func newCrdt() *Crdt {
+func newCrdt(port int) *Crdt {
 	c := &Crdt{}
 	c.replicate()
 	c.watchRequests()
+	c.listenDump(port)
 	return c
+}
+
+func (c *Crdt) listenDump(port int) {
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		req, err := http.NewRequestWithContext(r.Context(), "GET", "http://localhost:5984/cheops/_all_docs?include_docs=true", nil)
+		if err != nil {
+			log.Println(err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			log.Println(err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+		defer resp.Body.Close()
+
+		type AllDocs struct {
+			Rows []struct {
+				Doc crdtDocument
+			}
+		}
+
+		var ad AllDocs
+		err = json.NewDecoder(resp.Body).Decode(&ad)
+
+		if err != nil {
+			log.Println(err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+
+		requests := make([]crdtDocument, 0)
+		for _, row := range ad.Rows {
+			if row.Doc.Payload.IsRequest() {
+				requests = append(requests, row.Doc)
+			}
+		}
+		sortDocuments(requests)
+
+		for _, request := range requests {
+			fmt.Fprintf(w, "Request: %s\n", request.Payload.RequestId)
+			fmt.Fprintf(w, "\t%s\n", request.Payload.Site)
+			fmt.Fprintf(w, "Replies:\n")
+			for _, doc := range ad.Rows {
+				if doc.Doc.Payload.RequestId == request.Payload.RequestId && !doc.Doc.Payload.IsRequest() {
+					fmt.Fprintf(w, "\t%s\n", doc.Doc.Payload.Site)
+					fmt.Fprintf(w, "\t%s\n", string(doc.Doc.Payload.Body))
+				}
+			}
+			fmt.Fprintf(w, "\n")
+		}
+
+	})
+	go func() {
+		err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
+		if err != nil && err != http.ErrServerClosed {
+			log.Fatal(err)
+		}
+	}()
 }
 
 func (c *Crdt) Do(ctx context.Context, sites []string, operation Payload) (reply Payload, err error) {

@@ -110,11 +110,6 @@ type GroupDump struct {
 	Log     []LogDump
 }
 
-type LogDump struct {
-	Request Payload
-	Replies []Payload
-}
-
 func (r *Raft) dump(w http.ResponseWriter, req *http.Request) {
 	r.raftgroups.mu.Lock()
 	defer r.raftgroups.mu.Unlock()
