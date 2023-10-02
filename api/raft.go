@@ -223,18 +223,19 @@ func newGroup(w http.ResponseWriter, r *http.Request) {
 // Do gets the group associated to the sites and creates one if it doesn't exist
 // Note: the sites will be fqdn, they won't have the raft port
 // It then distributes the request in raft, waits for the reply, and gives it back
-func Do(ctx context.Context, sites []string, operation Payload) error {
+func Do(ctx context.Context, sites []string, operation Payload) (reply Payload, err error) {
+	reply = Payload{}
 	if len(sites) < 3 {
-		return fmt.Errorf("Can't save with raft, need at least three sites")
+		return reply, fmt.Errorf("Can't save with raft, need at least three sites")
 	}
 	buf, err := json.Marshal(operation)
 	if err != nil {
-		return err
+		return reply, err
 	}
 
 	node := getOrCreateNodeWithSites(ctx, sites)
 	if node == nil {
-		return fmt.Errorf("Couldn't get node for %v", sites)
+		return reply, fmt.Errorf("Couldn't get node for %v", sites)
 	}
 
 	mem := make([]string, 0)
@@ -249,19 +250,21 @@ func Do(ctx context.Context, sites []string, operation Payload) error {
 
 	buf2, err := json.Marshal(&rep)
 	if err != nil {
-		return err
+		return reply, err
 	}
 
 	err = node.replicateWithRetries(ctx, buf2)
 	if err != nil {
-		return err
+		return reply, err
 	}
 
 	replies := make([]Payload, 0, len(sites))
 	for i := 0; i < len(sites); i++ {
 		select {
 		case <-ctx.Done():
-			break
+			if err := ctx.Err(); err != nil {
+				return reply, err
+			}
 		case reply := <-replyBus(node.groupID, hash(buf2)):
 			replies = append(replies, reply)
 		case <-time.After(20 * time.Second):
@@ -276,7 +279,13 @@ func Do(ctx context.Context, sites []string, operation Payload) error {
 			continue
 		}
 	}
-	return nil
+	if len(replies) > 0 {
+		// No particular reason, there is no one good response that can fit
+		// while being a merge of the N replies
+		// TODO: add a status header for other replies still
+		return replies[0], nil
+	}
+	return reply, fmt.Errorf("No replies")
 }
 
 var (

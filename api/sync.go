@@ -60,14 +60,19 @@ func Sync(port int) {
 			Body:   body,
 		}
 
-		err = Do(r.Context(), sites, req)
+		reply, err := Do(r.Context(), sites, req)
 		if err != nil {
 			log.Println(err)
 			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
 		}
 
-		w.WriteHeader(http.StatusOK)
+		for key, vals := range reply.Header {
+			for _, val := range vals {
+				w.Header().Add(key, val)
+			}
+		}
+		w.Write(reply.Body)
 	})
 
 	err := http.ListenAndServe(":"+strconv.Itoa(port), router)
