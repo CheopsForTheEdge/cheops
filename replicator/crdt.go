@@ -14,6 +14,7 @@ import (
 	"cheops.com/backends"
 	"cheops.com/env"
 	jp "github.com/evanphx/json-patch"
+	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
 type Crdt struct {
@@ -122,9 +123,15 @@ func (c *Crdt) Do(ctx context.Context, sites []string, operation Payload) (reply
 
 	// Generate diff with locally current config
 	currentConfig := backends.CurrentConfig(ctx, operation.Body)
-	log.Printf("current: %v\n", string(currentConfig))
-	log.Printf("new: %v\n", string(operation.Body))
-	patch, err := jp.CreateMergePatch(currentConfig, operation.Body)
+	asjson, err := yaml.Parse(string(operation.Body))
+	if err != nil {
+		return reply, err
+	}
+	asjsonbin, err := json.Marshal(asjson)
+	if err != nil {
+		return reply, err
+	}
+	patch, err := jp.CreateMergePatch(currentConfig, asjsonbin)
 	if err != nil {
 		return reply, err
 	}
@@ -337,13 +344,18 @@ func (c *Crdt) run(ctx context.Context, sites []string, p Payload) {
 	}
 	sortDocuments(requests)
 	body := mergePatches(requests)
+	asyaml, err := yaml.Marshal(body)
+	if err != nil {
+		log.Printf("Error marshalling patches into yaml: %v\n", err)
+		return
+	}
 
 	if _, ok := requestIdsInReplies[p.RequestId]; ok {
 		// We already have a reply from this site, don't run it
 		return
 	}
 
-	headerOut, bodyOut, err := backends.HandleKubernetes(ctx, p.Method, p.Path, p.Header, body)
+	headerOut, bodyOut, err := backends.HandleKubernetes(ctx, p.Method, p.Path, p.Header, asyaml)
 
 	if err != nil {
 		log.Printf("Couldn't exec request: %v\n", err)
