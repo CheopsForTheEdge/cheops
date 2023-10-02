@@ -187,24 +187,24 @@ func (c *Crdt) watchRequests() {
 					continue
 				}
 
-				go func(requestId string, sites []string) {
+				go func(sites []string) {
 					for {
 						if bs.isShouldRun() {
 							bs.setRunning(true)
 							bs.setShouldRun(false)
 
-							c.run(requestId, sites)
+							c.run(sites)
 
 							bs.setRunning(false)
 						}
 					}
-				}(d.Doc.Payload.RequestId, d.Doc.Locations)
+				}(d.Doc.Locations)
 			}
 		}
 	}()
 }
 
-func (c *Crdt) run(requestId string, sites []string) {
+func (c *Crdt) run(sites []string) {
 	docs, err := c.getDocsForSites(sites)
 	if err != nil {
 		log.Printf("Couldn't get docs for sites: %v\n", err)
@@ -212,16 +212,20 @@ func (c *Crdt) run(requestId string, sites []string) {
 	}
 
 	requests := make([]crdtDocument, 0)
+	requestIdsInReplies := make(map[string]struct{})
 	for _, doc := range docs {
 		if doc.Payload.IsRequest() {
 			requests = append(requests, doc)
-		} else if doc.Payload.RequestId == requestId {
-			// we already have a reply for this request, don't re-run it
+		} else {
+			requestIdsInReplies[doc.Payload.RequestId] = struct{}{}
 			return
 		}
 	}
 	sortDocuments(requests)
 	p := requests[len(requests)-1].Payload // Only execute the last one
+	if _, ok := requestIdsInReplies[p.RequestId]; ok {
+		// A reply already exists, don't run it again
+	}
 
 	headerOut, bodyOut, err := backends.HandleKubernetes(p.Method, p.Path, p.Header, p.Body)
 
@@ -235,7 +239,7 @@ func (c *Crdt) run(requestId string, sites []string) {
 		Locations:  sites,
 		Generation: 0,
 		Payload: Payload{
-			RequestId: requestId,
+			RequestId: p.RequestId,
 			Header:    headerOut,
 			Body:      bodyOut,
 			Site:      env.Myfqdn,
