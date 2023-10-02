@@ -22,11 +22,88 @@ type Crdt struct {
 
 func newCrdt(port int) *Crdt {
 	c := &Crdt{}
+	c.ensureCouch()
 	c.ensureIndex()
 	c.replicate()
 	c.watchRequests()
 	c.listenDump(port)
 	return c
+}
+
+// ensureCouch makes sure the databases exist and are correctly populated
+func (c *Crdt) ensureCouch() {
+
+	reqs := []struct {
+		Method        string
+		URL           string
+		ExpectedCodes []int
+		Body          string
+	}{
+		{
+			Method:        "DELETE",
+			URL:           "http://admin:password@localhost:5984/cheops",
+			ExpectedCodes: []int{http.StatusOK, http.StatusNotFound},
+			Body:          "",
+		}, {
+			Method:        "PUT",
+			URL:           "http://admin:password@localhost:5984/cheops",
+			ExpectedCodes: []int{http.StatusCreated, http.StatusPreconditionFailed},
+			Body:          "",
+		}, {
+			Method:        "PUT",
+			URL:           "http://admin:password@localhost:5984/cheops/_security",
+			ExpectedCodes: []int{http.StatusOK},
+			Body:          `{"members":{"roles":[]},"admins":{"roles":["_admin"]}}`,
+		},
+		{
+			Method:        "DELETE",
+			URL:           "http://admin:password@localhost:5984/cheops-all",
+			ExpectedCodes: []int{http.StatusOK, http.StatusNotFound},
+			Body:          "",
+		}, {
+			Method:        "PUT",
+			URL:           "http://admin:password@localhost:5984/cheops-all",
+			ExpectedCodes: []int{http.StatusCreated, http.StatusPreconditionFailed},
+			Body:          "",
+		}, {
+			Method:        "PUT",
+			URL:           "http://admin:password@localhost:5984/cheops-all/_security",
+			ExpectedCodes: []int{http.StatusOK},
+			Body:          `{"members":{"roles":[]},"admins":{"roles":["_admin"]}}`,
+		},
+		{
+			Method:        "POST",
+			URL:           "http://admin:password@localhost:5984/cheops-all",
+			ExpectedCodes: []int{http.StatusCreated},
+			Body:          fmt.Sprintf(`{"type": "SITE", "Site": "%s" }`, env.Myfqdn),
+		},
+	}
+
+	for _, req := range reqs {
+		func() {
+			httpReq, err := http.NewRequest(req.Method, req.URL, strings.NewReader(req.Body))
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			if len(req.Body) > 0 {
+				httpReq.Header.Set("Content-Type", "application/json")
+			}
+
+			resp, err := http.DefaultClient.Do(httpReq)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			for _, expectedCode := range req.ExpectedCodes {
+				if resp.StatusCode == expectedCode {
+					return
+				}
+			}
+
+			log.Fatalf("Couldn't init database: method=%v body=[%v] url=%v err=%v\n", req.Method, req.Body, req.URL, fmt.Errorf(resp.Status))
+		}()
+	}
 }
 
 // ensureIndex makes sure that the _find call remains fast enough
