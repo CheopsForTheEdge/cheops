@@ -178,6 +178,7 @@ func (c *Crdt) watchRequests() {
 			idx := 0
 			for scanner.Scan() {
 				idx++
+				fmt.Printf("idx: %d\n", idx)
 				s := strings.TrimSpace(scanner.Text())
 				if s == "" {
 					continue
