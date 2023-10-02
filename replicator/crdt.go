@@ -107,7 +107,7 @@ func (c *Crdt) Do(ctx context.Context, sites []string, operation Payload) (reply
 	c.watchReplies(repliesCtx, operation.RequestId, repliesChan)
 
 	// find highest generation
-	docs, err := c.getDocsForSites(sites)
+	docs, err := c.getDocsForId(operation.ResourceId)
 	if err != nil {
 		return reply, err
 	}
@@ -353,9 +353,9 @@ func (c *Crdt) watchReplies(ctx context.Context, requestId string, repliesChan c
 }
 
 func (c *Crdt) run(ctx context.Context, sites []string, p Payload) {
-	docs, err := c.getDocsForSites(sites)
+	docs, err := c.getDocsForId(p.ResourceId)
 	if err != nil {
-		log.Printf("Couldn't get docs for sites: %v\n", err)
+		log.Printf("Couldn't get docs for id: %v\n", err)
 		return
 	}
 
@@ -416,17 +416,12 @@ func (c *Crdt) run(ctx context.Context, sites []string, p Payload) {
 	log.Printf("Ran %s %s\n", p.RequestId, env.Myfqdn)
 }
 
-func (c *Crdt) getDocsForSites(sites []string) ([]crdtDocument, error) {
-	locations := make([]string, 0)
-	for _, site := range sites {
-		locations = append(locations, fmt.Sprintf(`{"Locations": {"$all": ["%s"]}}`, site))
-	}
-
+func (c *Crdt) getDocsForId(resourceId string) ([]crdtDocument, error) {
 	docs := make([]crdtDocument, 0)
 	var bookmark string
 
 	for {
-		selector := fmt.Sprintf(`{"bookmark": "%s", "selector": {"$and": [%s]}}`, bookmark, strings.Join(locations, ","))
+		selector := fmt.Sprintf(`{"bookmark": "%s", "selector": {"Payload.ResourceId": "%s"}}`, bookmark, resourceId)
 
 		current, err := http.Post("http://localhost:5984/cheops/_find", "application/json", strings.NewReader(selector))
 		if err != nil {
