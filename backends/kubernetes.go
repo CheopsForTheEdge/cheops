@@ -60,6 +60,7 @@ func CurrentConfig(ctx context.Context, targetResource []byte) []byte {
 	cmd := exec.CommandContext(ctx, "kubectl", "get", "-o", "yaml", "-f", "-")
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
+		log.Printf("Couldn't get stdin pipe: %v\n", err)
 		return []byte("{}")
 	}
 
@@ -70,9 +71,11 @@ func CurrentConfig(ctx context.Context, targetResource []byte) []byte {
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {
+		log.Printf("Couldn't run command: %v\n", err)
 		return []byte("{}")
 	}
 
+	log.Printf("current status raw: %s\n", out)
 	return extractCurrentConfig(out)
 }
 

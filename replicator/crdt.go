@@ -354,7 +354,7 @@ func (c *Crdt) run(ctx context.Context, sites []string, p Payload) {
 		return
 	}
 
-	log.Printf("applying\n%v\n", string(body))
+	log.Printf("applying %s\n", body)
 	headerOut, bodyOut, err := backends.HandleKubernetes(ctx, p.Method, p.Path, p.Header, body)
 
 	if err != nil {
