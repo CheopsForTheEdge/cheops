@@ -344,11 +344,6 @@ func (c *Crdt) run(ctx context.Context, sites []string, p Payload) {
 	}
 	sortDocuments(requests)
 	body := mergePatches(requests)
-	//	asyaml, err := yaml.Marshal(body)
-	//	if err != nil {
-	//		log.Printf("Error marshalling patches into yaml: %v\n", err)
-	//		return
-	//	}
 
 	if _, ok := requestIdsInReplies[p.RequestId]; ok {
 		// We already have a reply from this site, don't run it
