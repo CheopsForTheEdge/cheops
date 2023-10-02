@@ -78,7 +78,7 @@ func Sync(port int, d replicator.Doer) {
 			// Send the request to any site that is related to the request
 			targetSiteIdx := mathrand.Intn(len(currentSites))
 			targetSite := currentSites[targetSiteIdx]
-			http.Redirect(w, r, fmt.Sprintf("http://%s:%d", targetSite, port), http.StatusFound)
+			http.Redirect(w, r, fmt.Sprintf("http://%s:%d", targetSite, port), http.StatusTemporaryRedirect)
 			return
 		}
 
