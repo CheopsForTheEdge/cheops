@@ -22,3 +22,9 @@ func init() {
 	myfqdn = fqdn
 
 }
+
+type Request struct {
+	Method string
+	Path   string
+	Body   []byte
+}
