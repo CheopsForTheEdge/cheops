@@ -528,11 +528,9 @@ type CouchResp struct {
 // are in place
 func (c *Crdt) replicate() {
 
-	// This map will be shared by multiple goroutines but it's ok because
-	// they don't write on the same keys (one for cheops dbs, one for cheops-all dbs)
-	existingJobs := c.getExistingJobs()
-
 	c.watch(context.Background(), "cheops", func(j json.RawMessage) {
+		existingJobs := c.getExistingJobs()
+
 		var d crdtDocument
 		err := json.Unmarshal(j, &d)
 		if err != nil {
@@ -556,7 +554,6 @@ func (c *Crdt) replicate() {
 				if resp.StatusCode != 202 {
 					log.Printf("Couldn't add replication: %s\n", resp.Status)
 				}
-				existingJobs[cheopsSite] = struct{}{}
 			}
 
 			// Maybe we just got informed of a new patch, we need to install the replication
@@ -565,12 +562,13 @@ func (c *Crdt) replicate() {
 			cheopsAllSite := fmt.Sprintf("http://%s:5984/cheops-all", location)
 			if _, ok := existingJobs[cheopsAllSite]; !ok {
 				createReplication("cheops-all", location)
-				existingJobs[cheopsAllSite] = struct{}{}
 			}
 		}
 	})
 
 	c.watch(context.Background(), "cheops-all", func(j json.RawMessage) {
+		existingJobs := c.getExistingJobs()
+
 		var d MetaDocument
 		err := json.Unmarshal(j, &d)
 		if err != nil {
@@ -582,10 +580,20 @@ func (c *Crdt) replicate() {
 			remoteDatabase := fmt.Sprintf("http://%s:5984/cheops-all", d.Site)
 			if _, ok := existingJobs[remoteDatabase]; !ok {
 				createReplication("cheops-all", d.Site)
-				existingJobs[remoteDatabase] = struct{}{}
 			}
 		}
 	})
+}
+
+func (c *Crdt) Register(peers ...string) {
+	existingJobs := c.getExistingJobs()
+
+	for _, peer := range peers {
+		remoteDatabase := fmt.Sprintf("http://%s:5984/cheops-all", peer)
+		if _, ok := existingJobs[remoteDatabase]; !ok {
+			createReplication("cheops-all", peer)
+		}
+	}
 }
 
 func createReplication(db, otherSite string) {

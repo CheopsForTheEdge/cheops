@@ -20,6 +20,9 @@ type Doer interface {
 
 	// SitesFor retrieves the sites known by the replicator for the given resource
 	SitesFor(resourceId string) []string
+
+	// Register registers the given peers as part of the cluster
+	Register(peers ...string)
 }
 
 // Payload represents a query to be run on the network

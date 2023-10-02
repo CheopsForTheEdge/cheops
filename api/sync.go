@@ -41,6 +41,7 @@ func Sync(port int, d replicator.Doer) {
 
 		// The site where the user wants the resource to exist
 		desiredSites := header.Values("X-Cheops-Location")
+		d.Register(desiredSites...)
 
 		randBytes, err := io.ReadAll(&io.LimitedReader{R: rand.Reader, N: 64})
 		if err != nil {
@@ -60,6 +61,12 @@ func Sync(port int, d replicator.Doer) {
 		if len(currentSites) == 0 {
 			currentSites = desiredSites
 		}
+		if len(currentSites) == 0 {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			log.Printf("No known sites and no sites in request: we can't do anything with the request")
+			return
+		}
+
 		local := false
 		for _, currentSite := range currentSites {
 			if currentSite == env.Myfqdn {
@@ -68,6 +75,7 @@ func Sync(port int, d replicator.Doer) {
 		}
 
 		if !local {
+			// Send the request to any site that is related to the request
 			targetSiteIdx := mathrand.Intn(len(currentSites))
 			targetSite := currentSites[targetSiteIdx]
 			http.Redirect(w, r, fmt.Sprintf("http://%s:%d", targetSite, port), http.StatusFound)
