@@ -118,62 +118,6 @@ func (c *Crdt) ensureIndex() {
 	}
 }
 
-func (c *Crdt) listenDump(port int) {
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		req, err := http.NewRequestWithContext(r.Context(), "GET", "http://localhost:5984/cheops/_all_docs?include_docs=true", nil)
-		if err != nil {
-			log.Println(err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
-			return
-		}
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			log.Println(err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
-			return
-		}
-		defer resp.Body.Close()
-
-		type AllDocs struct {
-			Rows []struct {
-				Doc crdtDocument
-			}
-		}
-
-		var ad AllDocs
-		err = json.NewDecoder(resp.Body).Decode(&ad)
-
-		if err != nil {
-			log.Println(err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
-			return
-		}
-
-		requests := make([]crdtDocument, 0)
-		for _, row := range ad.Rows {
-			if row.Doc.Payload.IsRequest() {
-				requests = append(requests, row.Doc)
-			}
-		}
-		sortDocuments(requests)
-
-		for _, request := range requests {
-			for _, doc := range ad.Rows {
-				if doc.Doc.Payload.RequestId == request.Payload.RequestId && !doc.Doc.Payload.IsRequest() {
-					fmt.Fprintf(w, "Ran %s %s\n", request.Payload.RequestId, doc.Doc.Payload.Site)
-				}
-			}
-		}
-
-	})
-	go func() {
-		err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
-		if err != nil && err != http.ErrServerClosed {
-			log.Fatal(err)
-		}
-	}()
-}
-
 func (c *Crdt) Do(ctx context.Context, sites []string, operation Payload) (reply Payload, err error) {
 
 	// Prepare replies gathering before running the request
@@ -617,18 +561,6 @@ func createReplication(db, otherSite string) {
 type DocChange struct {
 	Seq string          `json:"seq"`
 	Doc json.RawMessage `json:"doc"`
-}
-
-// MetaDocument are documents stored in the cheops-all database
-type MetaDocument struct {
-	// can be SITE or RESOURCE
-	Type string `json:"type"`
-
-	// if type == SITE or type == RESOURCE
-	Site string `json:"site"`
-
-	// if type == RESOURCE
-	ResourceId string `json:"resourceId,omitempty"`
 }
 
 func (c *Crdt) SitesFor(resourceId string) []string {

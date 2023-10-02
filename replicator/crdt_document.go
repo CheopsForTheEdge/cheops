@@ -50,3 +50,16 @@ func mergePatches(requests []crdtDocument) []byte {
 
 	return b
 }
+
+// MetaDocument are documents stored in the cheops-all database
+type MetaDocument struct {
+
+	// can be SITE or RESOURCE
+	Type string
+
+	// if type == SITE or type == RESOURCE
+	Site string
+
+	// if type == RESOURCE
+	ResourceId string `json:",omitempty"`
+}
