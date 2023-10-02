@@ -17,7 +17,7 @@ func NewDoer() Doer {
 	case "raft":
 		return newRaft(7070)
 	case "crdt":
-		return newCrdt(7070)
+		return newCrdt(7071)
 	default:
 		log.Fatalf("Invalid MODE, want 'raft' or 'crdt', got [%v]\n", m)
 	}
