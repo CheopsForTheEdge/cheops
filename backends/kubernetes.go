@@ -85,10 +85,21 @@ func extractCurrentConfig(b []byte) []byte {
 		log.Printf("Couldn't parse yaml output: %v\n", err)
 		return []byte("{}")
 	}
-	lastConfigMap := node.GetAnnotations("kubectl.kubernetes.io/last-applied-configuration")
-	if len(lastConfigMap) == 0 {
+	docs, err := node.Pipe(yaml.Lookup("items"))
+	if err == nil {
+		elements, err := docs.Elements()
+		if err != nil {
+			log.Printf("Error parsing config: %v\n", err)
+			return []byte("{}")
+
+		}
+		node = elements[0]
+	}
+
+	m := node.GetAnnotations("kubectl.kubernetes.io/last-applied-configuration")
+	config, ok := m["kubectl.kubernetes.io/last-applied-configuration"]
+	if !ok {
 		return []byte("{}")
 	}
-	lastConfig := lastConfigMap["kubectl.kubernetes.io/last-applied-configuration"]
-	return []byte(lastConfig)
+	return []byte(config)
 }
