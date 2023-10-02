@@ -49,3 +49,7 @@ type Payload struct {
 	// The site where this payload comes from
 	Site string
 }
+
+func (p Payload) IsRequest() bool {
+	return p.Method != ""
+}
