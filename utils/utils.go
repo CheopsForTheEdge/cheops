@@ -6,7 +6,6 @@ import (
 	"github.com/segmentio/ksuid"
 )
 
-
 func CreateMetaId() string {
 	id := ksuid.New()
 	cheopsID := "CHEOPS_" + id.String()

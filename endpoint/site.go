@@ -1,25 +1,24 @@
 package endpoint
 
 import (
-	"cheops.com/utils"
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/mux"
 	"log"
 	"net/http"
+
+	"cheops.com/utils"
+	"github.com/gorilla/mux"
 )
 
 // Site is the global endpoint for the site's Cheops
 type Site struct {
-	SiteName		string  `json:"SiteName"`
-	Address 		string  `json:"Address"`
-	Latency			int		`json:"Latency"`
+	SiteName string `json:"SiteName"`
+	Address  string `json:"Address"`
+	Latency  int    `json:"Latency"`
 }
-
 
 // Collection name variable
 var colnamesite = "sites"
-
 
 func CreateSite(siteName string, address string) string {
 	end := Site{SiteName: siteName, Address: address}
@@ -33,10 +32,9 @@ func CreateSiteAPI(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(key)
 }
 
-
 func GetSite(siteName string) Site {
 	query := "FOR end IN sites FILTER end.Site == @name RETURN end"
-	bindvars := map[string]interface{}{ "name": siteName}
+	bindvars := map[string]interface{}{"name": siteName}
 	result := Site{}
 	utils.ExecuteQuery(query, bindvars, &result)
 	if &result == nil {
@@ -49,7 +47,7 @@ func GetSite(siteName string) Site {
 
 func GetSiteAddress(siteName string) string {
 	query := "FOR end IN endpoint FILTER end.Site == @name RETURN end"
-	bindvars := map[string]interface{}{ "name": siteName}
+	bindvars := map[string]interface{}{"name": siteName}
 	result := Endpoint{}
 	utils.ExecuteQuery(query, bindvars, &result)
 	if result.Address == "" {
@@ -59,7 +57,6 @@ func GetSiteAddress(siteName string) string {
 	}
 	return result.Address
 }
-
 
 func GetSiteAddressAPI(w http.ResponseWriter, r *http.Request) {
 	site := mux.Vars(r)["Site"]

@@ -92,7 +92,6 @@ func Routing() {
 	})
 
 	log.Fatal(http.ListenAndServe(":8080", router))
-
 }
 
 // emptyResponseWriter stores the status code and discards everything else

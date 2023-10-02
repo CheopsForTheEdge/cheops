@@ -2,45 +2,46 @@ package utils
 
 import (
 	"fmt"
+
 	"github.com/spf13/viper"
 )
 
 type Configurations struct {
-	Application 		ApplicationConfiguration
-	Database    		DatabaseConfiguration
-	KnownSites       	[]SiteConfiguration
-	LocalServices 		[]EndpointConfiguration
-	LocalSite			SiteConfiguration
+	Application   ApplicationConfiguration
+	Database      DatabaseConfiguration
+	KnownSites    []SiteConfiguration
+	LocalServices []EndpointConfiguration
+	LocalSite     SiteConfiguration
 }
 
 type ApplicationConfiguration struct {
-	Name			string
-	HeartbeatPort	string
+	Name          string
+	HeartbeatPort string
 }
 
 type DatabaseConfiguration struct {
-	DBName 			string
-	DBUser    		string
-	DBPassword 		string
-	Collections 	[]string
+	DBName      string
+	DBUser      string
+	DBPassword  string
+	Collections []string
 }
 
 type SitesConfiguration struct {
-	Sites 	 		[]SiteConfiguration
+	Sites []SiteConfiguration
 }
 
 type SiteConfiguration struct {
-	SiteName		string
-	Address 		string
+	SiteName string
+	Address  string
 }
 
 type EndpointsConfiguration struct {
-	Site 			[]EndpointConfiguration
+	Site []EndpointConfiguration
 }
 
 type EndpointConfiguration struct {
-	Service 		string
-	Address 		string
+	Service string
+	Address string
 }
 
 var Conf = LoadConfig()

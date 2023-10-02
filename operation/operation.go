@@ -4,7 +4,6 @@
 package operation
 
 import (
-	"cheops.com/utils"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -12,6 +11,8 @@ import (
 	"net/http"
 	"os/exec"
 	"strings"
+
+	"cheops.com/utils"
 )
 
 // Operation is the generic type to describe operations in Cheops.
@@ -34,7 +35,7 @@ type Operation struct {
 	PlatformOperation string   `json:"PlatformOperation"`
 	ExtraArgs         []string `json:"ExtraArgs"`
 	Request           string   `json:"Request"`
-	Redirection		  bool
+	Redirection       bool
 }
 
 type ExecutionResp struct {
@@ -71,9 +72,7 @@ func CreateOperationAPI(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(key)
 }
 
-
-
-func ExecuteOperationAPI(w http.ResponseWriter,	r *http.Request) {
+func ExecuteOperationAPI(w http.ResponseWriter, r *http.Request) {
 	var op Operation
 	reqBody, _ := ioutil.ReadAll(r.Body)
 	err := json.Unmarshal([]byte(reqBody), &op)
@@ -91,12 +90,11 @@ func ExecuteOperationAPI(w http.ResponseWriter,	r *http.Request) {
 			ExecuteReplication(op, conf)
 		}
 
-
-		}
+	}
 }
-	// return resps
-	//json.NewEncoder(w).Encode(resps)
 
+// return resps
+//json.NewEncoder(w).Encode(resps)
 
 // ExecRequestLocally takes an operation and executes the command locally.
 // It returns the response or error while executing the command.
@@ -130,7 +128,6 @@ func ExecRequestLocallyAPI(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(err)
 	}
 }
-
 
 func SendRequestToBroker(op Operation) {
 	// call to Broker API with address and the op jsonified

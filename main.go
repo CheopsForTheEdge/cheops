@@ -2,16 +2,19 @@
 package main
 
 import (
-	"cheops.com/api"
-	"cheops.com/endpoint"
-	"cheops.com/utils"
 	"fmt"
 	"os"
 	"time"
+
+	"cheops.com/api"
+	"cheops.com/endpoint"
+	"cheops.com/utils"
+
 	// "cheops.com/client"
+	"context"
+
 	"cheops.com/kubernetes"
 	"cheops.com/operation"
-	"context"
 )
 
 var app = "k8s"
