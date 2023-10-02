@@ -75,7 +75,7 @@ func (c *Crdt) ensureCouch() {
 			Method:        "POST",
 			URL:           "http://admin:password@localhost:5984/cheops-all",
 			ExpectedCodes: []int{http.StatusCreated},
-			Body:          fmt.Sprintf(`{"type": "SITE", "Site": "%s" }`, env.Myfqdn),
+			Body:          fmt.Sprintf(`{"type": "SITE", "site": "%s" }`, env.Myfqdn),
 		},
 	}
 
@@ -629,7 +629,7 @@ type MetaDocument struct {
 	Site string `json:"site"`
 
 	// if type == RESOURCE
-	ResourceId string `json:",omitempty"`
+	ResourceId string `json:"resourceId,omitempty"`
 }
 
 func (c *Crdt) getExistingJobs() map[string]struct{} {
