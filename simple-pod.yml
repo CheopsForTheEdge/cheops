@@ -4,6 +4,8 @@ metadata:
   name: simpleapp-pod
   labels:
     app.kubernetes.io/name: SimpleApp
+  annotations:
+  	locations: ""
 spec:
   containers:
   - name: myapp-container
