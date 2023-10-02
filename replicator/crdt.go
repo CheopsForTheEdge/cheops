@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"cheops.com/backends"
@@ -168,8 +167,6 @@ wait:
 
 func (c *Crdt) watchRequests() {
 
-	var bs backendStatus
-
 	go func() {
 		since := ""
 		for {
@@ -212,25 +209,8 @@ func (c *Crdt) watchRequests() {
 					continue
 				}
 
-				bs.setShouldRun(true)
-				if bs.isRunning() {
-					continue
-				}
-				bs.setRunning(true)
-
 				log.Printf("Running from %d at %d on %v\n", os.Getpid(), idx, d.Doc)
-
-				go func(sites []string) {
-					for {
-						if bs.isShouldRun() {
-							bs.setShouldRun(false)
-
-							bs.setRunning(true)
-							c.run(sites)
-							bs.setRunning(false)
-						}
-					}
-				}(d.Doc.Locations)
+				c.run(d.Doc.Locations)
 				since = d.Seq
 			}
 		}
@@ -426,38 +406,4 @@ type Jobs struct {
 
 type Job struct {
 	Target string `json:"target"`
-}
-
-type backendStatus struct {
-	sync.Mutex
-	running   bool
-	shouldRun bool
-}
-
-func (b *backendStatus) isRunning() (running bool) {
-	b.Lock()
-	running = b.running
-	b.Unlock()
-
-	return
-}
-
-func (b *backendStatus) isShouldRun() (shouldRun bool) {
-	b.Lock()
-	shouldRun = b.shouldRun
-	b.Unlock()
-
-	return
-}
-
-func (b *backendStatus) setRunning(n bool) {
-	b.Lock()
-	b.running = n
-	b.Unlock()
-}
-
-func (b *backendStatus) setShouldRun(n bool) {
-	b.Lock()
-	b.shouldRun = n
-	b.Unlock()
 }
