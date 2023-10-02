@@ -512,7 +512,14 @@ func (s *stateMachine) Restore(r io.ReadCloser) error {
 func (s *stateMachine) Read() []byte {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	st, err := json.Marshal(s.operations)
+	out := struct {
+		Operations []string
+		Replies    map[string]map[string]Payload
+	}{
+		Operations: s.operations,
+		Replies:    s.replies,
+	}
+	st, err := json.Marshal(out)
 	if err != nil {
 		log.Printf("Couldn't unmarshal operations: %v\n", err)
 	}
