@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -174,7 +175,9 @@ func (c *Crdt) watchRequests() {
 			defer feed.Body.Close()
 
 			scanner := bufio.NewScanner(feed.Body)
+			idx := 0
 			for scanner.Scan() {
+				idx++
 				s := strings.TrimSpace(scanner.Text())
 				if s == "" {
 					continue
@@ -201,7 +204,7 @@ func (c *Crdt) watchRequests() {
 				}
 				bs.setRunning(true)
 
-				log.Printf("Running on %v\n", d.Doc)
+				log.Printf("Running from %d at %d on %v\n", os.Getpid(), idx, d.Doc)
 
 				go func(sites []string) {
 					for {
