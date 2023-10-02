@@ -122,6 +122,8 @@ func (c *Crdt) Do(ctx context.Context, sites []string, operation Payload) (reply
 
 	// Generate diff with locally current config
 	currentConfig := backends.CurrentConfig(ctx, operation.Body)
+	log.Printf("current: %v\n", string(currentConfig))
+	log.Printf("new: %v\n", string(operation.Body))
 	patch, err := jp.CreateMergePatch(currentConfig, operation.Body)
 	if err != nil {
 		return reply, err
