@@ -107,10 +107,10 @@ func Proxy(w http.ResponseWriter, r *http.Request) {
 		return asstring
 	}
 
-	log.Printf(`-> %s
+	log.Printf(`-> %s %s
 -> %s
 -> %s
 <- %s
 <- %s
-`, r.URL.String(), headers(newreq.Header), indent(reqbuf), headers(resp.Header), indent(respbuf))
+`, r.Method, r.URL.String(), headers(newreq.Header), indent(reqbuf), headers(resp.Header), indent(respbuf))
 }
