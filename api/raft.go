@@ -2,7 +2,7 @@ package api
 
 import (
 	"context"
-	"crypto/sha256"
+	"crypto/rand"
 	"encoding/base32"
 	"encoding/json"
 	"errors"
@@ -66,15 +66,8 @@ func Raft(port int) {
 	raftgrpc.RegisterHandler(raftServer, raftgroups.Handler())
 
 	router = mux.NewRouter()
-	router.HandleFunc("/", http.HandlerFunc(get))
-
-	router.HandleFunc("/{groupID}", http.HandlerFunc(get)).Methods("GET")
-
-	router.HandleFunc("/{groupID}/mgmt/nodes", http.HandlerFunc(nodes)).Methods("GET")
-	// router.HandleFunc("/{groupID}/mgmt/nodes/{id}", http.HandlerFunc(removeNode)).Methods("DELETE")
-
+	router.HandleFunc("/", http.HandlerFunc(dump))
 	router.HandleFunc("/mgmt/groups", http.HandlerFunc(newGroup)).Methods("PUT", "POST")
-	router.HandleFunc("/mgmt/groups", http.HandlerFunc(dumphttp)).Methods("GET")
 
 	go func() {
 		lis, err := net.Listen("tcp", ":"+strconv.Itoa(port))
@@ -104,18 +97,67 @@ func Raft(port int) {
 	// TODO(Shaj13) stop all nodes.
 }
 
-func dumphttp(w http.ResponseWriter, r *http.Request) {
-	groups, err := dump()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+type GroupDump struct {
+	Id      uint64
+	Members []string
+	Log     []LogDump
+}
+
+type LogDump struct {
+	Request Payload
+	Replies []PayloadWithMeta
+}
+
+func dump(w http.ResponseWriter, r *http.Request) {
+	raftgroups.mu.Lock()
+	defer raftgroups.mu.Unlock()
+
+	groups := make([]GroupDump, 0)
+	for groupID, node := range raftgroups.nodes {
+		members := make([]string, 0)
+		for _, member := range node.raftnode.Members() {
+			members = append(members, member.Address())
+		}
+		group := GroupDump{
+			Id:      groupID,
+			Members: members,
+		}
+
+		node.fsm.mu.Lock()
+		operations := node.fsm.operations
+		node.fsm.mu.Unlock()
+
+		node.fsm.muResp.Lock()
+		allReplies := node.fsm.replies
+		node.fsm.muResp.Unlock()
+
+		logs := make([]LogDump, 0)
+		for _, operation := range operations {
+			replies, ok := allReplies[operation.RequestId]
+			if !ok {
+				replies = make(map[string]Payload)
+			}
+			repliesSlice := make([]PayloadWithMeta, 0)
+			for site, payload := range replies {
+				repliesSlice = append(repliesSlice, PayloadWithMeta{payload, site})
+			}
+
+			logs = append(logs, LogDump{
+				Request: operation,
+				Replies: repliesSlice,
+			})
+		}
+
+		group.Log = logs
+
+		groups = append(groups, group)
 	}
+
 	json.NewEncoder(w).Encode(groups)
 	w.Write([]byte{'\n'})
 }
 
-func dump() ([]createGroup, error) {
-
+func getGroups() []createGroup {
 	raftgroups.mu.Lock()
 	defer raftgroups.mu.Unlock()
 
@@ -135,64 +177,7 @@ func dump() ([]createGroup, error) {
 		groups = append(groups, group)
 	}
 
-	return groups, nil
-}
-
-func get(w http.ResponseWriter, r *http.Request) {
-	lnode, err := getNodeFromgroup(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	value := lnode.fsm.Read()
-	w.Write(value)
-	w.Write([]byte{'\n'})
-}
-
-func nodes(w http.ResponseWriter, r *http.Request) {
-	lnode, err := getNodeFromgroup(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	raws := []raft.RawMember{}
-	membs := lnode.raftnode.Members()
-	for _, m := range membs {
-		raws = append(raws, m.Raw())
-	}
-
-	buf, err := json.Marshal(raws)
-	if err != nil {
-		panic(err)
-	}
-
-	w.Write(buf)
-	w.Write([]byte{'\n'})
-}
-
-func removeNode(w http.ResponseWriter, r *http.Request) {
-	lnode, err := getNodeFromgroup(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	sid := mux.Vars(r)["id"]
-	id, err := strconv.ParseUint(sid, 0, 64)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(r.Context(), time.Second)
-	defer cancel()
-
-	if err := lnode.raftnode.RemoveMember(ctx, id); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	return groups
 }
 
 func newGroup(w http.ResponseWriter, r *http.Request) {
@@ -220,6 +205,12 @@ func Do(ctx context.Context, sites []string, operation Payload) (reply Payload, 
 	if len(sites) < 3 {
 		return reply, fmt.Errorf("Can't save with raft, need at least three sites")
 	}
+	randBytes, err := io.ReadAll(&io.LimitedReader{rand.Reader, 64})
+	if err != nil {
+		return reply, fmt.Errorf("Can't generate id: %v\n", err)
+	}
+	operation.RequestId = base32.StdEncoding.EncodeToString(randBytes)
+
 	buf, err := json.Marshal(operation)
 	if err != nil {
 		return reply, err
@@ -257,7 +248,7 @@ func Do(ctx context.Context, sites []string, operation Payload) (reply Payload, 
 			if err := ctx.Err(); err != nil {
 				return reply, err
 			}
-		case reply := <-bus.For(node.groupID, hash(buf)):
+		case reply := <-bus.For(node.groupID, operation.RequestId):
 			replies = append(replies, reply)
 		case <-time.After(20 * time.Second):
 			// timeout
@@ -301,8 +292,6 @@ func (rb *replyBus) For(groupId uint64, requestId string) chan Payload {
 		rb.buses[groupId][requestId] = make(chan Payload)
 	}
 	c := rb.buses[groupId][requestId]
-
-	log.Printf("replyBus: %v %v %v\n", groupId, requestId, c)
 	rb.mu.Unlock()
 
 	return c
@@ -311,6 +300,7 @@ func (rb *replyBus) For(groupId uint64, requestId string) chan Payload {
 func getGroupIdForSites(ctx context.Context, sites []string) uint64 {
 	log.Printf("Fetching node sites=%v\n", sites)
 
+	existingGroups := getGroups()
 	findGroup := func(groups []createGroup, sites []string) (groupID uint64) {
 		for _, group := range groups {
 			match := 0
@@ -329,11 +319,6 @@ func getGroupIdForSites(ctx context.Context, sites []string) uint64 {
 		return
 	}
 
-	existingGroups, err := dump()
-	if err != nil {
-		return 0
-	}
-
 	groupID := findGroup(existingGroups, sites)
 	if groupID != 0 {
 		return groupID
@@ -348,10 +333,7 @@ func getOrCreateNodeWithSites(ctx context.Context, sites []string) *localNode {
 		return raftgroups.getNode(groupID)
 	}
 
-	existingGroups, err := dump()
-	if err != nil {
-		return nil
-	}
+	existingGroups := getGroups()
 	max := uint64(0)
 	for _, g := range existingGroups {
 		if max <= g.GroupID {
@@ -437,7 +419,7 @@ func getNodeFromgroup(r *http.Request) (*localNode, error) {
 func newstateMachine(groupID uint64) *stateMachine {
 	return &stateMachine{
 		groupID:    groupID,
-		operations: make([]string, 0),
+		operations: make([]Payload, 0),
 		replies:    make(map[string]map[string]Payload),
 	}
 }
@@ -446,7 +428,7 @@ type stateMachine struct {
 	groupID uint64
 
 	mu         sync.Mutex
-	operations []string
+	operations []Payload
 
 	// request id -> site -> reply
 	muResp  sync.Mutex
@@ -462,12 +444,18 @@ func (s *stateMachine) Apply(data []byte) {
 
 	switch rep.CMD {
 	case "operation":
+		var p Payload
+		err := json.Unmarshal(rep.Data, &p)
+		if err != nil {
+			log.Printf("Couldn't unmarshal: %v\n", err)
+			break
+		}
+
 		s.mu.Lock()
-		s.operations = append(s.operations, string(rep.Data))
-		index := len(s.operations) - 1
+		s.operations = append(s.operations, p)
 		s.mu.Unlock()
 		//s.enqueue(s.groupID, len(s.operations) - 1, rep.Data)
-		go handleNewOperation(s.groupID, index, rep.Data)
+		go handleNewOperation(s.groupID, p)
 	case "reply":
 		var pm PayloadWithMeta
 		err := json.Unmarshal(rep.Data, &pm)
@@ -485,7 +473,7 @@ func (s *stateMachine) Apply(data []byte) {
 		s.muResp.Unlock()
 
 		go func() {
-			bus.For(s.groupID, pm.RequestId) <- pm.Payload
+			bus.For(s.groupID, pm.Payload.RequestId) <- pm.Payload
 		}()
 	case "groups":
 		var c createGroup
@@ -525,23 +513,6 @@ func (s *stateMachine) Restore(r io.ReadCloser) error {
 	return r.Close()
 }
 
-func (s *stateMachine) Read() []byte {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	out := struct {
-		Operations []string
-		Replies    map[string]map[string]Payload
-	}{
-		Operations: s.operations,
-		Replies:    s.replies,
-	}
-	st, err := json.Marshal(out)
-	if err != nil {
-		log.Printf("Couldn't unmarshal operations: %v\n", err)
-	}
-	return st
-}
-
 // enqueue puts data in the queue for this groupID with the index as a key
 // for the consumer.
 // Considering that data must be processed sequentially, it is expected that
@@ -553,14 +524,7 @@ func (s *stateMachine) enqueue(groupID uint64, index int, data []byte) {
 	os.WriteFile(filename, data, 0600)
 }
 
-func handleNewOperation(groupID uint64, index int, operation []byte) {
-	var p Payload
-	err := json.Unmarshal(operation, &p)
-	if err != nil {
-		log.Printf("Couldn't unmarshal payload: %v\n", err)
-		return
-	}
-
+func handleNewOperation(groupID uint64, p Payload) {
 	headerOut, bodyOut, err := backends.HandleKubernetes(p.Method, p.Path, p.Header, p.Body)
 	if err != nil {
 		log.Printf("Couldn't run locally: %v\n", err)
@@ -569,11 +533,11 @@ func handleNewOperation(groupID uint64, index int, operation []byte) {
 
 	resp := PayloadWithMeta{
 		Payload: Payload{
-			Header: headerOut,
-			Body:   bodyOut,
+			RequestId: p.RequestId,
+			Header:    headerOut,
+			Body:      bodyOut,
 		},
-		Site:      myfqdn,
-		RequestId: hash(operation),
+		Site: myfqdn,
 	}
 
 	buf, err := json.Marshal(resp)
@@ -719,11 +683,5 @@ type peer struct {
 
 type PayloadWithMeta struct {
 	Payload
-	RequestId string
-	Site      string
-}
-
-func hash(in []byte) string {
-	b := sha256.Sum256(in)
-	return base32.StdEncoding.EncodeToString(b[:])
+	Site string
 }
