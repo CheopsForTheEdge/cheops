@@ -77,8 +77,13 @@ func (c *Crdt) Do(ctx context.Context, sites []string, operation Payload) (reply
 	defer cancel()
 
 	go func() {
+		since := ""
 		for {
-			req, err := http.NewRequestWithContext(feedCtx, "GET", "http://localhost:5984/cheops/_changes?include_docs=true&feed=continuous", nil)
+			u := "http://localhost:5984/cheops/_changes?include_docs=true&feed=continuous"
+			if since != "" {
+				u += fmt.Sprintf("&since=%s", since)
+			}
+			req, err := http.NewRequestWithContext(feedCtx, "GET", u, nil)
 			if err != nil {
 				log.Printf("Couldn't create request with context: %v\n", err)
 				break
@@ -115,6 +120,7 @@ func (c *Crdt) Do(ctx context.Context, sites []string, operation Payload) (reply
 				}
 
 				repliesChan <- d.Doc.Payload
+				since = d.Seq
 			}
 
 			select {
@@ -165,8 +171,13 @@ func (c *Crdt) watchRequests() {
 	var bs backendStatus
 
 	go func() {
+		since := ""
 		for {
-			feed, err := http.Get("http://localhost:5984/cheops/_changes?include_docs=true&feed=continuous")
+			u := "http://localhost:5984/cheops/_changes?include_docs=true&feed=continuous"
+			if since != "" {
+				u += fmt.Sprintf("&since=%s", since)
+			}
+			feed, err := http.Get(u)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -220,6 +231,7 @@ func (c *Crdt) watchRequests() {
 						}
 					}
 				}(d.Doc.Locations)
+				since = d.Seq
 			}
 		}
 	}()
@@ -318,8 +330,13 @@ type CouchResp struct {
 func (c *Crdt) replicate() {
 	existingJobs := c.getExistingJobs()
 
+	since := ""
 	for {
-		feed, err := http.Get("http://localhost:5984/cheops/_changes?include_docs=true&feed=continuous")
+		u := "http://localhost:5984/cheops/_changes?include_docs=true&feed=continuous"
+		if since != "" {
+			u += fmt.Sprintf("&since=%s", since)
+		}
+		feed, err := http.Get(u)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -363,6 +380,8 @@ func (c *Crdt) replicate() {
 					existingJobs[location] = struct{}{}
 				}
 			}
+
+			since = d.Seq
 		}
 
 		if err := scanner.Err(); err != nil {
@@ -372,6 +391,7 @@ func (c *Crdt) replicate() {
 }
 
 type DocChange struct {
+	Seq string       `json:"seq"`
 	Doc crdtDocument `json:"doc"`
 }
 
