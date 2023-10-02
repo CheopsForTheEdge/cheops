@@ -56,7 +56,7 @@ func (c *Crdt) Do(ctx context.Context, sites []string, operation Payload) (reply
 	if err != nil {
 		return reply, err
 	}
-	newresp, err := http.Post("http://localhost:5984/crdt-log", "application/json", bytes.NewReader(buf))
+	newresp, err := http.Post("http://localhost:5984/cheops", "application/json", bytes.NewReader(buf))
 	if err != nil {
 		return reply, err
 	}
@@ -77,7 +77,7 @@ func (c *Crdt) Do(ctx context.Context, sites []string, operation Payload) (reply
 	defer cancel()
 
 	for {
-		req, err := http.NewRequestWithContext(feedCtx, "GET", "http://localhost:5984/crdt-log/_changes?include_docs=true&feed=continuous", nil)
+		req, err := http.NewRequestWithContext(feedCtx, "GET", "http://localhost:5984/cheops/_changes?include_docs=true&feed=continuous", nil)
 		if err != nil {
 			log.Printf("Couldn't create request with context: %v\n", err)
 			break
@@ -154,7 +154,7 @@ func (c *Crdt) watchRequests() {
 
 	go func() {
 		for {
-			feed, err := http.Get("http://localhost:5984/crdt-log/_changes?include_docs=true&feed=continuous")
+			feed, err := http.Get("http://localhost:5984/cheops/_changes?include_docs=true&feed=continuous")
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -238,7 +238,7 @@ func (c *Crdt) run(requestId string, sites []string) {
 		log.Printf("Couldn't marshal reply: %v\n", err)
 		return
 	}
-	newresp, err := http.Post("http://localhost:5984/crdt-log", "application/json", bytes.NewReader(buf))
+	newresp, err := http.Post("http://localhost:5984/cheops", "application/json", bytes.NewReader(buf))
 	if err != nil {
 		log.Printf("Couldn't send reply: %v\n", err)
 		return
@@ -257,7 +257,7 @@ func (c *Crdt) getDocsForSites(sites []string) ([]crdtDocument, error) {
 	selector := fmt.Sprintf(`{"selector": {"$and": [%s]}}`, strings.Join(locations, ","))
 
 	fmt.Println(selector)
-	current, err := http.Post("http://localhost:5984/crdt-log/_find", "application/json", strings.NewReader(selector))
+	current, err := http.Post("http://localhost:5984/cheops/_find", "application/json", strings.NewReader(selector))
 	if err != nil {
 		return nil, err
 	}
@@ -286,7 +286,7 @@ func (c *Crdt) replicate() {
 	existingJobs := c.getExistingJobs()
 
 	for {
-		feed, err := http.Get("http://localhost:5984/crdt-log/_changes?include_docs=true&feed=continuous")
+		feed, err := http.Get("http://localhost:5984/cheops/_changes?include_docs=true&feed=continuous")
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -314,7 +314,7 @@ func (c *Crdt) replicate() {
 					continue
 				}
 				if _, ok := existingJobs[location]; !ok {
-					body := fmt.Sprintf(`{"continuous": true, "source": "http://localhost:5984/crdt-log", "target": "http://%s:5984/crdt-log"}`, location)
+					body := fmt.Sprintf(`{"continuous": true, "source": "http://localhost:5984/cheops", "target": "http://%s:5984/crdt-log"}`, location)
 					resp, err := http.Post("http://admin:password@localhost:5984/_replicate", "application/json", strings.NewReader(body))
 					if err != nil {
 						log.Printf("Couldn't add replication: %s\n", err)
