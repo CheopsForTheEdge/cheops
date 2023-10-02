@@ -122,7 +122,7 @@ func (c *Crdt) Do(ctx context.Context, sites []string, operation Payload) (reply
 	}
 
 	// Generate diff with locally current config
-	currentConfig := backends.CurrentConfig(ctx, []byte(operation.Body))
+	currentConfig := backends.CurrentConfig(ctx, operation.RequestId)
 	asjson, err := yaml.Parse(string(operation.Body))
 	if err != nil {
 		return reply, err

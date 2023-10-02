@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -62,7 +63,7 @@ func SitesFor(method string, path string, headers http.Header, body []byte) ([]s
 	return locTrimmed, nil
 }
 
-// runWithStdin runs a command with an input to be passed to standard input and returns the combined output (stdout and stderr) as a slice of bytes and an error.
+// runWithStdin runs a command with an input to be passed to standard input and returns the combined output (stdout and stderr) as a slice of bytes and an error. If the length of input is 0 then the command is run as-is.
 //
 // If the command was run successfully with no error, err is null.
 // If the command was run successfully with a status code != 0, the error is a generic "failed". Note that stderr is included in the output
@@ -71,16 +72,19 @@ func runWithStdin(ctx context.Context, input []byte, args ...string) (output []b
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 	command := cmd.String()
 	log.Printf("Running %s\n", command)
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		log.Printf("Couldn't get stdinpipe for [%s]: %v\n", command, err)
-		return nil, fmt.Errorf("internal error")
-	}
 
-	go func() {
-		defer stdin.Close()
-		io.Copy(stdin, bytes.NewBuffer(input))
-	}()
+	if len(input) > 0 {
+		stdin, err := cmd.StdinPipe()
+		if err != nil {
+			log.Printf("Couldn't get stdinpipe for [%s]: %v\n", command, err)
+			return nil, fmt.Errorf("internal error")
+		}
+
+		go func() {
+			defer stdin.Close()
+			io.Copy(stdin, bytes.NewBuffer(input))
+		}()
+	}
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -108,37 +112,48 @@ func HandleKubernetes(ctx context.Context, method string, path string, headers h
 // The input is useful for determining the namespace and name. We let kubectl do the
 // magic itself here.
 // If anything goes wrong, CurrentConfig returns an empty json object
-func CurrentConfig(ctx context.Context, targetResource []byte) []byte {
-	out, err := runWithStdin(ctx, targetResource, "kubectl", "get", "-o", "yaml", "-f", "-")
+func CurrentConfig(ctx context.Context, targetId string) []byte {
+	out, err := runWithStdin(ctx, nil, "kubectl", "get", "-o", "json", "-f", "-")
 	if err != nil {
 		log.Printf("Error running cmd: %s\n", err)
 		return []byte("{}")
 	}
 
-	return extractCurrentConfig(out)
+	return extractCurrentConfig(out, targetId)
 }
 
-func extractCurrentConfig(b []byte) []byte {
-	node, err := yaml.Parse(string(b))
+func extractCurrentConfig(b []byte, targetId string) []byte {
+	var ac allConfig
+	err := json.Unmarshal(b, &ac)
 	if err != nil {
 		log.Printf("Couldn't parse yaml output: %v\n", err)
 		return []byte("{}")
 	}
-	docs, err := node.Pipe(yaml.Lookup("items"))
-	if err == nil {
-		elements, err := docs.Elements()
-		if err != nil {
-			log.Printf("Error parsing config: %v\n", err)
-			return []byte("{}")
 
+	for _, item := range ac.Items {
+		namespace := item.Metadata.NameMeta.Namespace
+		if namespace == "" {
+			namespace = "default"
 		}
-		node = elements[0]
+		id := fmt.Sprintf("%s:%s:%s", namespace, item.Kind, item.Metadata.NameMeta.Name)
+		if id == targetId {
+			lastAppliedConfiguration, ok := item.Metadata.Annotations["kubectl.kubernetes.io/last-applied-configuration"]
+			fmt.Println(lastAppliedConfiguration)
+			fmt.Println(ok)
+			if ok {
+				return []byte(lastAppliedConfiguration)
+			}
+		}
 	}
 
-	m := node.GetAnnotations("kubectl.kubernetes.io/last-applied-configuration")
-	config, ok := m["kubectl.kubernetes.io/last-applied-configuration"]
-	if !ok {
-		return []byte("{}")
-	}
-	return []byte(config)
+	return []byte("{}")
+}
+
+type allConfig struct {
+	Items []itemConfig `json:"items"`
+}
+
+type itemConfig struct {
+	Kind     string          `json:"kind"`
+	Metadata yaml.ObjectMeta `json:"metadata"`
 }
