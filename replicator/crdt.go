@@ -324,6 +324,10 @@ func (c *Crdt) replicate() {
 				log.Printf("Couldn't decode: %s", err)
 				continue
 			}
+
+			log.Printf("Found doc with locations %v\n", d.Doc.Locations)
+			log.Printf("Already know about jobs %v\n", existingJobs)
+
 			for _, location := range d.Doc.Locations {
 				if location == env.Myfqdn {
 					continue
