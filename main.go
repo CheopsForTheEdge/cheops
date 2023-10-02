@@ -73,5 +73,7 @@ func main() {
 	}
 
 	kubernetes.Run(context.Background())
-	api.Routing()
+	go api.Admin()
+	go api.Routing()
+	select {}
 }
