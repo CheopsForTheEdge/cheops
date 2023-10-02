@@ -281,7 +281,7 @@ func Save(ctx context.Context, sites []string, operation []byte) error {
 	maxtries := 10
 	for {
 		if err := node.raftnode.Replicate(ctx, buf); err != nil {
-			if err.Error() == ErrNoLeader.Error() && maxtries > 0 {
+			if node.raftnode.Leader() == raft.None && maxtries > 0 {
 				log.Println("No leader yet, waiting 1 second")
 				maxtries--
 				<-time.After(1 * time.Second)
