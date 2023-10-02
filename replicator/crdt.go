@@ -136,6 +136,9 @@ func (c *Crdt) Do(ctx context.Context, sites []string, operation Payload) (reply
 		return reply, err
 	}
 
+	log.Printf("current config: %s\n", currentConfig)
+	log.Printf("patch: %s\n", patch)
+
 	// Post document for replication
 	newDoc := crdtDocument{
 		Locations:  sites,
