@@ -181,6 +181,9 @@ func (c *Crdt) watchRequests() {
 					// CouchDB status message, discard
 					continue
 				}
+				if !d.Doc.Payload.IsRequest() {
+					continue
+				}
 
 				bs.setShouldRun(true)
 				if bs.isRunning() {
