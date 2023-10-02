@@ -96,11 +96,7 @@ func Raft(port int) {
 }
 
 func dumphttp(w http.ResponseWriter, r *http.Request) {
-
-	ctx, cancel := context.WithTimeout(r.Context(), time.Second)
-	defer cancel()
-
-	groups, err := dump(ctx)
+	groups, err := dump(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
