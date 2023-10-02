@@ -337,7 +337,13 @@ func getOrCreateNodeWithSites(ctx context.Context, sites []string) *localNode {
 	if err != nil {
 		return nil
 	}
-	groupID = uint64(len(existingGroups) + 1)
+	max := uint64(0)
+	for _, g := range existingGroups {
+		if max <= g.GroupID {
+			max = g.GroupID
+		}
+	}
+	groupID = max + 1
 
 	log.Printf("No group found, creating sites=%v\n", sites)
 	// Create group and reread
