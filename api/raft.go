@@ -64,6 +64,7 @@ func Raft(port int) {
 	// router.HandleFunc("/{groupID}/mgmt/nodes/{id}", http.HandlerFunc(removeNode)).Methods("DELETE")
 
 	router.HandleFunc("/mgmt/groups", http.HandlerFunc(newGroup)).Methods("PUT", "POST")
+	router.HandleFunc("/mgmt/groups", http.HandlerFunc(dump)).Methods("GET")
 
 	go func() {
 		lis, err := net.Listen("tcp", ":"+strconv.Itoa(port))
@@ -91,6 +92,23 @@ func Raft(port int) {
 	<-c
 	raftServer.GracefulStop()
 	// TODO(Shaj13) stop all nodes.
+}
+
+func dump(w http.ResponseWriter, r *http.Request) {
+	node0 := raftgroups.getNode(0)
+
+	ctx, cancel := context.WithTimeout(r.Context(), time.Second)
+	defer cancel()
+
+	if err := node0.raftnode.LinearizableRead(ctx); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	value := node0.fsm.ReadGroups()
+	json.NewEncoder(w).Encode(value)
+	w.Write([]byte{'\n'})
+
 }
 
 func get(w http.ResponseWriter, r *http.Request) {
