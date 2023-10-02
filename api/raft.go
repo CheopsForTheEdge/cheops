@@ -244,6 +244,20 @@ func Save(ctx context.Context, sites []string, operation []byte) error {
 		return fmt.Errorf("Couldn't get node for %v", sites)
 	}
 
+	waitctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	for {
+		select {
+		case <-waitctx.Done():
+			return fmt.Errorf("Timeout waiting for cluster to form")
+		case <-time.After(1 * time.Second):
+			if node.raftnode.Leader() != 0 {
+				break
+			}
+		}
+	}
+
 	rep := replicate{
 		CMD:  "operation",
 		Data: operation,
