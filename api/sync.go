@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -79,4 +80,26 @@ func Sync(port int) {
 	if err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
 	}
+}
+
+var mode syncMode
+
+type syncMode int
+
+const (
+	raftMode syncMode = iota
+	crdtMode
+)
+
+// Do makes sure the operation is run on all sites, and gives back the reply
+func Do(ctx context.Context, sites []string, operation Payload) (reply Payload, err error) {
+	switch mode {
+	case raftMode:
+		return doRaft(ctx, sites, operation)
+	case crdtMode:
+		return doCrdt(ctx, sites, operation)
+	}
+
+	// unreachable
+	return Payload{}, nil
 }

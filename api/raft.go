@@ -197,10 +197,10 @@ func newGroup(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-// Do gets the group associated to the sites and creates one if it doesn't exist
-// Note: the sites will be fqdn, they won't have the raft port
-// It then distributes the request in raft, waits for the reply, and gives it back
-func Do(ctx context.Context, sites []string, operation Payload) (reply Payload, err error) {
+// doRaft appends the operation to the raft log related to those sites (will create a group if
+// there is none yet). Once committed each site executes the operation and writes the reply
+// in the raft log. The caller will then collect the replies and return the first one that arrives
+func doRaft(ctx context.Context, sites []string, operation Payload) (reply Payload, err error) {
 	reply = Payload{}
 	if len(sites) < 3 {
 		return reply, fmt.Errorf("Can't save with raft, need at least three sites")
