@@ -378,7 +378,7 @@ func (c *Crdt) replicate() {
 						continue
 					}
 					if _, ok := existingJobs[location]; !ok {
-						body := fmt.Sprintf(`{"continuous": true, "source": "http://localhost:5984/cheops", "target": "http://%s:5984/crdt-log"}`, location)
+						body := fmt.Sprintf(`{"continuous": true, "source": "http://localhost:5984/cheops", "target": "http://%s:5984/cheops"}`, location)
 						resp, err := http.Post("http://admin:password@localhost:5984/_replicate", "application/json", strings.NewReader(body))
 						if err != nil {
 							log.Printf("Couldn't add replication: %s\n", err)
