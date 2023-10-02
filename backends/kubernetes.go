@@ -1,6 +1,7 @@
 package backends
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"io"
@@ -37,6 +38,8 @@ func SitesFor(method string, path string, headers http.Header, body []byte) ([]s
 
 func HandleKubernetes(ctx context.Context, method string, path string, headers http.Header, body []byte) (h http.Header, b []byte, err2 error) {
 	cmd := exec.CommandContext(ctx, "kubectl", "apply", "-f", "-")
+	command := cmd.String()
+	log.Printf("Running %s\n", command)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		err2 = err
@@ -49,6 +52,10 @@ func HandleKubernetes(ctx context.Context, method string, path string, headers h
 	}()
 
 	out, err := cmd.CombinedOutput()
+	scanner := bufio.NewScanner(bytes.NewBuffer(out))
+	for scanner.Scan() {
+		log.Printf("[%s]: %s\n", command, scanner.Text())
+	}
 	return h, out, err
 }
 
@@ -75,7 +82,6 @@ func CurrentConfig(ctx context.Context, targetResource []byte) []byte {
 		return []byte("{}")
 	}
 
-	log.Printf("current status raw: %s\n", out)
 	return extractCurrentConfig(out)
 }
 
