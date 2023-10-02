@@ -12,7 +12,7 @@ nn3=$(printenv $n3)
 sed "s/LOCATIONS/$nn1,$nn2,$nn3/ ; s/REPLICAS/1/ ; s/PORT/80/" ../simple-deployment.yml.tpl > simple-deployment.yml
 curl -s "http://$nn1:8079" --data-binary @simple-deployment.yml
 
-read -p "Continue ?"
+read -p "Continue ? "
 
 sed "s/LOCATIONS/$nn1,$nn2,$nn3/ ; s/REPLICAS/2/ ; s/PORT/80/" ../simple-deployment.yml.tpl > simple-deployment-replicas.yml
 sed "s/LOCATIONS/$nn1,$nn2,$nn3/ ; s/REPLICAS/1/ ; s/PORT/90/" ../simple-deployment.yml.tpl > simple-deployment-port.yml
