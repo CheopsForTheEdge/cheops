@@ -3,27 +3,11 @@ package replicator
 
 import (
 	"context"
-	"log"
 	"net/http"
-	"os"
 )
 
 func NewDoer() Doer {
-	m, ok := os.LookupEnv("MODE")
-	if !ok {
-		log.Fatal("Mode must be given with the MODE environment variable !")
-	}
-	switch m {
-	case "raft":
-		return newRaft(7070)
-	case "crdt":
-		return newCrdt(7071)
-	default:
-		log.Fatalf("Invalid MODE, want 'raft' or 'crdt', got [%v]\n", m)
-	}
-
-	// unreachable
-	return nil
+	return newCrdt(7071)
 }
 
 // Doer is the interface that replicators must implement
