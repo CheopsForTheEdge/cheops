@@ -168,6 +168,8 @@ func proxy(ctx context.Context, host string, w http.ResponseWriter, r *http.Requ
 	_, err = io.Copy(w, bytes.NewReader(respbuf))
 	if err != nil {
 		http.Error(w, "can't write reply", http.StatusInternalServerError)
+		log.Println(err)
+
 		// Not a blocking error
 		return nil
 	}
