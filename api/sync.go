@@ -46,7 +46,7 @@ func Sync(port int) {
 		req := Request{
 			Method: method,
 			Path:   path,
-			Body:   body,
+			Body:   string(body),
 		}
 		buf, err := json.Marshal(req)
 		if err != nil {
