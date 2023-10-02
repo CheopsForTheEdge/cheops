@@ -247,13 +247,14 @@ func Save(ctx context.Context, sites []string, operation []byte) error {
 	waitctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
+wait:
 	for {
 		select {
 		case <-waitctx.Done():
 			return fmt.Errorf("Timeout waiting for cluster to form")
 		case <-time.After(1 * time.Second):
 			if node.raftnode.Leader() != 0 {
-				break
+				break wait
 			}
 		}
 	}
