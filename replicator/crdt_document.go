@@ -2,9 +2,11 @@ package replicator
 
 import (
 	"bytes"
+	"log"
 	"sort"
 
 	"github.com/anacrolix/torrent/bencode"
+	jp "github.com/evanphx/json-patch"
 )
 
 type crdtDocument struct {
@@ -30,4 +32,21 @@ func sortDocuments(docs []crdtDocument) {
 			return bytes.Compare(iEncoded, jEncoded) <= 0
 		}
 	})
+}
+
+// mergePatches takes all requests in a given order and
+// produces a document that represents a unification of all
+// requests. The resulting document can be applied as-is
+func mergePatches(requests []crdtDocument) []byte {
+	b := []byte("{}")
+	var err error
+	for _, r := range requests {
+		b, err = jp.MergeMergePatches(b, r.Payload.Body)
+		if err != nil {
+			log.Println("Couldn't merge patches")
+			// Not actually problematic, continue
+		}
+	}
+
+	return b
 }

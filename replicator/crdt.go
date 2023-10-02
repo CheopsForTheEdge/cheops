@@ -13,6 +13,7 @@ import (
 
 	"cheops.com/backends"
 	"cheops.com/env"
+	jp "github.com/evanphx/json-patch"
 )
 
 type Crdt struct {
@@ -119,11 +120,23 @@ func (c *Crdt) Do(ctx context.Context, sites []string, operation Payload) (reply
 		}
 	}
 
+	// Generate diff with locally current config
+	currentConfig := backends.CurrentConfig(ctx, operation.Body)
+	patch, err := jp.CreateMergePatch(currentConfig, operation.Body)
+	if err != nil {
+		return reply, err
+	}
+
 	// Post document for replication
 	newDoc := crdtDocument{
 		Locations:  sites,
 		Generation: max + 1,
-		Payload:    operation,
+		Payload: Payload{
+			Method: operation.Method,
+			Path:   operation.Path,
+			Header: operation.Header,
+			Body:   patch,
+		},
 	}
 	buf, err := json.Marshal(newDoc)
 	if err != nil {
@@ -227,7 +240,7 @@ func (c *Crdt) watchRequests() {
 					continue
 				}
 
-				c.run(d.Doc.Locations)
+				c.run(context.Background(), d.Doc.Locations, d.Doc.Payload)
 				since = d.Seq
 			}
 		}
@@ -304,7 +317,7 @@ func (c *Crdt) watchReplies(ctx context.Context, requestId string, repliesChan c
 	}()
 }
 
-func (c *Crdt) run(sites []string) {
+func (c *Crdt) run(ctx context.Context, sites []string, p Payload) {
 	docs, err := c.getDocsForSites(sites)
 	if err != nil {
 		log.Printf("Couldn't get docs for sites: %v\n", err)
@@ -321,14 +334,14 @@ func (c *Crdt) run(sites []string) {
 		}
 	}
 	sortDocuments(requests)
-	p := requests[len(requests)-1].Payload // Only execute the last one
+	body := mergePatches(requests)
 
 	if _, ok := requestIdsInReplies[p.RequestId]; ok {
 		// We already have a reply from this site, don't run it
 		return
 	}
 
-	headerOut, bodyOut, err := backends.HandleKubernetes(p.Method, p.Path, p.Header, p.Body)
+	headerOut, bodyOut, err := backends.HandleKubernetes(ctx, p.Method, p.Path, p.Header, body)
 
 	if err != nil {
 		log.Printf("Couldn't exec request: %v\n", err)

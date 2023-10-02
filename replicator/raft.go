@@ -506,7 +506,7 @@ func (s *stateMachine) enqueue(groupID uint64, index int, data []byte) {
 }
 
 func (r *Raft) handleNewOperation(groupID uint64, p Payload) {
-	headerOut, bodyOut, err := backends.HandleKubernetes(p.Method, p.Path, p.Header, p.Body)
+	headerOut, bodyOut, err := backends.HandleKubernetes(context.Background(), p.Method, p.Path, p.Header, p.Body)
 	if err != nil {
 		log.Printf("Couldn't run locally: %v\n", err)
 		return

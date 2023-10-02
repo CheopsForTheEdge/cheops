@@ -3,8 +3,7 @@ package backends
 import (
 	"bytes"
 	"context"
-	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os/exec"
@@ -51,38 +50,48 @@ func SitesFor(method string, path string, headers http.Header, body []byte) ([]s
 	return locTrimmed, nil
 }
 
-func HandleKubernetes(method string, path string, headers http.Header, body []byte) (http.Header, []byte, error) {
-	u := fmt.Sprintf("http://127.0.0.1:8283%s", path)
-
-	newreq, err := http.NewRequestWithContext(context.Background(), method, u, bytes.NewReader(body))
-
+func HandleKubernetes(ctx context.Context, method string, path string, headers http.Header, body []byte) (h http.Header, b []byte, err2 error) {
+	cmd := exec.CommandContext(ctx, "kubectl", "--server-side=true", "-f", "-")
+	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		return nil, nil, err
+		err2 = err
+		return
 	}
 
-	for key, vals := range headers {
-		for _, val := range vals {
-			newreq.Header.Add(key, val)
-		}
-	}
+	go func() {
+		defer stdin.Close()
+		io.Copy(stdin, bytes.NewBuffer(body))
+	}()
 
-	resp, err := http.DefaultClient.Do(newreq)
+	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return nil, nil, err
+		err2 = err
+		return
 	}
-	defer resp.Body.Close()
 
-	respbuf, err := ioutil.ReadAll(resp.Body)
+	return h, out, nil
+}
+
+// CurrentConfig fetches the configuration as json for the resources that is given in input.
+// The input is useful for determining the namespace and name. We let kubectl do the
+// magic itself here.
+// If anything goes wrong, CurrentConfig returns an empty json object
+func CurrentConfig(ctx context.Context, targetResource []byte) []byte {
+	cmd := exec.CommandContext(ctx, "kubectl", "-o", "yaml", "-f", "-")
+	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		return nil, nil, err
+		return []byte("{}")
 	}
 
-	headersOut := make(http.Header)
-	for key, vals := range resp.Header {
-		for _, val := range vals {
-			headersOut.Add(key, val)
-		}
+	go func() {
+		defer stdin.Close()
+		io.Copy(stdin, bytes.NewBuffer(targetResource))
+	}()
+
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return []byte("{}")
 	}
 
-	return headersOut, respbuf, nil
+	return out
 }
