@@ -239,6 +239,7 @@ func (c *Crdt) run(requestId string, sites []string) {
 			RequestId: requestId,
 			Header:    headerOut,
 			Body:      bodyOut,
+			Site:      env.Myfqdn,
 		},
 	}
 	buf, err := json.Marshal(newDoc)
