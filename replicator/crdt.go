@@ -144,11 +144,12 @@ func (c *Crdt) Do(ctx context.Context, sites []string, operation Payload) (reply
 		Locations:  sites,
 		Generation: max + 1,
 		Payload: Payload{
-			RequestId: operation.RequestId,
-			Method:    operation.Method,
-			Path:      operation.Path,
-			Header:    operation.Header,
-			Body:      string(patch),
+			RequestId:  operation.RequestId,
+			ResourceId: operation.ResourceId,
+			Method:     operation.Method,
+			Path:       operation.Path,
+			Header:     operation.Header,
+			Body:       string(patch),
 		},
 	}
 	buf, err := json.Marshal(newDoc)
@@ -215,8 +216,9 @@ wait:
 			return reply, fmt.Errorf("Couldn't marshall bodies: %w", err)
 		}
 		reply = Payload{
-			RequestId: operation.RequestId,
-			Body:      string(body),
+			RequestId:  operation.RequestId,
+			Body:       string(body),
+			ResourceId: operation.ResourceId,
 		}
 		return reply, nil
 	}
@@ -387,10 +389,11 @@ func (c *Crdt) run(ctx context.Context, sites []string, p Payload) {
 		Locations:  sites,
 		Generation: 0,
 		Payload: Payload{
-			RequestId: p.RequestId,
-			Header:    headerOut,
-			Body:      string(bodyOut),
-			Site:      env.Myfqdn,
+			RequestId:  p.RequestId,
+			ResourceId: p.ResourceId,
+			Header:     headerOut,
+			Body:       string(bodyOut),
+			Site:       env.Myfqdn,
 		},
 	}
 	buf, err := json.Marshal(newDoc)

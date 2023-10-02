@@ -62,13 +62,21 @@ func Sync(port int, d replicator.Doer) {
 			return
 		}
 
+		resourceId, err := backends.ResourceIdFor(method, path, header, body)
+		if err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			log.Printf("Bad request, no resourceId can be found: %s\n", err)
+			return
+		}
+
 		req := replicator.Payload{
-			Method:    method,
-			Header:    r.Header,
-			Path:      path,
-			Body:      string(body),
-			RequestId: base32.StdEncoding.EncodeToString(randBytes),
-			Site:      env.Myfqdn,
+			Method:     method,
+			ResourceId: resourceId,
+			Header:     r.Header,
+			Path:       path,
+			Body:       string(body),
+			RequestId:  base32.StdEncoding.EncodeToString(randBytes),
+			Site:       env.Myfqdn,
 		}
 
 		reply, err := d.Do(r.Context(), sites, req)

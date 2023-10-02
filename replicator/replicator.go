@@ -23,6 +23,8 @@ type Doer interface {
 type Payload struct {
 	RequestId string
 
+	ResourceId string
+
 	// Only filled when this is a request
 	Method string
 	Path   string

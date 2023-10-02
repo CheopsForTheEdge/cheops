@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -12,6 +13,31 @@ import (
 
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
+
+func ResourceIdFor(method string, path string, headers http.Header, body []byte) (string, error) {
+	if body == nil || len(body) == 0 {
+		return "", fmt.Errorf("No body to give back an id")
+	}
+
+	doc, err := yaml.Parse(string(body))
+	if err != nil {
+		return "", err
+	}
+
+	kind := doc.GetKind()
+
+	meta, err := doc.GetMeta()
+	if err != nil {
+		return "", err
+	}
+	name := meta.ObjectMeta.NameMeta.Name
+	namespace := meta.ObjectMeta.NameMeta.Namespace
+	if namespace == "" {
+		namespace = "default"
+	}
+
+	return fmt.Sprintf("%s:%s:%s", namespace, kind, name), nil
+}
 
 func SitesFor(method string, path string, headers http.Header, body []byte) ([]string, error) {
 	if body == nil || len(body) == 0 {

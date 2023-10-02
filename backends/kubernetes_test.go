@@ -158,3 +158,52 @@ metadata:
 		t.Fatalf("diff in current config, diff is %s, expected %s", diff, expectedConf)
 	}
 }
+
+func TestResourceIdForWithDefaultNamespace(t *testing.T) {
+	input := `apiVersion: v1
+kind: Pod
+metadata:
+  name: simpleapp-pod
+  labels:
+    app.kubernetes.io/name: SimpleApp
+spec:
+  containers:
+  - name: myapp-container
+    image: busybox:1.28
+    command: ['sh', '-c', 'echo The app is running! && sleep 3600']
+  initContainers:
+  - name: init-myservice
+    image: busybox:1.28
+    command: ['sh', '-c', "sleep 2"]
+`
+
+	id, err := ResourceIdFor("", "", nil, []byte(input))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := "default:Pod:simpleapp-pod"
+	if id != expected {
+		t.Fatalf("Wrong id: got [%s], expected [%s]", id, expected)
+	}
+}
+
+func TestResourceIdForWithSpecificNamespace(t *testing.T) {
+	input := `apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    k8s-app: flannel
+  name: flannel
+  namespace: kube-flannel`
+
+	id, err := ResourceIdFor("", "", nil, []byte(input))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := "kube-flannel:ServiceAccount:flannel"
+	if id != expected {
+		t.Fatalf("Wrong id: got [%s], expected [%s]", id, expected)
+	}
+}
