@@ -44,7 +44,7 @@ func Sync(port int) {
 		}
 
 		if len(sitesAsSlice) == 0 {
-			proxy(r.Context(), "127.0.0.1:8283", w, r)
+			proxy(r.Context(), "127.0.0.1:8283", w, r.Method, path, r.Header, body)
 			return
 		}
 
