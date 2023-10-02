@@ -39,7 +39,7 @@ func Routing() {
 				}
 
 				g.Go(func() error {
-					e := emptyResponseWriter{}
+					e := &emptyResponseWriter{}
 					err := proxy(ctx, site, e, r)
 					w.Header().Set(header, fmt.Sprintf("%d", e.statusCode))
 					return err
@@ -76,13 +76,13 @@ type emptyResponseWriter struct {
 	statusCode int
 }
 
-func (e emptyResponseWriter) Header() http.Header {
+func (e *emptyResponseWriter) Header() http.Header {
 	return http.Header(make(map[string][]string))
 }
-func (e emptyResponseWriter) WriteHeader(statusCode int) {
+func (e *emptyResponseWriter) WriteHeader(statusCode int) {
 	e.statusCode = statusCode
 }
-func (e emptyResponseWriter) Write(p []byte) (n int, err error) {
+func (e *emptyResponseWriter) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
