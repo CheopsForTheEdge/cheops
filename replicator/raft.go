@@ -2,8 +2,6 @@ package replicator
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base32"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -210,11 +208,6 @@ func (r *Raft) Do(ctx context.Context, sites []string, operation Payload) (reply
 	if len(sites) < 3 {
 		return reply, fmt.Errorf("Can't save with raft, need at least three sites")
 	}
-	randBytes, err := io.ReadAll(&io.LimitedReader{R: rand.Reader, N: 64})
-	if err != nil {
-		return reply, fmt.Errorf("Can't generate id: %v\n", err)
-	}
-	operation.RequestId = base32.StdEncoding.EncodeToString(randBytes)
 
 	buf, err := json.Marshal(operation)
 	if err != nil {
