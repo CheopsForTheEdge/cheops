@@ -60,7 +60,7 @@ func newRaft(port int) *Raft {
 	}
 	r.raftgroups.handleNewOperation = r.handleNewOperation
 
-	r.listen()
+	go r.listen()
 	return r
 }
 
