@@ -18,8 +18,6 @@ import (
 type Crdt struct {
 }
 
-var crdt *Crdt = newCrdt()
-
 func newCrdt() *Crdt {
 	c := &Crdt{}
 	go c.replicate()
