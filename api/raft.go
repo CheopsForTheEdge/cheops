@@ -257,7 +257,7 @@ func Do(ctx context.Context, sites []string, operation Payload) (reply Payload, 
 			if err := ctx.Err(); err != nil {
 				return reply, err
 			}
-		case reply := <-replyBus(node.groupID, hash(buf2)):
+		case reply := <-bus.For(node.groupID, hash(buf2)):
 			replies = append(replies, reply)
 		case <-time.After(20 * time.Second):
 			// timeout
@@ -280,19 +280,32 @@ func Do(ctx context.Context, sites []string, operation Payload) (reply Payload, 
 	return reply, fmt.Errorf("No replies")
 }
 
-var (
+type replyBus struct {
 	// groupId -> requestId -> chan
-	replyBuses = make(map[uint64]map[string]chan Payload)
+	mu    sync.Mutex
+	buses map[uint64]map[string]chan Payload
+}
+
+var (
+	bus = &replyBus{
+		buses: make(map[uint64]map[string]chan Payload),
+	}
 )
 
-func replyBus(groupId uint64, requestId string) chan Payload {
-	if _, ok := replyBuses[groupId]; !ok {
-		replyBuses[groupId] = make(map[string]chan Payload)
+func (rb *replyBus) For(groupId uint64, requestId string) chan Payload {
+	rb.mu.Lock()
+	if _, ok := rb.buses[groupId]; !ok {
+		rb.buses[groupId] = make(map[string]chan Payload)
 	}
-	if _, ok := replyBuses[groupId][requestId]; !ok {
-		replyBuses[groupId][requestId] = make(chan Payload)
+	if _, ok := rb.buses[groupId][requestId]; !ok {
+		rb.buses[groupId][requestId] = make(chan Payload)
 	}
-	return replyBuses[groupId][requestId]
+	c := rb.buses[groupId][requestId]
+
+	log.Printf("replyBus: %v %v %v\n", groupId, requestId, c)
+	rb.mu.Unlock()
+
+	return c
 }
 
 func getGroupIdForSites(ctx context.Context, sites []string) uint64 {
@@ -472,7 +485,7 @@ func (s *stateMachine) Apply(data []byte) {
 		s.muResp.Unlock()
 
 		go func() {
-			replyBus(s.groupID, pm.RequestId) <- pm.Payload
+			bus.For(s.groupID, pm.RequestId) <- pm.Payload
 		}()
 	case "groups":
 		var c createGroup
