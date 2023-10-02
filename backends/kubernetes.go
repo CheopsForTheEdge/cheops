@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"log"
 	"net/http"
 	"os/exec"
 	"strings"
@@ -72,5 +73,19 @@ func CurrentConfig(ctx context.Context, targetResource []byte) []byte {
 		return []byte("{}")
 	}
 
-	return out
+	return extractCurrentConfig(out)
+}
+
+func extractCurrentConfig(b []byte) []byte {
+	node, err := yaml.Parse(string(b))
+	if err != nil {
+		log.Printf("Couldn't parse yaml output: %v\n", err)
+		return []byte("{}")
+	}
+	lastConfigMap := node.GetAnnotations("kubectl.kubernetes.io/last-applied-configuration")
+	if len(lastConfigMap) == 0 {
+		return []byte("{}")
+	}
+	lastConfig := lastConfigMap["kubectl.kubernetes.io/last-applied-configuration"]
+	return []byte(lastConfig)
 }
