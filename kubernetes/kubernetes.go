@@ -46,6 +46,14 @@ func Proxy(w http.ResponseWriter, r *http.Request) {
 	u.Host = r.Host
 	u.Scheme = "http"
 
+	log.Printf("-> method=%s url=%s\n", r.Method, u.String())
+	log.Print("-> header ")
+	for key, vals := range r.Header {
+		log.Printf("%s=%s ", key, vals)
+	}
+	log.Print("\n")
+	log.Printf("-> req:\n%s\n\n", string(reqbuf))
+
 	newreq, err := http.NewRequestWithContext(context.Background(), r.Method, u.String(), bytes.NewReader(reqbuf))
 	defer r.Body.Close()
 
@@ -54,14 +62,6 @@ func Proxy(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
-
-	log.Printf("-> method=%s url=%s\n", r.Method, u.String())
-	log.Print("-> header ")
-	for key, vals := range r.Header {
-		log.Printf("%s=%s ", key, vals)
-	}
-	log.Print("\n")
-	log.Printf("-> req:\n%s\n\n", string(reqbuf))
 
 	resp, err := http.DefaultClient.Do(newreq)
 	if err != nil {
@@ -96,5 +96,5 @@ func Proxy(w http.ResponseWriter, r *http.Request) {
 		log.Printf("%s=%s ", key, vals)
 	}
 	log.Print("\n")
-	log.Printf("<-\n%s", string(respbuf))
+	log.Printf("<- body\n%s\n\n", string(respbuf))
 }
