@@ -85,7 +85,6 @@ func (c *Crdt) listenDump(port int) {
 			for _, doc := range ad.Rows {
 				if doc.Doc.Payload.RequestId == request.Payload.RequestId && !doc.Doc.Payload.IsRequest() {
 					fmt.Fprintf(w, "\t%s\n", doc.Doc.Payload.Site)
-					fmt.Fprintf(w, "\t%s\n", string(doc.Doc.Payload.Body))
 				}
 			}
 			fmt.Fprintf(w, "\n")
@@ -154,7 +153,6 @@ func (c *Crdt) Do(ctx context.Context, sites []string, operation Payload) (reply
 	replies := make([]Payload, 0, len(sites))
 wait:
 	for i := 0; i < len(sites); i++ {
-		log.Printf("Waiting for reply %d\n", i)
 		select {
 		case <-ctx.Done():
 			if err := ctx.Err(); err != nil {
@@ -311,7 +309,6 @@ func (c *Crdt) watchReplies(ctx context.Context, requestId string, repliesChan c
 }
 
 func (c *Crdt) run(sites []string) {
-	log.Println("Running")
 	docs, err := c.getDocsForSites(sites)
 	if err != nil {
 		log.Printf("Couldn't get docs for sites: %v\n", err)
@@ -321,7 +318,6 @@ func (c *Crdt) run(sites []string) {
 	requests := make([]crdtDocument, 0)
 	requestIdsInReplies := make(map[string]struct{})
 	for _, doc := range docs {
-		log.Printf("\t%s %s %s\n", doc.Payload.Site, doc.Id, doc.Rev)
 		if doc.Payload.IsRequest() {
 			requests = append(requests, doc)
 		} else if doc.Payload.Site == env.Myfqdn {
@@ -336,7 +332,6 @@ func (c *Crdt) run(sites []string) {
 		return
 	}
 
-	log.Printf("Will run %s\n", p.RequestId)
 	headerOut, bodyOut, err := backends.HandleKubernetes(p.Method, p.Path, p.Header, p.Body)
 
 	if err != nil {
@@ -372,15 +367,7 @@ func (c *Crdt) run(sites []string) {
 		return
 	}
 
-	type PostResp struct {
-		Id  string `json:"id"`
-		Rev string `json:"rev"`
-	}
-	var v PostResp
-	json.NewDecoder(newresp.Body).Decode(&v)
-
-	log.Printf("Executed and stored %s\n", p.RequestId)
-	log.Printf("\tStored %s %s\n", v.Id, v.Rev)
+	log.Printf("Ran %s %s\n", p.RequestId, env.Myfqdn)
 }
 
 func (c *Crdt) getDocsForSites(sites []string) ([]crdtDocument, error) {
@@ -411,7 +398,6 @@ func (c *Crdt) getDocsForSites(sites []string) ([]crdtDocument, error) {
 			return nil, err
 		}
 
-		log.Printf("docs=%d bookmark=%s\n", len(cr.Docs), cr.Bookmark)
 		bookmark = cr.Bookmark
 		docs = append(docs, cr.Docs...)
 
