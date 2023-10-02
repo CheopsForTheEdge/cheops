@@ -84,6 +84,10 @@ func (c *Crdt) Do(ctx context.Context, sites []string, operation Payload) (reply
 			}
 			feed, err := http.DefaultClient.Do(req)
 			if err != nil {
+				if err == feedCtx.Err() {
+					// We are done with the request, return graciously
+					return
+				}
 				log.Fatal(err)
 			}
 			if feed.StatusCode != 200 {
