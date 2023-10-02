@@ -84,11 +84,13 @@ func (c *Crdt) Do(ctx context.Context, sites []string, operation Payload) (reply
 			}
 			feed, err := http.DefaultClient.Do(req)
 			if err != nil {
-				if err == feedCtx.Err() {
+				select {
+				case <-feedCtx.Done():
 					// We are done with the request, return graciously
 					return
+				default:
+					log.Printf("Couldn't get feed for replies: %v\n", err)
 				}
-				log.Fatal(err)
 			}
 			if feed.StatusCode != 200 {
 				log.Fatal(fmt.Errorf("Can't get _changes feed: %s", feed.Status))
