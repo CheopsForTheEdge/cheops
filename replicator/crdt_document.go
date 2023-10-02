@@ -1,11 +1,16 @@
 package replicator
 
-import "sort"
+import (
+	"bytes"
+	"sort"
+
+	"github.com/anacrolix/torrent/bencode"
+)
 
 type crdtDocument struct {
 	Locations  []string
 	Generation uint64
-	Payload    string
+	Payload    Payload
 }
 
 // sort sorts a slice of Document with a stable order: if two nodes have
@@ -17,7 +22,12 @@ func sortDocuments(docs []crdtDocument) {
 		} else if docs[i].Generation > docs[j].Generation {
 			return false
 		} else {
-			return sort.StringsAreSorted([]string{docs[i].Payload, docs[j].Payload})
+			iEncoded, erri := bencode.Marshal(docs[i].Payload)
+			jEncoded, errj := bencode.Marshal(docs[j].Payload)
+			if erri != nil || errj != nil {
+				return true
+			}
+			return bytes.Compare(iEncoded, jEncoded) <= 0
 		}
 	})
 }

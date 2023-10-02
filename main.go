@@ -25,6 +25,12 @@ func main() {
 	// go api.Sync(8079, repl)
 
 	backends.Kubernetes(context.Background())
-	go api.Sync(8079, replicator.RaftDoer(7070))
+	var repl Doer
+	if mode == raftMode {
+		repl = replicator.RaftDoer(7070)
+	} else if mode == crdtMode {
+		repl = replicator.CrdtDoer()
+	}
+	go api.Sync(8079, repl)
 	select {}
 }
