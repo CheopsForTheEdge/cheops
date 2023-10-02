@@ -74,73 +74,80 @@ func TestNoBody(t *testing.T) {
 }
 
 func TestConfigFor(t *testing.T) {
-	kubeReply := `apiVersion: apps/v1
-kind: Deployment
-metadata:
-  annotations:
-    deployment.kubernetes.io/revision: "5"
-    kubectl.kubernetes.io/last-applied-configuration: |
-      {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{"locations":"dahu-8.grenoble.grid5000.fr,dahu-9.grenoble.grid5000.fr,dahu-23.grenoble.grid5000.fr"},"labels":{"app":"nginx"},"name":"nginx-deployment","namespace":"default"},"spec":{"replicas":1,"selector":{"matchLabels":{"app":"nginx"}},"template":{"metadata":{"labels":{"app":"nginx"}},"spec":{"containers":[{"image":"nginx:1.14.2","name":"nginx","ports":[{"containerPort":80}]}]}}}}
-    locations: dahu-8.grenoble.grid5000.fr,dahu-9.grenoble.grid5000.fr,dahu-23.grenoble.grid5000.fr
-  creationTimestamp: "2023-09-20T14:19:27Z"
-  generation: 8
-  labels:
-    app: nginx
-  name: nginx-deployment
-  namespace: default
-  resourceVersion: "6170"
-  uid: 94c87c5d-862b-42fa-8434-e86c6c3e783c
-spec:
-  progressDeadlineSeconds: 600
-  replicas: 1
-  revisionHistoryLimit: 10
-  selector:
-    matchLabels:
+	kubeReply := `apiVersion: v1
+items:
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    annotations:
+      deployment.kubernetes.io/revision: "4"
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{"locations":"dahu-8.grenoble.grid5000.fr,dahu-9.grenoble.grid5000.fr,dahu-23.grenoble.grid5000.fr"},"labels":{"app":"nginx"},"name":"nginx-deployment","namespace":"default"},"spec":{"replicas":1,"selector":{"matchLabels":{"app":"nginx"}},"template":{"metadata":{"labels":{"app":"nginx"}},"spec":{"containers":[{"image":"nginx:1.14.2","name":"nginx","ports":[{"containerPort":90}]}]}}}}
+      locations: dahu-8.grenoble.grid5000.fr,dahu-9.grenoble.grid5000.fr,dahu-23.grenoble.grid5000.fr
+    creationTimestamp: "2023-09-20T15:47:01Z"
+    generation: 6
+    labels:
       app: nginx
-  strategy:
-    rollingUpdate:
-      maxSurge: 25%
-      maxUnavailable: 25%
-    type: RollingUpdate
-  template:
-    metadata:
-      creationTimestamp: null
-      labels:
+    name: nginx-deployment
+    namespace: default
+    resourceVersion: "9873"
+    uid: 1e5a2c12-718a-4497-84b0-923b4285a9e8
+  spec:
+    progressDeadlineSeconds: 600
+    replicas: 1
+    revisionHistoryLimit: 10
+    selector:
+      matchLabels:
         app: nginx
-    spec:
-      containers:
-      - image: nginx:1.14.2
-        imagePullPolicy: IfNotPresent
-        name: nginx
-        ports:
-        - containerPort: 80
-          protocol: TCP
-        resources: {}
-        terminationMessagePath: /dev/termination-log
-        terminationMessagePolicy: File
-      dnsPolicy: ClusterFirst
-      restartPolicy: Always
-      schedulerName: default-scheduler
-      securityContext: {}
-      terminationGracePeriodSeconds: 30
-status:
-  conditions:
-  - lastTransitionTime: "2023-09-20T14:19:27Z"
-    lastUpdateTime: "2023-09-20T14:19:27Z"
-    message: Deployment does not have minimum availability.
-    reason: MinimumReplicasUnavailable
-    status: "False"
-    type: Available
-  - lastTransitionTime: "2023-09-20T15:06:51Z"
-    lastUpdateTime: "2023-09-20T15:06:51Z"
-    message: ReplicaSet "nginx-deployment-66b6c48dd5" has timed out progressing.
-    reason: ProgressDeadlineExceeded
-    status: "False"
-    type: Progressing
-  observedGeneration: 8
-  replicas: 2
-  unavailableReplicas: 2
-  updatedReplicas: 1`
+    strategy:
+      rollingUpdate:
+        maxSurge: 25%
+        maxUnavailable: 25%
+      type: RollingUpdate
+    template:
+      metadata:
+        creationTimestamp: null
+        labels:
+          app: nginx
+      spec:
+        containers:
+        - image: nginx:1.14.2
+          imagePullPolicy: IfNotPresent
+          name: nginx
+          ports:
+          - containerPort: 90
+            protocol: TCP
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+  status:
+    conditions:
+    - lastTransitionTime: "2023-09-20T15:47:01Z"
+      lastUpdateTime: "2023-09-20T15:47:01Z"
+      message: Deployment does not have minimum availability.
+      reason: MinimumReplicasUnavailable
+      status: "False"
+      type: Available
+    - lastTransitionTime: "2023-09-20T15:47:01Z"
+      lastUpdateTime: "2023-09-20T15:54:50Z"
+      message: ReplicaSet "nginx-deployment-ffc7dcfbb" is progressing.
+      reason: ReplicaSetUpdated
+      status: "True"
+      type: Progressing
+    observedGeneration: 6
+    replicas: 2
+    unavailableReplicas: 2
+    updatedReplicas: 1
+kind: List
+metadata:
+  resourceVersion: ""
+  selfLink: ""
+`
 
 	conf := extractCurrentConfig([]byte(kubeReply))
 	expectedConf := []byte(`{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{"locations":"dahu-8.grenoble.grid5000.fr,dahu-9.grenoble.grid5000.fr,dahu-23.grenoble.grid5000.fr"},"labels":{"app":"nginx"},"name":"nginx-deployment","namespace":"default"},"spec":{"replicas":1,"selector":{"matchLabels":{"app":"nginx"}},"template":{"metadata":{"labels":{"app":"nginx"}},"spec":{"containers":[{"image":"nginx:1.14.2","name":"nginx","ports":[{"containerPort":80}]}]}}}}`)
