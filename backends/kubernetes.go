@@ -4,24 +4,12 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"log"
 	"net/http"
 	"os/exec"
 	"strings"
 
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
-
-func Kubernetes(ctx context.Context) {
-	err := ensureProxyRunning(ctx)
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
-func ensureProxyRunning(ctx context.Context) error {
-	return exec.CommandContext(ctx, "kubectl", "proxy", "--port=8283").Start()
-}
 
 func SitesFor(method string, path string, headers http.Header, body []byte) ([]string, error) {
 	if body == nil || len(body) == 0 {

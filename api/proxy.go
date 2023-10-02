@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"cheops.com/backends"
 	"cheops.com/env"
 )
 
@@ -78,9 +79,14 @@ func proxyWriteReply(resp *http.Response, w http.ResponseWriter, host string) er
 }
 
 func proxy(ctx context.Context, host string, w http.ResponseWriter, method string, path string, header http.Header, body []byte) error {
-	resp, err := proxyWaitBeforeWritingReply(ctx, host, w, method, path, header, body)
-	if err != nil {
-		return err
-	}
-	return proxyWriteReply(resp, w, host)
+
+	// before
+	//	resp, err := proxyWaitBeforeWritingReply(ctx, host, w, method, path, header, body)
+	//	if err != nil {
+	//		return err
+	//	}
+	//	return proxyWriteReply(resp, w, host)
+
+	_, _, err := backends.HandleKubernetes(ctx, method, path, header, body)
+	return err
 }
