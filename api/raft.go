@@ -253,8 +253,6 @@ func getOrCreateNodeWithSites(ctx context.Context, sites []string) *localNode {
 
 	findGroup := func(groups []createGroup, sites []string) (groupID, maxGroupID uint64) {
 		for _, group := range groups {
-			log.Printf("Find group for %v\n", sites)
-			log.Printf("Tentative: %v\n", group)
 			match := 0
 			for _, peer := range group.Peers {
 				for _, site := range sites {
@@ -263,7 +261,6 @@ func getOrCreateNodeWithSites(ctx context.Context, sites []string) *localNode {
 					}
 				}
 			}
-			log.Printf("match=%d len=%d\n", match, len(group.Peers))
 			if match == len(group.Peers) {
 				groupID = group.GroupID
 			}
@@ -286,10 +283,14 @@ func getOrCreateNodeWithSites(ctx context.Context, sites []string) *localNode {
 
 		membs := node0.raftnode.Members()
 		for _, m := range membs {
-			peers = append(peers, peer{
-				Address: m.Address(),
-				ID:      m.ID(),
-			})
+			for _, site := range sites {
+				if strings.Contains(m.Address(), site) {
+					peers = append(peers, peer{
+						Address: m.Address(),
+						ID:      m.ID(),
+					})
+				}
+			}
 		}
 		newgroup := createGroup{
 			GroupID: maxGroupID + 1,
