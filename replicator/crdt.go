@@ -621,7 +621,6 @@ type DocChange struct {
 
 // MetaDocument are documents stored in the cheops-all database
 type MetaDocument struct {
-
 	// can be SITE or RESOURCE
 	Type string `json:"type"`
 
@@ -630,6 +629,20 @@ type MetaDocument struct {
 
 	// if type == RESOURCE
 	ResourceId string `json:"resourceId,omitempty"`
+}
+
+func (c *Crdt) SitesFor(resourceId string) []string {
+	docs, err := c.getDocsForId(resourceId)
+	if err != nil {
+		log.Printf("Couldn't get docs for id: %v\n", err)
+		return []string{}
+	}
+
+	if len(docs) == 0 {
+		return []string{}
+	}
+
+	return docs[len(docs)-1].Locations
 }
 
 func (c *Crdt) getExistingJobs() map[string]struct{} {

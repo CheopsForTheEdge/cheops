@@ -3,9 +3,11 @@ package api
 import (
 	"crypto/rand"
 	"encoding/base32"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
+	mathrand "math/rand"
 	"net/http"
 	"strconv"
 	"strings"
@@ -37,7 +39,8 @@ func Sync(port int, d replicator.Doer) {
 			return
 		}
 
-		sites := header.Values("X-Cheops-Location")
+		// The site where the user wants the resource to exist
+		desiredSites := header.Values("X-Cheops-Location")
 
 		randBytes, err := io.ReadAll(&io.LimitedReader{R: rand.Reader, N: 64})
 		if err != nil {
@@ -51,6 +54,26 @@ func Sync(port int, d replicator.Doer) {
 			return
 		}
 
+		// The sites currently associated with the resource
+		// If the resource doesn't exist yet, check in the desired sites
+		currentSites := d.SitesFor(resourceId)
+		if len(currentSites) == 0 {
+			currentSites = desiredSites
+		}
+		local := false
+		for _, currentSite := range currentSites {
+			if currentSite == env.Myfqdn {
+				local = true
+			}
+		}
+
+		if !local {
+			targetSiteIdx := mathrand.Intn(len(currentSites))
+			targetSite := currentSites[targetSiteIdx]
+			http.Redirect(w, r, fmt.Sprintf("http://%s:%d", targetSite, port), http.StatusFound)
+			return
+		}
+
 		req := replicator.Payload{
 			Method:     method,
 			ResourceId: resourceId,
@@ -61,7 +84,7 @@ func Sync(port int, d replicator.Doer) {
 			Site:       env.Myfqdn,
 		}
 
-		reply, err := d.Do(r.Context(), sites, req)
+		reply, err := d.Do(r.Context(), desiredSites, req)
 		if err != nil {
 			log.Println(err)
 			http.Error(w, "internal error", http.StatusInternalServerError)
