@@ -2,6 +2,7 @@ package api
 
 import (
 	"log"
+	"net/http"
 	"os"
 )
 
@@ -23,8 +24,9 @@ func init() {
 
 }
 
-type Request struct {
+type Payload struct {
 	Method string
+	Header http.Header
 	Path   string
 	Body   string
 }
