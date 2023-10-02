@@ -61,6 +61,11 @@ func dumpCheops(ctx context.Context, w http.ResponseWriter) {
 
 	docsByResource := make(map[string][]crdtDocument)
 	for _, row := range ad.Rows {
+		if row.Doc.Payload.ResourceId == "" {
+			// design docs of couchdb have no Payload
+			continue
+		}
+
 		if _, ok := docsByResource[row.Doc.Payload.ResourceId]; !ok {
 			docsByResource[row.Doc.Payload.ResourceId] = make([]crdtDocument, 0)
 		}
