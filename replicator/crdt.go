@@ -197,17 +197,17 @@ func (c *Crdt) watchRequests() {
 				if bs.isRunning() {
 					continue
 				}
+				bs.setRunning(true)
 
 				log.Printf("Running on %v\n", d.Doc)
 
 				go func(sites []string) {
 					for {
 						if bs.isShouldRun() {
-							bs.setRunning(true)
 							bs.setShouldRun(false)
 
+							bs.setRunning(true)
 							c.run(sites)
-
 							bs.setRunning(false)
 						}
 					}
