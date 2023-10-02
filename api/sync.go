@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -9,10 +8,11 @@ import (
 	"strconv"
 
 	"cheops.com/backends"
+	"cheops.com/replicator"
 	"github.com/gorilla/mux"
 )
 
-func Sync(port int) {
+func Sync(port int, d replicator.Doer) {
 
 	router := mux.NewRouter()
 	router.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -54,14 +54,14 @@ func Sync(port int) {
 			return
 		}
 
-		req := Payload{
+		req := replicator.Payload{
 			Method: method,
 			Header: r.Header,
 			Path:   path,
 			Body:   body,
 		}
 
-		reply, err := Do(r.Context(), sites, req)
+		reply, err := d.Do(r.Context(), sites, req)
 		if err != nil {
 			log.Println(err)
 			http.Error(w, "internal error", http.StatusInternalServerError)
@@ -80,26 +80,4 @@ func Sync(port int) {
 	if err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
 	}
-}
-
-var mode syncMode
-
-type syncMode int
-
-const (
-	raftMode syncMode = iota
-	crdtMode
-)
-
-// Do makes sure the operation is run on all sites, and gives back the reply
-func Do(ctx context.Context, sites []string, operation Payload) (reply Payload, err error) {
-	switch mode {
-	case raftMode:
-		return doRaft(ctx, sites, operation)
-	case crdtMode:
-		return doCrdt(ctx, sites, operation)
-	}
-
-	// unreachable
-	return Payload{}, nil
 }
