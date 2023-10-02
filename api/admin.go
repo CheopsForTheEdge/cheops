@@ -8,7 +8,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func Admin() {
+func Admin(port int) {
 	router := mux.NewRouter().StrictSlash(true)
 
 	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -16,7 +16,7 @@ func Admin() {
 	})
 	router.HandleFunc("/sites", addSite).Methods("POST")
 
-	log.Fatal(http.ListenAndServe(":8081", router))
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), router))
 }
 
 var sites map[string]struct{}

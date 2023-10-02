@@ -14,12 +14,11 @@ import (
 	"net/http"
 	"time"
 
-	_ "cheops.com/kubernetes"
 	"github.com/gorilla/mux"
 	"golang.org/x/sync/errgroup"
 )
 
-func Routing() {
+func BestEffort(port int) {
 
 	router := mux.NewRouter()
 	router.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -74,7 +73,7 @@ func Routing() {
 
 	})
 
-	log.Fatal(http.ListenAndServe(":8080", router))
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), router))
 }
 
 func isAlreadyForwarded(r *http.Request, sites map[string]struct{}) bool {
@@ -191,25 +190,4 @@ func proxy(ctx context.Context, host string, w http.ResponseWriter, r *http.Requ
 		return err
 	}
 	return proxyWriteReply(resp, w, host)
-}
-
-// Checks if the request has data
-func CheckRequestFilledHandler(next http.Handler) http.Handler {
-	fn := func(w http.ResponseWriter, r *http.Request) {
-		_, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			log.Printf("Kindly enter data", r.Method, r.URL.String())
-
-			fmt.Fprintf(w, "Kindly enter data")
-			return
-		} else {
-			next.ServeHTTP(w, r)
-		}
-	}
-	return http.HandlerFunc(fn)
-}
-
-// Default route
-func homeLink(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Welcome home!")
 }
