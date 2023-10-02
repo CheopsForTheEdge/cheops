@@ -200,14 +200,18 @@ wait:
 
 		type multiReply struct {
 			Site string
-			Body string
+
+			// "OK" or "KO"
+			Status string
+			Body   string
 		}
 
 		bodies := make([]multiReply, 0)
 		for _, rep := range replies {
 			bodies = append(bodies, multiReply{
-				Site: rep.Site,
-				Body: rep.Body,
+				Site:   rep.Site,
+				Status: rep.Status,
+				Body:   rep.Body,
 			})
 		}
 		body, err := json.Marshal(bodies)
@@ -344,9 +348,9 @@ func (c *Crdt) run(ctx context.Context, sites []string, p Payload) {
 	log.Printf("applying %s\n", body)
 	headerOut, bodyOut, err := backends.HandleKubernetes(ctx, p.Method, p.Path, p.Header, body)
 
+	status := "OK"
 	if err != nil {
-		log.Printf("Couldn't exec request: %v\n", err)
-		return
+		status = "KO"
 	}
 
 	// Post document for replication
@@ -358,6 +362,7 @@ func (c *Crdt) run(ctx context.Context, sites []string, p Payload) {
 			ResourceId: p.ResourceId,
 			Header:     headerOut,
 			Body:       string(bodyOut),
+			Status:     status,
 			Site:       env.Myfqdn,
 		},
 	}

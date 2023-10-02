@@ -62,13 +62,19 @@ func SitesFor(method string, path string, headers http.Header, body []byte) ([]s
 	return locTrimmed, nil
 }
 
-func runWithStdin(ctx context.Context, input []byte, args ...string) ([]byte, error) {
+// runWithStdin runs a command with an input to be passed to standard input and returns the combined output (stdout and stderr) as a slice of bytes and an error.
+//
+// If the command was run successfully with no error, err is null.
+// If the command was run successfully with a status code != 0, the error is a generic "failed". Note that stderr is included in the output
+// If there was an error in running the command (command not found, ...) then the error is a generic "internal error". The underlying error is logged.
+func runWithStdin(ctx context.Context, input []byte, args ...string) (output []byte, err error) {
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 	command := cmd.String()
 	log.Printf("Running %s\n", command)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		return nil, err
+		log.Printf("Couldn't get stdinpipe for [%s]: %v\n", command, err)
+		return nil, fmt.Errorf("internal error")
 	}
 
 	go func() {
@@ -77,11 +83,20 @@ func runWithStdin(ctx context.Context, input []byte, args ...string) ([]byte, er
 	}()
 
 	out, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("Couldn't run [%s]: %v\n", command, err)
+		return out, fmt.Errorf("internal error")
+	}
 	scanner := bufio.NewScanner(bytes.NewBuffer(out))
 	for scanner.Scan() {
 		log.Printf("[%s]: %s\n", command, scanner.Text())
 	}
-	return out, err
+
+	if cmd.ProcessState != nil && !cmd.ProcessState.Success() {
+		return out, fmt.Errorf("failed")
+	}
+
+	return out, nil
 }
 
 func HandleKubernetes(ctx context.Context, method string, path string, headers http.Header, input []byte) (header http.Header, body []byte, err error) {

@@ -34,6 +34,9 @@ type Payload struct {
 
 	// The site where this payload comes from
 	Site string
+
+	// Only filled when this is a reply: "OK" or "KO"
+	Status string
 }
 
 func (p Payload) IsRequest() bool {
