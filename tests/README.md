@@ -1,3 +1,7 @@
+# Tests on g5k
+
+see g5k/
+
 # serviceA and serviceB
 
 Cf respective README to use them.
