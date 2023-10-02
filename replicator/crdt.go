@@ -422,27 +422,67 @@ func (c *Crdt) run(ctx context.Context, sites []string, p Payload) {
 		return
 	}
 
-	// Post existence of doc in cheops-all
+	// Post existence of doc in cheops-all, if not already there
+	c.ensureResourceExistenceInCheopsAll(p.ResourceId)
+
+	log.Printf("Ran %s %s\n", p.RequestId, env.Myfqdn)
+}
+
+// ensureResourceExistenceInCheopsAll makes sure that we have the corresponding Resource document
+// in the cheops-all database
+func (c *Crdt) ensureResourceExistenceInCheopsAll(resourceId string) {
 	resourceDoc := MetaDocument{
 		Type:       "RESOURCE",
+		ResourceId: resourceId,
 		Site:       env.Myfqdn,
-		ResourceId: p.ResourceId,
 	}
+
+	type Query struct {
+		Selector MetaDocument `json:"selector"`
+	}
+	request, err := json.Marshal(Query{Selector: resourceDoc})
+	if err != nil {
+		log.Printf("Couldn't send resource doc to cheops-all: %v\n", err)
+		return
+	}
+
+	existingRep, err := http.Post("http://localhost:5984/cheops-all/_find", "application/json", bytes.NewReader(request))
+	if err != nil {
+		log.Printf("Couldn't send resource doc to cheops-all: %v\n", err)
+		return
+	}
+	defer existingRep.Body.Close()
+
+	var searchResults struct {
+		Docs []MetaDocument `json:"docs"`
+	}
+	err = json.NewDecoder(existingRep.Body).Decode(&searchResults)
+	if err != nil {
+		log.Printf("Couldn't send resource doc to cheops-all: %v\n", err)
+		return
+	}
+	for _, foundDoc := range searchResults.Docs {
+		if foundDoc.Type == "RESOURCE" && foundDoc.Site == env.Myfqdn {
+			return
+		}
+	}
+
 	bufResource, err := json.Marshal(resourceDoc)
 	if err != nil {
 		log.Printf("Couldn't marshal resource doc: %v\n", err)
+		return
 	}
 	respResource, err := http.Post("http://localhost:5984/cheops-all", "application/json", bytes.NewReader(bufResource))
 	if err != nil {
 		log.Printf("Couldn't send resource doc to cheops-all: %v\n", err)
+		return
 	}
 	defer respResource.Body.Close()
 
 	if respResource.StatusCode != 201 {
-		log.Printf("Couldn't send resource doc to cheops-all: %v\n", newresp.Status)
+		log.Printf("Couldn't send resource doc to cheops-all: %v\n", respResource.Status)
+		return
 	}
-
-	log.Printf("Ran %s %s\n", p.RequestId, env.Myfqdn)
 }
 
 func (c *Crdt) getDocsForId(resourceId string) ([]crdtDocument, error) {
