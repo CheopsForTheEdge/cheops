@@ -52,12 +52,7 @@ func HandleKubernetes(ctx context.Context, method string, path string, headers h
 	}()
 
 	out, err := cmd.CombinedOutput()
-	if err != nil {
-		err2 = err
-		return
-	}
-
-	return h, out, nil
+	return h, out, err
 }
 
 // CurrentConfig fetches the configuration as json for the resources that is given in input.
