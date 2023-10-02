@@ -35,7 +35,7 @@ func SitesFor(method string, path string, headers http.Header, body []byte) ([]s
 }
 
 func HandleKubernetes(ctx context.Context, method string, path string, headers http.Header, body []byte) (h http.Header, b []byte, err2 error) {
-	cmd := exec.CommandContext(ctx, "kubectl", "apply", "--server-side=true", "-f", "-")
+	cmd := exec.CommandContext(ctx, "kubectl", "apply", "-f", "-")
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		err2 = err
@@ -56,7 +56,7 @@ func HandleKubernetes(ctx context.Context, method string, path string, headers h
 // magic itself here.
 // If anything goes wrong, CurrentConfig returns an empty json object
 func CurrentConfig(ctx context.Context, targetResource []byte) []byte {
-	cmd := exec.CommandContext(ctx, "kubectl", "-o", "yaml", "-f", "-")
+	cmd := exec.CommandContext(ctx, "kubectl", "get", "-o", "yaml", "-f", "-")
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return []byte("{}")
