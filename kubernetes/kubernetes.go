@@ -43,7 +43,9 @@ func Proxy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	u := r.URL
-	u.Host = r.Host
+	u.Host = "127.0.0.1:8283"
+
+	// Not filled by default
 	u.Scheme = "http"
 
 	log.Printf("-> method=%s url=%s\n", r.Method, u.String())
