@@ -141,10 +141,11 @@ func (c *Crdt) Do(ctx context.Context, sites []string, operation Payload) (reply
 		Locations:  sites,
 		Generation: max + 1,
 		Payload: Payload{
-			Method: operation.Method,
-			Path:   operation.Path,
-			Header: operation.Header,
-			Body:   patch,
+			RequestId: operation.RequestId,
+			Method:    operation.Method,
+			Path:      operation.Path,
+			Header:    operation.Header,
+			Body:      patch,
 		},
 	}
 	buf, err := json.Marshal(newDoc)
