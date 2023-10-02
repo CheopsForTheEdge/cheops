@@ -257,7 +257,7 @@ func Do(ctx context.Context, sites []string, operation Payload) (reply Payload, 
 			if err := ctx.Err(); err != nil {
 				return reply, err
 			}
-		case reply := <-bus.For(node.groupID, hash(buf2)):
+		case reply := <-bus.For(node.groupID, hash(buf)):
 			replies = append(replies, reply)
 		case <-time.After(20 * time.Second):
 			// timeout
