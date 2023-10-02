@@ -592,6 +592,7 @@ func (g *groups) createAndStart(groupID uint64, peers []peer) {
 	lg := raftlog.New(0, fmt.Sprintf("[GROUP %d]", groupID), os.Stderr, io.Discard)
 	logger := raft.WithLogger(lg)
 
+	includesMe := false
 	members := make([]raft.RawMember, 1)
 	for _, peer := range peers {
 		if strings.Contains(peer.Address, myfqdn) {
@@ -599,12 +600,18 @@ func (g *groups) createAndStart(groupID uint64, peers []peer) {
 				Address: peer.Address,
 				ID:      peer.ID,
 			}
+			includesMe = true
 		} else {
 			members = append(members, raft.RawMember{
 				Address: peer.Address,
 				ID:      peer.ID,
 			})
 		}
+	}
+
+	if !includesMe {
+		// The group doesn't concern this site, don't actually create a node
+		return
 	}
 
 	log.Printf("Creating group %d with members %v from peers %v\n", groupID, members, peers)
