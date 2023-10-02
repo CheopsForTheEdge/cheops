@@ -145,14 +145,6 @@ func get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
-	defer cancel()
-
-	if err := lnode.raftnode.LinearizableRead(ctx); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
 	value := lnode.fsm.Read()
 	w.Write(value)
 	w.Write([]byte{'\n'})
@@ -636,6 +628,10 @@ func (g *groups) createAndStart(groupID uint64, peers []peer) {
 	fsm := newstateMachine(groupID)
 
 	node := g.Create(groupID, fsm, state, logger)
+	if err := node.LinearizableRead(context.Background()); err != nil {
+		log.Printf("Can't make node linearizable read: %v\n", err)
+	}
+
 	g.mu.Lock()
 	g.nodes[groupID] = &localNode{
 		groupID:  groupID,
