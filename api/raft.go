@@ -205,7 +205,7 @@ func Do(ctx context.Context, sites []string, operation Payload) (reply Payload, 
 	if len(sites) < 3 {
 		return reply, fmt.Errorf("Can't save with raft, need at least three sites")
 	}
-	randBytes, err := io.ReadAll(&io.LimitedReader{rand.Reader, 64})
+	randBytes, err := io.ReadAll(&io.LimitedReader{R: rand.Reader, N: 64})
 	if err != nil {
 		return reply, fmt.Errorf("Can't generate id: %v\n", err)
 	}
@@ -451,6 +451,8 @@ func (s *stateMachine) Apply(data []byte) {
 			log.Printf("Couldn't unmarshal: %v\n", err)
 			break
 		}
+
+		log.Printf("Received request %v\n", p.RequestId)
 
 		s.mu.Lock()
 		s.operations = append(s.operations, p)
