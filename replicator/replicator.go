@@ -11,7 +11,7 @@ import (
 func NewDoer() Doer {
 	m, ok := os.LookupEnv("MODE")
 	if !ok {
-		log.Fatal("My FQDN must be given with the MYFQDN environment variable !")
+		log.Fatal("Mode must be given with the MODE environment variable !")
 	}
 	switch m {
 	case "raft":
