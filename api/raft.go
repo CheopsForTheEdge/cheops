@@ -59,7 +59,7 @@ func Raft(port int) {
 	router = mux.NewRouter()
 	router.HandleFunc("/", http.HandlerFunc(save)).Methods("PUT", "POST")
 
-	// router.HandleFunc("/{groupID}/{key}", http.HandlerFunc(get)).Methods("GET")
+	router.HandleFunc("/{groupID}", http.HandlerFunc(get)).Methods("GET")
 
 	router.HandleFunc("/{groupID}/mgmt/nodes", http.HandlerFunc(nodes)).Methods("GET")
 	// router.HandleFunc("/{groupID}/mgmt/nodes/{id}", http.HandlerFunc(removeNode)).Methods("DELETE")
