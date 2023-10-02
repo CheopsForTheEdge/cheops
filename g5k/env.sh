@@ -2,6 +2,11 @@
 
 i=0
 
+while read var
+do
+				unset $var
+done < <(printenv | grep "$(id -un)_NODE")
+
 while read node
 do
 				i=$(($i + 1))
