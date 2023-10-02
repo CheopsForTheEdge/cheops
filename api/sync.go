@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"cheops.com/backends"
 	"cheops.com/env"
@@ -65,7 +66,7 @@ func Sync(port int, d replicator.Doer) {
 			Method:    method,
 			Header:    r.Header,
 			Path:      path,
-			Body:      body,
+			Body:      string(body),
 			RequestId: base32.StdEncoding.EncodeToString(randBytes),
 			Site:      env.Myfqdn,
 		}
@@ -82,7 +83,7 @@ func Sync(port int, d replicator.Doer) {
 				w.Header().Add(key, val)
 			}
 		}
-		w.Write(reply.Body)
+		io.Copy(w, strings.NewReader(reply.Body))
 	})
 
 	err := http.ListenAndServe(":"+strconv.Itoa(port), router)

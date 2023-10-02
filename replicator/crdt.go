@@ -122,7 +122,7 @@ func (c *Crdt) Do(ctx context.Context, sites []string, operation Payload) (reply
 	}
 
 	// Generate diff with locally current config
-	currentConfig := backends.CurrentConfig(ctx, operation.Body)
+	currentConfig := backends.CurrentConfig(ctx, []byte(operation.Body))
 	asjson, err := yaml.Parse(string(operation.Body))
 	if err != nil {
 		return reply, err
@@ -131,7 +131,7 @@ func (c *Crdt) Do(ctx context.Context, sites []string, operation Payload) (reply
 	if err != nil {
 		return reply, err
 	}
-	patch, err := jp.CreateMergePatch(currentConfig, asjsonbin)
+	patch, err := jp.CreateMergePatch([]byte(currentConfig), asjsonbin)
 	if err != nil {
 		return reply, err
 	}
@@ -148,7 +148,7 @@ func (c *Crdt) Do(ctx context.Context, sites []string, operation Payload) (reply
 			Method:    operation.Method,
 			Path:      operation.Path,
 			Header:    operation.Header,
-			Body:      patch,
+			Body:      string(patch),
 		},
 	}
 	buf, err := json.Marshal(newDoc)
@@ -199,7 +199,7 @@ wait:
 
 		type multiReply struct {
 			Site string
-			Body []byte
+			Body string
 		}
 
 		bodies := make([]multiReply, 0)
@@ -215,8 +215,8 @@ wait:
 			return reply, fmt.Errorf("Couldn't marshall bodies: %w", err)
 		}
 		reply = Payload{
-			RequestId: replies[0].RequestId,
-			Body:      body,
+			RequestId: operation.RequestId,
+			Body:      string(body),
 		}
 		return reply, nil
 	}
@@ -389,7 +389,7 @@ func (c *Crdt) run(ctx context.Context, sites []string, p Payload) {
 		Payload: Payload{
 			RequestId: p.RequestId,
 			Header:    headerOut,
-			Body:      bodyOut,
+			Body:      string(bodyOut),
 			Site:      env.Myfqdn,
 		},
 	}

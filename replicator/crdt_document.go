@@ -41,7 +41,7 @@ func mergePatches(requests []crdtDocument) []byte {
 	b := []byte("{}")
 	var err error
 	for _, r := range requests {
-		b, err = jp.MergeMergePatches(b, r.Payload.Body)
+		b, err = jp.MergeMergePatches(b, []byte(r.Payload.Body))
 		if err != nil {
 			log.Println("Couldn't merge patches")
 			// Not actually problematic, continue

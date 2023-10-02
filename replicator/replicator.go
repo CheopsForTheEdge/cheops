@@ -28,7 +28,7 @@ type Payload struct {
 	Path   string
 
 	Header http.Header
-	Body   []byte
+	Body   string
 
 	// The site where this payload comes from
 	Site string
