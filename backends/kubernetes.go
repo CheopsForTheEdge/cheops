@@ -39,7 +39,7 @@ func SitesFor(method string, path string, headers http.Header, body []byte) ([]s
 }
 
 func HandleKubernetes(ctx context.Context, method string, path string, headers http.Header, body []byte) (h http.Header, b []byte, err2 error) {
-	cmd := exec.CommandContext(ctx, "kubectl", "--server-side=true", "-f", "-")
+	cmd := exec.CommandContext(ctx, "kubectl", "apply", "--server-side=true", "-f", "-")
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		err2 = err
