@@ -166,7 +166,7 @@ func CreateCollectionWithIndexes(db driver.Database, colName string, fields []st
 
 func PrepareForExecution() (driver.Database,
 	[]driver.Collection) {
-	LaunchDatabase()
+	//LaunchDatabase()
 	time.Sleep(15 * time.Second)
 	c := Connection()
 	CreateDatabase(c)
