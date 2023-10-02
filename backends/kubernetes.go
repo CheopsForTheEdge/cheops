@@ -66,7 +66,7 @@ func SitesFor(method string, path string, headers http.Header, body []byte) ([]s
 }
 
 func HandleKubernetes(method string, path string, headers http.Header, body []byte) (http.Header, []byte, error) {
-	u := fmt.Sprintf("http://127.0.0.1:8283/%s", path)
+	u := fmt.Sprintf("http://127.0.0.1:8283%s", path)
 
 	newreq, err := http.NewRequestWithContext(context.Background(), method, u, bytes.NewReader(body))
 
