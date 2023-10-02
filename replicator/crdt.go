@@ -158,8 +158,6 @@ func (c *Crdt) watchRequests() {
 					continue
 				}
 
-				log.Printf("Got request %s\n", d.Doc.Payload.RequestId)
-
 				c.run(d.Doc.Locations)
 				since = d.Seq
 			}
@@ -249,15 +247,15 @@ func (c *Crdt) run(sites []string) {
 	for _, doc := range docs {
 		if doc.Payload.IsRequest() {
 			requests = append(requests, doc)
-		} else {
+		} else if doc.Payload.Site == env.Myfqdn {
 			requestIdsInReplies[doc.Payload.RequestId] = struct{}{}
-			return
 		}
 	}
 	sortDocuments(requests)
 	p := requests[len(requests)-1].Payload // Only execute the last one
 	if _, ok := requestIdsInReplies[p.RequestId]; ok {
-		// A reply already exists, don't run it again
+		// We already have a reply from this site, don't run it
+		return
 	}
 
 	headerOut, bodyOut, err := backends.HandleKubernetes(p.Method, p.Path, p.Header, p.Body)
