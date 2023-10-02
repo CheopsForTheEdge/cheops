@@ -4,8 +4,6 @@ metadata:
   name: nginx-deployment
   labels:
     app: nginx
-  annotations:
-    locations: LOCATIONS
 spec:
   replicas: REPLICAS
   selector:
