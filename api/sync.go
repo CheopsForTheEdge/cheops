@@ -37,8 +37,6 @@ func Sync(port int, d replicator.Doer) {
 			return
 		}
 
-		log.Printf("method=%v path=%v body=%s\n", method, path, string(body))
-
 		sites, err := backends.SitesFor(method, path, header, body)
 		if err != nil {
 			log.Printf("Error parsing sites: %v\n", err)
@@ -51,13 +49,12 @@ func Sync(port int, d replicator.Doer) {
 			w.Header().Add("Trailer", header)
 		}
 
-		log.Printf("sites=%v\n", sites)
-
 		if len(sites) == 0 {
 			proxy(r.Context(), "127.0.0.1:8283", w, r.Method, path, r.Header, body)
 			return
 		}
 
+		log.Printf("method=%v path=%v body=%s\n", method, path, string(body))
 		randBytes, err := io.ReadAll(&io.LimitedReader{R: rand.Reader, N: 64})
 		if err != nil {
 			return

@@ -298,6 +298,7 @@ func (c *Crdt) watchReplies(ctx context.Context, requestId string, repliesChan c
 }
 
 func (c *Crdt) run(sites []string) {
+	log.Println("Running")
 	docs, err := c.getDocsForSites(sites)
 	if err != nil {
 		log.Printf("Couldn't get docs for sites: %v\n", err)
@@ -307,6 +308,7 @@ func (c *Crdt) run(sites []string) {
 	requests := make([]crdtDocument, 0)
 	requestIdsInReplies := make(map[string]struct{})
 	for _, doc := range docs {
+		log.Printf("\t%s %s %s\n", doc.Payload.Site, doc.Id, doc.Rev)
 		if doc.Payload.IsRequest() {
 			requests = append(requests, doc)
 		} else if doc.Payload.Site == env.Myfqdn {
@@ -315,11 +317,13 @@ func (c *Crdt) run(sites []string) {
 	}
 	sortDocuments(requests)
 	p := requests[len(requests)-1].Payload // Only execute the last one
+
 	if _, ok := requestIdsInReplies[p.RequestId]; ok {
 		// We already have a reply from this site, don't run it
 		return
 	}
 
+	log.Printf("Will run %s\n", p.RequestId)
 	headerOut, bodyOut, err := backends.HandleKubernetes(p.Method, p.Path, p.Header, p.Body)
 
 	if err != nil {
@@ -348,10 +352,22 @@ func (c *Crdt) run(sites []string) {
 		log.Printf("Couldn't send reply: %v\n", err)
 		return
 	}
+	defer newresp.Body.Close()
+
 	if newresp.StatusCode != 201 {
 		log.Printf("Couldn't send reply: %v\n", newresp.Status)
 		return
 	}
+
+	type PostResp struct {
+		Id  string `json:"id"`
+		Rev string `json:"rev"`
+	}
+	var v PostResp
+	json.NewDecoder(newresp.Body).Decode(&v)
+
+	log.Printf("Executed and stored %s\n", p.RequestId)
+	log.Printf("\tStored %s %s\n", v.Id, v.Rev)
 }
 
 func (c *Crdt) getDocsForSites(sites []string) ([]crdtDocument, error) {
@@ -377,6 +393,8 @@ func (c *Crdt) getDocsForSites(sites []string) ([]crdtDocument, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	log.Println(cr.Bookmark)
 
 	return cr.Docs, nil
 }

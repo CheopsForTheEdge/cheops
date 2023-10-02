@@ -8,6 +8,8 @@ import (
 )
 
 type crdtDocument struct {
+	Id         string `json:"_id,omitempty"`  // Only used by couchdb
+	Rev        string `json:"_rev,omitempty"` // Only used by couchdb
 	Locations  []string
 	Generation uint64
 	Payload    Payload

@@ -43,12 +43,6 @@ func proxyWaitBeforeWritingReply(ctx context.Context, host string, w http.Respon
 		return nil, nil
 	}
 
-	log.Printf(`-> [%s] %s %s`, host, newreq.Method, newreq.URL.String())
-	log.Printf("Request headers: \n")
-	for key, vals := range newreq.Header {
-		log.Printf("\t%s: %v\n", key, vals)
-	}
-
 	return resp, nil
 }
 
@@ -77,12 +71,6 @@ func proxyWriteReply(resp *http.Response, w http.ResponseWriter, host string) er
 
 		// Not a blocking error
 		return nil
-	}
-
-	log.Printf(`<- [%s] %d %s`, host, resp.StatusCode, resp.Request.URL.String())
-	log.Printf("Response headers: \n")
-	for key, vals := range resp.Header {
-		log.Printf("\t%s: %v\n", key, vals)
 	}
 
 	return nil

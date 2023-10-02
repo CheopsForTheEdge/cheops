@@ -3,7 +3,6 @@ package backends
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -84,27 +83,6 @@ func HandleKubernetes(method string, path string, headers http.Header, body []by
 			headersOut.Add(key, val)
 		}
 	}
-
-	indent := func(b []byte) string {
-		var obj map[string]interface{}
-		json.Unmarshal(b, &obj)
-		indented, _ := json.MarshalIndent(obj, "", "\t")
-		return string(indented)
-	}
-	printHeaders := func(h http.Header) string {
-		var asstring string
-		for key, val := range h {
-			asstring += fmt.Sprintf("%s=%s\n", key, val)
-		}
-		return asstring
-	}
-
-	log.Printf(`-> %s %s
--> %s
--> %s
-<- %s
-<- %s
-`, method, u, printHeaders(newreq.Header), indent(body), printHeaders(resp.Header), indent(respbuf))
 
 	return headersOut, respbuf, nil
 }
