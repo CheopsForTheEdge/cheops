@@ -37,12 +37,16 @@ func Sync(port int, d replicator.Doer) {
 			return
 		}
 
+		log.Printf("method=%v path=%v body=%s\n", method, path, string(body))
+
 		sites, err := backends.SitesFor(method, path, header, body)
 		if err != nil {
 			log.Printf("Error parsing sites: %v\n", err)
 			http.Error(w, "bad request", http.StatusBadRequest)
 			return
 		}
+
+		log.Printf("Found sites to apply: %v\n", sites)
 
 		for _, site := range sites {
 			header := fmt.Sprintf("X-status-%s", site)
@@ -54,7 +58,6 @@ func Sync(port int, d replicator.Doer) {
 			return
 		}
 
-		log.Printf("method=%v path=%v body=%s\n", method, path, string(body))
 		randBytes, err := io.ReadAll(&io.LimitedReader{R: rand.Reader, N: 64})
 		if err != nil {
 			return
