@@ -207,12 +207,8 @@ func newGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ok := raftgroups.createAndStart(c.GroupID, c.Peers)
-	if ok {
-		w.WriteHeader(http.StatusCreated)
-	} else {
-		w.WriteHeader(http.StatusInternalServerError)
-	}
+	raftgroups.createAndStart(c.GroupID, c.Peers)
+	w.WriteHeader(http.StatusCreated)
 }
 
 func save(w http.ResponseWriter, r *http.Request) {
@@ -453,7 +449,7 @@ type groups struct {
 	nodes map[uint64]*localNode
 }
 
-func (g *groups) createAndStart(groupID uint64, peers []peer) bool {
+func (g *groups) createAndStart(groupID uint64, peers []peer) {
 	lg := raftlog.New(0, fmt.Sprintf("[GROUP %d]", groupID), os.Stderr, io.Discard)
 	logger := raft.WithLogger(lg)
 
@@ -472,7 +468,7 @@ func (g *groups) createAndStart(groupID uint64, peers []peer) bool {
 		}
 	}
 
-	log.Printf("Creating group %d with members%v from peers %v\n", groupID, members, peers)
+	log.Printf("Creating group %d with members %v from peers %v\n", groupID, members, peers)
 	raw := raft.WithMembers(members...)
 	if _, err := os.Stat(stateDIR); os.IsNotExist(err) {
 		os.MkdirAll(stateDIR, 0600)
@@ -485,6 +481,13 @@ func (g *groups) createAndStart(groupID uint64, peers []peer) bool {
 	fsm := newstateMachine()
 
 	node := g.Create(groupID, fsm, state, logger)
+	g.mu.Lock()
+	g.nodes[groupID] = &localNode{
+		fsm:      fsm,
+		raftnode: node,
+	}
+	g.mu.Unlock()
+
 	go func() {
 		err := node.Start(fallback, raw)
 		if err != nil && err != raft.ErrNodeStopped {
@@ -492,29 +495,26 @@ func (g *groups) createAndStart(groupID uint64, peers []peer) bool {
 		}
 	}()
 
-	waitctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+	go func() {
+		waitctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
 
-	for {
-		select {
-		case <-waitctx.Done():
-			log.Printf("Group %d: timeout waiting for cluster to form", groupID)
-			return false
-		case <-time.After(1 * time.Second):
-			if node.Leader() != 0 {
+		for {
+			select {
+			case <-waitctx.Done():
+				log.Printf("Group %d: timeout waiting for cluster to form", groupID)
 				g.mu.Lock()
-				g.nodes[groupID] = &localNode{
-					fsm:      fsm,
-					raftnode: node,
-				}
+				delete(g.nodes, groupID)
 				g.mu.Unlock()
-
-				return true
-
+				os.RemoveAll(stateDIR)
+				return
+			case <-time.After(1 * time.Second):
+				if node.Leader() != 0 {
+					return
+				}
 			}
 		}
-	}
-
+	}()
 }
 
 func (g *groups) getNode(groupID uint64) *localNode {
