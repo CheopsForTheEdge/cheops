@@ -59,6 +59,12 @@ func Proxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	for key, vals := range r.Header {
+		for _, val := range vals {
+			newreq.Header.Add(key, val)
+		}
+	}
+
 	resp, err := http.DefaultClient.Do(newreq)
 	if err != nil {
 		http.Error(w, "can't send to backend", http.StatusInternalServerError)
