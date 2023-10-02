@@ -56,11 +56,13 @@ func Raft(port int) {
 	raftgrpc.RegisterHandler(raftServer, raftgroups.Handler())
 
 	router = mux.NewRouter()
-	// router.HandleFunc("/{groupID}", http.HandlerFunc(save)).Methods("PUT", "POST")
+	router.HandleFunc("/", http.HandlerFunc(save)).Methods("PUT", "POST")
+
 	// router.HandleFunc("/{groupID}/{key}", http.HandlerFunc(get)).Methods("GET")
 
 	router.HandleFunc("/{groupID}/mgmt/nodes", http.HandlerFunc(nodes)).Methods("GET")
 	// router.HandleFunc("/{groupID}/mgmt/nodes/{id}", http.HandlerFunc(removeNode)).Methods("DELETE")
+
 	router.HandleFunc("/mgmt/groups", http.HandlerFunc(newGroup)).Methods("PUT", "POST")
 
 	go func() {
@@ -94,11 +96,9 @@ func Raft(port int) {
 func get(w http.ResponseWriter, r *http.Request) {
 	lnode, err := getNodeFromgroup(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	key := mux.Vars(r)["key"]
 
 	ctx, cancel := context.WithTimeout(r.Context(), time.Second)
 	defer cancel()
@@ -108,8 +108,8 @@ func get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	value := lnode.fsm.Read(key)
-	w.Write([]byte(value))
+	value := lnode.fsm.ReadOperations()
+	w.Write(value)
 	w.Write([]byte{'\n'})
 }
 
@@ -175,42 +175,129 @@ func newGroup(w http.ResponseWriter, r *http.Request) {
 }
 
 func save(w http.ResponseWriter, r *http.Request) {
-	lnode, err := getNodeFromgroup(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	r.ParseForm()
+	sites, ok := r.Form["sites"]
+	if !ok {
+		http.Error(w, "missing sites in request", http.StatusBadRequest)
 		return
 	}
 
-	buf, err := ioutil.ReadAll(r.Body)
+	req, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	if err := json.Unmarshal(buf, new(entry)); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(r.Context(), time.Second)
-	defer cancel()
-
-	rep := replicate{
-		CMD:  "kv",
-		Data: buf,
-	}
-
-	buf, err = json.Marshal(&rep)
-	if err != nil {
-		panic(err)
-	}
-
-	if err := lnode.raftnode.Replicate(ctx, buf); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	err = Save(r.Context(), sites, req)
+	if err != nil {
+
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	} else {
+		w.WriteHeader(http.StatusCreated)
+	}
+
+}
+
+// Save gets the group associated to the sites and creates one if it doesn't exist
+// Note: the sites will be fqdn, they won't have the raft port
+func Save(ctx context.Context, sites []string, operation []byte) error {
+	node := getOrCreateNodeWithSites(ctx, sites)
+	if node == nil {
+		return fmt.Errorf("Couldn't get node for %v", sites)
+	}
+
+	rep := replicate{
+		CMD:  "operation",
+		Data: operation,
+	}
+
+	buf, err := json.Marshal(&rep)
+	if err != nil {
+		return err
+	}
+	if err := node.raftnode.Replicate(ctx, buf); err != nil {
+		log.Printf("Can't replicate group creation: %v\n", err)
+		return nil
+	}
+	return nil
+}
+
+func getOrCreateNodeWithSites(ctx context.Context, sites []string) *localNode {
+	node0 := raftgroups.getNode(0)
+
+	ctx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+
+	if err := node0.raftnode.LinearizableRead(ctx); err != nil {
+		return nil
+	}
+
+	findGroup := func(groups []createGroup, sites []string) (groupID, maxGroupID uint64) {
+		for _, group := range groups {
+			match := 0
+			for _, peer := range group.Peers {
+				for _, site := range sites {
+					if strings.Contains(peer.Address, site) {
+						match++
+					}
+				}
+			}
+			if match == len(group.Peers) {
+				groupID = group.GroupID
+			}
+			if group.GroupID > maxGroupID {
+				maxGroupID = group.GroupID
+			}
+		}
+
+		return
+	}
+
+	groupID, maxGroupID := findGroup(node0.fsm.ReadGroups(), sites)
+
+	if groupID == 0 {
+		// Create group and reread
+
+		// Find exact address and id from group 0 where everyone is
+		peers := make([]peer, 0)
+		node0 := raftgroups.getNode(0)
+
+		membs := node0.raftnode.Members()
+		for _, m := range membs {
+			peers = append(peers, peer{
+				Address: m.Address(),
+				ID:      m.ID(),
+			})
+		}
+		newgroup := createGroup{
+			GroupID: maxGroupID + 1,
+			Peers:   peers,
+		}
+		buf, err := json.Marshal(&newgroup)
+		if err != nil {
+			log.Printf("Can't marshal content: %v\n", newgroup)
+		}
+
+		rep := replicate{
+			CMD:  "groups",
+			Data: buf,
+		}
+
+		buf, err = json.Marshal(&rep)
+		if err != nil {
+			log.Printf("Can't marshal content: %v\n", rep)
+			return nil
+		}
+
+		if err := node0.raftnode.Replicate(ctx, buf); err != nil {
+			log.Printf("Can't replicate group creation: %v\n", err)
+			return nil
+		}
+
+		groupID, _ = findGroup(node0.fsm.ReadGroups(), sites)
+	}
+
+	return raftgroups.getNode(groupID)
 }
 
 func getNodeFromgroup(r *http.Request) (*localNode, error) {
@@ -230,13 +317,21 @@ func getNodeFromgroup(r *http.Request) (*localNode, error) {
 
 func newstateMachine() *stateMachine {
 	return &stateMachine{
-		kv: make(map[string]string),
+		operations: make([]string, 0),
 	}
 }
 
 type stateMachine struct {
-	mu sync.Mutex
-	kv map[string]string
+
+	// group >0 store operations
+	// group 0 doesn't store operations
+	omu        sync.Mutex
+	operations []string
+
+	// group 0 stores all existing groups, including itself
+	// only group 0 does that
+	gmu    sync.Mutex
+	groups []createGroup
 }
 
 func (s *stateMachine) Apply(data []byte) {
@@ -247,23 +342,29 @@ func (s *stateMachine) Apply(data []byte) {
 	}
 
 	switch rep.CMD {
-	case "kv":
-		var e entry
-		if err := json.Unmarshal(rep.Data, &e); err != nil {
-			log.Println("unable to Unmarshal entry", err)
-			return
+	case "operation":
+		s.omu.Lock()
+		defer s.omu.Unlock()
+		s.operations = append(s.operations, string(rep.Data))
+	case "groups":
+		s.gmu.Lock()
+		defer s.gmu.Unlock()
+
+		var c createGroup
+		err := json.Unmarshal(rep.Data, &c)
+		if err != nil {
+			log.Println("Can't unmarshal: %v\n", err)
 		}
 
-		s.mu.Lock()
-		defer s.mu.Unlock()
-		s.kv[e.Key] = e.Value
+		s.groups = append(s.groups, c)
+
 	}
 }
 
 func (s *stateMachine) Snapshot() (io.ReadCloser, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	buf, err := json.Marshal(&s.kv)
+	s.omu.Lock()
+	defer s.omu.Unlock()
+	buf, err := json.Marshal(&s.operations)
 	if err != nil {
 		return nil, err
 	}
@@ -271,15 +372,15 @@ func (s *stateMachine) Snapshot() (io.ReadCloser, error) {
 }
 
 func (s *stateMachine) Restore(r io.ReadCloser) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.omu.Lock()
+	defer s.omu.Unlock()
 
 	buf, err := ioutil.ReadAll(r)
 	if err != nil {
 		return err
 	}
 
-	err = json.Unmarshal(buf, &s.kv)
+	err = json.Unmarshal(buf, &s.operations)
 	if err != nil {
 		return err
 	}
@@ -287,10 +388,23 @@ func (s *stateMachine) Restore(r io.ReadCloser) error {
 	return r.Close()
 }
 
-func (s *stateMachine) Read(key string) string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.kv[key]
+func (s *stateMachine) ReadOperations() []byte {
+	s.omu.Lock()
+	defer s.omu.Unlock()
+	st, _ := json.Marshal(s.operations)
+	return st
+}
+
+func (s *stateMachine) ReadGroups() []createGroup {
+	s.gmu.Lock()
+	defer s.gmu.Unlock()
+
+	r := make([]createGroup, 0, len(s.groups))
+	for _, group := range s.groups {
+		r = append(r, group)
+	}
+
+	return r
 }
 
 type groups struct {
@@ -329,9 +443,14 @@ func (g *groups) createAndStart(groupID uint64, peers []peer) {
 		raft.WithRestart(),
 	)
 	fsm := newstateMachine()
-	node := g.Create(groupID, fsm, state, logger)
-	g.mu.Lock()
+	fsm.groups = append(fsm.groups, createGroup{
+		GroupID: groupID,
+		Peers:   peers,
+	})
 
+	node := g.Create(groupID, fsm, state, logger)
+
+	g.mu.Lock()
 	g.nodes[groupID] = &localNode{
 		fsm:      fsm,
 		raftnode: node,
@@ -359,7 +478,7 @@ type localNode struct {
 
 type replicate struct {
 	CMD  string
-	Data json.RawMessage
+	Data []byte
 }
 
 type createGroup struct {
@@ -370,9 +489,4 @@ type createGroup struct {
 type peer struct {
 	Address string
 	ID      uint64
-}
-
-type entry struct {
-	Key   string
-	Value string
 }
