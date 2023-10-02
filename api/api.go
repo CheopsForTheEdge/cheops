@@ -24,32 +24,6 @@ func Routing() {
 	router := mux.NewRouter()
 	router.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Printf(`* %s %s`, r.Method, r.URL.String())
-		for site := range sites {
-			site := site
-			host := strings.Split(site, ":")[0]
-			header := fmt.Sprintf("X-status-%s", host)
-			w.Header().Add("Trailer", header)
-		}
-
-		localRespChan := make(chan (*http.Response), 1)
-		go func() {
-			resp, err := proxyWaitBeforeWritingReply(r.Context(), "127.0.0.1:8283", w, r)
-			if err != nil {
-				log.Println(err)
-			}
-			localRespChan <- resp
-		}()
-
-		if isAlreadyForwarded(r, sites) {
-			return
-		}
-
-		myip, ok := os.LookupEnv("MYIP")
-		if !ok {
-			log.Fatal("My IP must be given with the MYIP environment variable !")
-		}
-		log.Printf("my ip: %s\n", myip)
-		r.Header.Add("X-Forwarded-For", myip)
 
 		timeoutContext, timeoutCancel := context.WithTimeout(r.Context(), 3*time.Second)
 		defer timeoutCancel()
@@ -63,29 +37,41 @@ func Routing() {
 			site := site
 			host := strings.Split(site, ":")[0]
 			header := fmt.Sprintf("X-status-%s", host)
+			if isAlreadyForwarded(r, sites) {
+				continue
+			}
+
+			w.Header().Add("Trailer", header)
+
 			g.Go(func() error {
 				e := &emptyResponseWriter{
 					// by default, assume other sites are unreachable
 					statusCode: http.StatusInternalServerError,
 				}
+
 				err := proxy(ctx, site, e, r)
 				statuses[header] = e.statusCode
 				return err
 			})
 		}
 
-		err := g.Wait()
+		resp, err := proxyWaitBeforeWritingReply(r.Context(), "127.0.0.1:8283", w, r)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+
+		err = g.Wait()
 		if err != nil {
 			log.Println(err)
 			// Not blocking, we don't return yet
 		}
 
-		localResp := <-localRespChan
-
 		for header, code := range statuses {
 			w.Header().Set(header, fmt.Sprintf("%d", code))
 		}
-		proxyWriteReply(localResp, w, "127.0.0.1:8283")
+		proxyWriteReply(resp, w, "127.0.0.1:8283")
+
 	})
 
 	log.Fatal(http.ListenAndServe(":8080", router))
@@ -147,6 +133,12 @@ func proxyWaitBeforeWritingReply(ctx context.Context, host string, w http.Respon
 			newreq.Header.Add(key, val)
 		}
 	}
+
+	myip, ok := os.LookupEnv("MYIP")
+	if !ok {
+		log.Fatal("My IP must be given with the MYIP environment variable !")
+	}
+	newreq.Header.Add("X-Forwarded-For", myip)
 
 	resp, err := http.DefaultClient.Do(newreq)
 	if err != nil {
