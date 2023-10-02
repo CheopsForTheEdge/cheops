@@ -20,8 +20,8 @@ type Crdt struct {
 
 func newCrdt() *Crdt {
 	c := &Crdt{}
-	go c.replicate()
-	go c.watchRequests()
+	c.replicate()
+	c.watchRequests()
 	return c
 }
 
@@ -163,6 +163,7 @@ wait:
 }
 
 func (c *Crdt) watchRequests() {
+	ready := make(chan struct{})
 
 	go func() {
 		since := ""
@@ -180,6 +181,14 @@ func (c *Crdt) watchRequests() {
 			}
 
 			defer feed.Body.Close()
+
+			// close the channel to signal readiness, or if already close, continue
+			select {
+			case <-ready:
+				// Do nothing
+			default:
+				close(ready)
+			}
 
 			scanner := bufio.NewScanner(feed.Body)
 			for scanner.Scan() {
@@ -208,6 +217,8 @@ func (c *Crdt) watchRequests() {
 			}
 		}
 	}()
+	<-ready
+}
 }
 
 func (c *Crdt) run(sites []string) {
@@ -301,66 +312,80 @@ type CouchResp struct {
 // replicate watches the _changes feed and makes sure the replication jobs
 // are in place
 func (c *Crdt) replicate() {
-	existingJobs := c.getExistingJobs()
+	ready := make(chan struct{})
 
-	since := ""
-	for {
-		u := "http://localhost:5984/cheops/_changes?include_docs=true&feed=continuous"
-		if since != "" {
-			u += fmt.Sprintf("&since=%s", since)
-		}
-		feed, err := http.Get(u)
-		if err != nil {
-			log.Fatal(err)
-		}
-		if feed.StatusCode != 200 {
-			log.Fatal(fmt.Errorf("Can't get _changes feed: %s", feed.Status))
-		}
+	go func() {
+		existingJobs := c.getExistingJobs()
 
-		defer feed.Body.Close()
-
-		scanner := bufio.NewScanner(feed.Body)
-		for scanner.Scan() {
-			s := strings.TrimSpace(scanner.Text())
-			if s == "" {
-				continue
+		since := ""
+		for {
+			u := "http://localhost:5984/cheops/_changes?include_docs=true&feed=continuous"
+			if since != "" {
+				u += fmt.Sprintf("&since=%s", since)
 			}
-
-			var d DocChange
-			err := json.NewDecoder(strings.NewReader(s)).Decode(&d)
+			feed, err := http.Get(u)
 			if err != nil {
-				log.Printf("Couldn't decode: %s", err)
-				continue
+				log.Fatal(err)
+			}
+			if feed.StatusCode != 200 {
+				log.Fatal(fmt.Errorf("Can't get _changes feed: %s", feed.Status))
 			}
 
-			if len(d.Doc.Locations) == 0 {
-				continue
+			defer feed.Body.Close()
+
+			// close the channel to signal readiness, or if already close, continue
+			select {
+			case <-ready:
+				// Do nothing
+			default:
+				close(ready)
 			}
 
-			for _, location := range d.Doc.Locations {
-				if location == env.Myfqdn {
+			scanner := bufio.NewScanner(feed.Body)
+			for scanner.Scan() {
+				s := strings.TrimSpace(scanner.Text())
+				if s == "" {
 					continue
 				}
-				if _, ok := existingJobs[location]; !ok {
-					body := fmt.Sprintf(`{"continuous": true, "source": "http://localhost:5984/cheops", "target": "http://%s:5984/crdt-log"}`, location)
-					resp, err := http.Post("http://admin:password@localhost:5984/_replicate", "application/json", strings.NewReader(body))
-					if err != nil {
-						log.Printf("Couldn't add replication: %s\n", err)
-					}
-					if resp.StatusCode != 202 {
-						log.Printf("Couldn't add replication: %s\n", resp.Status)
-					}
-					existingJobs[location] = struct{}{}
+
+				var d DocChange
+				err := json.NewDecoder(strings.NewReader(s)).Decode(&d)
+				if err != nil {
+					log.Printf("Couldn't decode: %s", err)
+					continue
 				}
+
+				if len(d.Doc.Locations) == 0 {
+					continue
+				}
+
+				for _, location := range d.Doc.Locations {
+					if location == env.Myfqdn {
+						continue
+					}
+					if _, ok := existingJobs[location]; !ok {
+						body := fmt.Sprintf(`{"continuous": true, "source": "http://localhost:5984/cheops", "target": "http://%s:5984/crdt-log"}`, location)
+						resp, err := http.Post("http://admin:password@localhost:5984/_replicate", "application/json", strings.NewReader(body))
+						if err != nil {
+							log.Printf("Couldn't add replication: %s\n", err)
+						}
+						if resp.StatusCode != 202 {
+							log.Printf("Couldn't add replication: %s\n", resp.Status)
+						}
+						existingJobs[location] = struct{}{}
+					}
+				}
+
+				since = d.Seq
 			}
 
-			since = d.Seq
+			if err := scanner.Err(); err != nil {
+				log.Fatal(err)
+			}
 		}
+	}()
 
-		if err := scanner.Err(); err != nil {
-			log.Fatal(err)
-		}
-	}
+	<-ready
 }
 
 type DocChange struct {
