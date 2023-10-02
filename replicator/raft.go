@@ -36,9 +36,6 @@ var (
 	ErrNoLeader = errors.New("raft: no elected cluster leader")
 )
 
-func init() {
-}
-
 type Raft struct {
 	stateDir string
 
@@ -46,7 +43,7 @@ type Raft struct {
 	raftgroups *groups
 }
 
-func RaftDoer(port int) *Raft {
+func newRaft(port int) *Raft {
 	dir, ok := os.LookupEnv("STATE_DIR")
 	if !ok {
 		log.Fatal("My FQDN must be given with the MYFQDN environment variable !")

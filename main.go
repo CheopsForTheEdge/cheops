@@ -13,24 +13,8 @@ import (
 var app = "k8s"
 
 func main() {
-
-	// We want something layer by layer, like
-	//
-	// back := backends.Kubernetes()
-	//
-	// repl := replicator.Raft(7070, back.SitesExtractor, back.Executor)
-	// // or
-	// repl := replicator.Raft(7070, back)
-	//
-	// go api.Sync(8079, repl)
-
 	backends.Kubernetes(context.Background())
-	var repl Doer
-	if mode == raftMode {
-		repl = replicator.RaftDoer(7070)
-	} else if mode == crdtMode {
-		repl = replicator.CrdtDoer()
-	}
+	repl := replicator.NewDoer()
 	go api.Sync(8079, repl)
 	select {}
 }

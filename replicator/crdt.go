@@ -16,19 +16,19 @@ import (
 	"cheops.com/env"
 )
 
-type CRDT struct {
+type Crdt struct {
 }
 
-var crdt *CRDT = newCRDT()
+var crdt *Crdt = newCrdt()
 
-func newCRDT() *CRDT {
-	c := &CRDT{}
+func newCrdt() *Crdt {
+	c := &Crdt{}
 	go c.replicate()
 	go c.watchRequests()
 	return c
 }
 
-func (c *CRDT) Do(ctx context.Context, sites []string, operation Payload) (reply Payload, err error) {
+func (c *Crdt) Do(ctx context.Context, sites []string, operation Payload) (reply Payload, err error) {
 
 	// find highest generation
 	docs, err := c.getDocsForSites(sites)
@@ -148,7 +148,7 @@ func (c *CRDT) Do(ctx context.Context, sites []string, operation Payload) (reply
 	return reply, fmt.Errorf("No replies")
 }
 
-func (c *CRDT) watchRequests() {
+func (c *Crdt) watchRequests() {
 
 	var bs backendStatus
 
@@ -200,7 +200,7 @@ func (c *CRDT) watchRequests() {
 	}()
 }
 
-func (c *CRDT) run(requestId string, sites []string) {
+func (c *Crdt) run(requestId string, sites []string) {
 	docs, err := c.getDocsForSites(sites)
 	if err != nil {
 		log.Printf("Couldn't get docs for sites: %v\n", err)
@@ -249,7 +249,7 @@ func (c *CRDT) run(requestId string, sites []string) {
 	}
 }
 
-func (c *CRDT) getDocsForSites(sites []string) ([]crdtDocument, error) {
+func (c *Crdt) getDocsForSites(sites []string) ([]crdtDocument, error) {
 	locations := make([]string, 0)
 	for _, site := range sites {
 		locations = append(locations, fmt.Sprintf(`{"Locations": {"$all": ["%s"]}}`, site))
@@ -282,7 +282,7 @@ type CouchResp struct {
 
 // replicate watches the _changes feed and makes sure the replication jobs
 // are in place
-func (c *CRDT) replicate() {
+func (c *Crdt) replicate() {
 	existingJobs := c.getExistingJobs()
 
 	for {
@@ -337,7 +337,7 @@ type DocChange struct {
 	Doc crdtDocument `json:"doc"`
 }
 
-func (c *CRDT) getExistingJobs() map[string]struct{} {
+func (c *Crdt) getExistingJobs() map[string]struct{} {
 	existingJobs, err := http.Get("http://admin:password@localhost:5984/_scheduler/jobs")
 	if err != nil {
 		log.Fatal(err)
