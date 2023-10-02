@@ -150,9 +150,11 @@ metadata:
 `
 
 	conf := extractCurrentConfig([]byte(kubeReply))
-	expectedConf := []byte(`{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{"locations":"dahu-8.grenoble.grid5000.fr,dahu-9.grenoble.grid5000.fr,dahu-23.grenoble.grid5000.fr"},"labels":{"app":"nginx"},"name":"nginx-deployment","namespace":"default"},"spec":{"replicas":1,"selector":{"matchLabels":{"app":"nginx"}},"template":{"metadata":{"labels":{"app":"nginx"}},"spec":{"containers":[{"image":"nginx:1.14.2","name":"nginx","ports":[{"containerPort":80}]}]}}}}`)
+	expectedConf := []byte(`{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{"locations":"dahu-8.grenoble.grid5000.fr,dahu-9.grenoble.grid5000.fr,dahu-23.grenoble.grid5000.fr"},"labels":{"app":"nginx"},"name":"nginx-deployment","namespace":"default"},"spec":{"replicas":1,"selector":{"matchLabels":{"app":"nginx"}},"template":{"metadata":{"labels":{"app":"nginx"}},"spec":{"containers":[{"image":"nginx:1.14.2","name":"nginx","ports":[{"containerPort":90}]}]}}}}`)
 
 	if !jp.Equal(conf, expectedConf) {
-		t.Fatalf("diff in current config, got %s, expected %s", conf, expectedConf)
+
+		diff, _ := jp.CreateMergePatch(expectedConf, conf)
+		t.Fatalf("diff in current config, diff is %s, expected %s", diff, expectedConf)
 	}
 }
