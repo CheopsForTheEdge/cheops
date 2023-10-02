@@ -195,10 +195,30 @@ wait:
 		}
 	}
 	if len(replies) > 0 {
-		// No particular reason, there is no one good response that can fit
-		// while being a merge of the N replies
-		// TODO: add a status header for other replies still
-		return replies[0], nil
+		// We only merge bodies, headers are actually not useful
+
+		type multiReply struct {
+			Site string
+			Body []byte
+		}
+
+		bodies := make([]multiReply, 0)
+		for _, rep := range replies {
+			bodies = append(bodies, multiReply{
+				Site: rep.Site,
+				Body: rep.Body,
+			})
+		}
+		body, err := json.Marshal(bodies)
+		if err != nil {
+			log.Printf("Tried and failed to marshall %#v\n", bodies)
+			return reply, fmt.Errorf("Couldn't marshall bodies: %w", err)
+		}
+		reply = Payload{
+			RequestId: replies[0].RequestId,
+			Body:      body,
+		}
+		return reply, nil
 	}
 	return reply, fmt.Errorf("No replies")
 }
