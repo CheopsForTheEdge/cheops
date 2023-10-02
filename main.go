@@ -9,15 +9,14 @@ import (
 	"os"
 	"time"
 	// "cheops.com/client"
-	"cheops.com/operation"
 	"cheops.com/kubernetes"
+	"cheops.com/operation"
 	"context"
 )
 
 var app = "k8s"
 
 func main() {
-
 
 	var conf = utils.Conf
 
@@ -56,22 +55,20 @@ func main() {
 			MetaID: "42",
 			Replicas: []operation.Replica{
 				operation.Replica{Site: endpoint.Site{"Paris", "127.0.0.1",
-					0},	ID: "65",
-					Logs:  []operation.Log {operation.Log{Operation: "incredible operation",
-														  Date: date}},},
+					0}, ID: "65",
+					Logs: []operation.Log{operation.Log{Operation: "incredible operation",
+						Date: date}}},
 				operation.Replica{Site: endpoint.Site{"Nantes",
 					"192.168.0.1", 0}, ID: "42",
-					Logs:  []operation.Log {operation.Log{Operation: "incredible operation",
-														  Date: date}}},
+					Logs: []operation.Log{operation.Log{Operation: "incredible operation",
+						Date: date}}},
 			},
 			Leader: "Paris",
-
 		}
 		utils.CreateResource("replications", doca)
 		coli := utils.ConnectionToCorrectCollection("sites")
 		coli.EnsurePersistentIndex(nil, []string{"Site", "Address"}, nil)
 		os.MkdirAll(test_file, 0700)
-
 
 	}
 
