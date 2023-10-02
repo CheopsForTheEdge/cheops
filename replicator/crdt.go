@@ -178,12 +178,15 @@ func (c *Crdt) watchRequests() {
 					continue
 				}
 
+				if len(d.Doc.Locations) == 0 {
+					// CouchDB status message, discard
+					continue
+				}
+
 				bs.setShouldRun(true)
 				if bs.isRunning() {
 					continue
 				}
-
-				log.Printf("Running because of [%s] %v\n", s, d.Doc)
 
 				go func(requestId string, sites []string) {
 					for {
