@@ -535,9 +535,6 @@ func (c *Crdt) replicate() {
 			log.Printf("Couldn't decode: %s", err)
 			return
 		}
-		if len(d.Locations) == 0 {
-			return
-		}
 
 		for _, location := range d.Locations {
 			if location == env.Myfqdn {
