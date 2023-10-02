@@ -21,15 +21,11 @@ func SitesFor(method string, path string, headers http.Header, body []byte) ([]s
 		return nil, err
 	}
 
-	meta, err := doc.GetMeta()
-	if err != nil {
-		return nil, err
-	}
-	locationsString, ok := meta.ObjectMeta.Annotations["locations"]
-	if !ok {
+	locationsMap := doc.GetAnnotations("locations")
+	if len(locationsMap) == 0 {
 		return make([]string, 0), nil
 	}
-	locations := strings.Split(locationsString, ",")
+	locations := strings.Split(locationsMap["locations"], ",")
 	locTrimmed := make([]string, 0)
 	for _, loc := range locations {
 		locTrimmed = append(locTrimmed, strings.TrimSpace(loc))
