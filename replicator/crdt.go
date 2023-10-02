@@ -166,7 +166,6 @@ func (c *Crdt) watchRequests() {
 
 	go func() {
 		since := ""
-		run := 0
 		for {
 			u := "http://localhost:5984/cheops/_changes?include_docs=true&feed=continuous"
 			if since != "" {
@@ -183,10 +182,7 @@ func (c *Crdt) watchRequests() {
 			defer feed.Body.Close()
 
 			scanner := bufio.NewScanner(feed.Body)
-			idx := 0
 			for scanner.Scan() {
-				idx++
-				log.Printf("run=%d idx=%d\n", run, idx)
 				s := strings.TrimSpace(scanner.Text())
 				if s == "" {
 					continue
@@ -207,12 +203,9 @@ func (c *Crdt) watchRequests() {
 					continue
 				}
 
-				log.Printf("Running from %d at %d on %v\n", run, idx, d.Doc)
 				c.run(d.Doc.Locations)
 				since = d.Seq
 			}
-
-			run++
 		}
 	}()
 }
