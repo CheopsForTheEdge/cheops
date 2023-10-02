@@ -4,11 +4,11 @@ go 1.16
 
 replace (
 	cheops.com/api => ./api
+	cheops.com/backends => ./backends
 	cheops.com/client => ./client
 	cheops.com/config => ./config
 	cheops.com/database => ./database
 	cheops.com/k8s => ./glue/k8s/
-	cheops.com/backends => ./backends
 	cheops.com/openstack => ./glue/openstack
 	cheops.com/operation => ./operation
 )
@@ -20,6 +20,7 @@ require (
 	github.com/rakoo/raft v0.0.0-20230616100538-e99ccd03fb74
 	github.com/segmentio/ksuid v1.0.4
 	github.com/spf13/viper v1.11.0
-	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
+	golang.org/x/sync v0.1.0
 	google.golang.org/grpc v1.45.0
+	sigs.k8s.io/kustomize/kyaml v0.14.3
 )
