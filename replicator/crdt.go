@@ -27,6 +27,13 @@ func newCrdt() *Crdt {
 
 func (c *Crdt) Do(ctx context.Context, sites []string, operation Payload) (reply Payload, err error) {
 
+	// Prepare replies gathering before running the request
+	// It's all asynchronous
+	repliesChan := make(chan Payload)
+	repliesCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	c.watchReplies(repliesCtx, operation.RequestId, repliesChan)
+
 	// find highest generation
 	docs, err := c.getDocsForSites(sites)
 	if err != nil {
@@ -57,80 +64,19 @@ func (c *Crdt) Do(ctx context.Context, sites []string, operation Payload) (reply
 		return reply, err
 	}
 
-	replicatedOperationId := ""
-	if newresp.StatusCode == 201 {
+	if newresp.StatusCode != 201 {
 		type CreatedResp struct {
 			Id string `json:"id"`
 		}
 		var cr CreatedResp
 		json.NewDecoder(newresp.Body).Decode(&cr)
-		replicatedOperationId = cr.Id
+		err = fmt.Errorf("Couldn't send request %s to couchdb: %s\n", cr.Id, newresp.Status)
+		return
 	}
 
-	repliesChan := make(chan Payload)
-
-	feedCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	go func() {
-		since := ""
-		for {
-			u := "http://localhost:5984/cheops/_changes?include_docs=true&feed=continuous"
-			if since != "" {
-				u += fmt.Sprintf("&since=%s", since)
-			}
-			req, err := http.NewRequestWithContext(feedCtx, "GET", u, nil)
-			if err != nil {
-				log.Printf("Couldn't create request with context: %v\n", err)
-				break
-			}
-			feed, err := http.DefaultClient.Do(req)
-			if err != nil {
-				log.Printf("Couldn't get feed for replies: %v\n", err)
-			}
-			if feed.StatusCode != 200 {
-				log.Fatal(fmt.Errorf("Can't get _changes feed: %s", feed.Status))
-			}
-
-			defer feed.Body.Close()
-
-			scanner := bufio.NewScanner(feed.Body)
-			for scanner.Scan() {
-				s := strings.TrimSpace(scanner.Text())
-				if s == "" {
-					continue
-				}
-
-				var d DocChange
-				err := json.NewDecoder(strings.NewReader(s)).Decode(&d)
-				if err != nil {
-					log.Printf("Couldn't decode: %s", err)
-					continue
-				}
-
-				if d.Doc.Payload.RequestId != replicatedOperationId {
-					continue
-				}
-				if d.Doc.Payload.IsRequest() {
-					continue
-				}
-
-				repliesChan <- d.Doc.Payload
-				since = d.Seq
-			}
-
-			select {
-			case <-feedCtx.Done():
-				return
-			default:
-				continue
-			}
-
-		}
-	}()
-
+	// Gather replies sent on the channel created at the beginning
+	// of this function
 	replies := make([]Payload, 0, len(sites))
-
 wait:
 	for i := 0; i < len(sites); i++ {
 		log.Printf("Waiting for reply %d\n", i)
@@ -219,6 +165,74 @@ func (c *Crdt) watchRequests() {
 	}()
 	<-ready
 }
+
+func (c *Crdt) watchReplies(ctx context.Context, requestId string, repliesChan chan Payload) {
+	ready := make(chan struct{})
+
+	go func() {
+		since := ""
+		for {
+			u := "http://localhost:5984/cheops/_changes?include_docs=true&feed=continuous"
+			if since != "" {
+				u += fmt.Sprintf("&since=%s", since)
+			}
+			req, err := http.NewRequestWithContext(ctx, "GET", u, nil)
+			if err != nil {
+				log.Printf("Couldn't create request with context: %v\n", err)
+				break
+			}
+			feed, err := http.DefaultClient.Do(req)
+			if err != nil {
+				log.Printf("Couldn't get feed for replies: %v\n", err)
+			}
+			if feed.StatusCode != 200 {
+				log.Fatal(fmt.Errorf("Can't get _changes feed: %s", feed.Status))
+			}
+
+			defer feed.Body.Close()
+
+			// close the channel to signal readiness, or if already close, continue
+			select {
+			case <-ready:
+				// Do nothing
+			default:
+				close(ready)
+			}
+
+			scanner := bufio.NewScanner(feed.Body)
+			for scanner.Scan() {
+				s := strings.TrimSpace(scanner.Text())
+				if s == "" {
+					continue
+				}
+
+				var d DocChange
+				err := json.NewDecoder(strings.NewReader(s)).Decode(&d)
+				if err != nil {
+					log.Printf("Couldn't decode: %s", err)
+					continue
+				}
+
+				if d.Doc.Payload.RequestId != requestId {
+					continue
+				}
+				if d.Doc.Payload.IsRequest() {
+					continue
+				}
+
+				repliesChan <- d.Doc.Payload
+				since = d.Seq
+			}
+
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				continue
+			}
+
+		}
+	}()
 }
 
 func (c *Crdt) run(sites []string) {
