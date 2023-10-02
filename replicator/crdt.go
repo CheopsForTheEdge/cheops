@@ -158,6 +158,8 @@ func (c *Crdt) watchRequests() {
 					continue
 				}
 
+				log.Printf("Got request %s\n", d.Doc.Payload.RequestId)
+
 				c.run(d.Doc.Locations)
 				since = d.Seq
 			}
