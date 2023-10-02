@@ -280,15 +280,18 @@ func Save(ctx context.Context, sites []string, operation []byte) error {
 
 	maxtries := 10
 	for {
-		if err := node.raftnode.Replicate(ctx, buf); err != nil {
-			if node.raftnode.Leader() == raft.None && maxtries > 0 {
-				log.Println("No leader yet, waiting 1 second")
-				maxtries--
-				<-time.After(1 * time.Second)
-			} else {
-				log.Printf("Can't replicate operation: %v\n", err)
-				return err
-			}
+		err := node.raftnode.Replicate(ctx, buf)
+		if err == nil {
+			break
+		}
+
+		if node.raftnode.Leader() == raft.None && maxtries > 0 {
+			log.Println("No leader yet, waiting 1 second")
+			maxtries--
+			<-time.After(1 * time.Second)
+		} else {
+			log.Printf("Can't replicate operation: %v\n", err)
+			return err
 		}
 	}
 	return nil
