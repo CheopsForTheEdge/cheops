@@ -79,15 +79,11 @@ func (c *Crdt) listenDump(port int) {
 		sortDocuments(requests)
 
 		for _, request := range requests {
-			fmt.Fprintf(w, "Request: %s\n", request.Payload.RequestId)
-			fmt.Fprintf(w, "\t%s\n", request.Payload.Site)
-			fmt.Fprintf(w, "Replies:\n")
 			for _, doc := range ad.Rows {
 				if doc.Doc.Payload.RequestId == request.Payload.RequestId && !doc.Doc.Payload.IsRequest() {
-					fmt.Fprintf(w, "\t%s\n", doc.Doc.Payload.Site)
+					fmt.Fprintf(w, "Ran %s %s\n", request.Payload.RequestId, doc.Doc.Payload.Site)
 				}
 			}
-			fmt.Fprintf(w, "\n")
 		}
 
 	})
