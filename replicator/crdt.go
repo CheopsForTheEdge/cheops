@@ -183,6 +183,8 @@ func (c *Crdt) watchRequests() {
 					continue
 				}
 
+				log.Printf("Running because of [%s] %v\n", s, d.Doc)
+
 				go func(requestId string, sites []string) {
 					for {
 						if bs.isShouldRun() {
