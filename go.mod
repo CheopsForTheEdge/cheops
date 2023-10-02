@@ -10,6 +10,7 @@ replace (
 	cheops.com/k8s => ./glue/k8s/
 	cheops.com/openstack => ./glue/openstack
 	cheops.com/operation => ./operation
+	cheops.com/kubernetes => ./kubernetes
 )
 
 require (
