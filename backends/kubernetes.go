@@ -36,19 +36,18 @@ func SitesFor(method string, path string, headers http.Header, body []byte) ([]s
 	return locTrimmed, nil
 }
 
-func HandleKubernetes(ctx context.Context, method string, path string, headers http.Header, body []byte) (h http.Header, b []byte, err2 error) {
-	cmd := exec.CommandContext(ctx, "kubectl", "apply", "-f", "-")
+func runWithStdin(ctx context.Context, input []byte, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 	command := cmd.String()
 	log.Printf("Running %s\n", command)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		err2 = err
-		return
+		return nil, err
 	}
 
 	go func() {
 		defer stdin.Close()
-		io.Copy(stdin, bytes.NewBuffer(body))
+		io.Copy(stdin, bytes.NewBuffer(input))
 	}()
 
 	out, err := cmd.CombinedOutput()
@@ -56,7 +55,12 @@ func HandleKubernetes(ctx context.Context, method string, path string, headers h
 	for scanner.Scan() {
 		log.Printf("[%s]: %s\n", command, scanner.Text())
 	}
-	return h, out, err
+	return out, err
+}
+
+func HandleKubernetes(ctx context.Context, method string, path string, headers http.Header, input []byte) (header http.Header, body []byte, err error) {
+	out, err := runWithStdin(ctx, input, "kubectl", "apply", "-f", "-")
+	return header, out, err
 }
 
 // CurrentConfig fetches the configuration as json for the resources that is given in input.
@@ -64,21 +68,9 @@ func HandleKubernetes(ctx context.Context, method string, path string, headers h
 // magic itself here.
 // If anything goes wrong, CurrentConfig returns an empty json object
 func CurrentConfig(ctx context.Context, targetResource []byte) []byte {
-	cmd := exec.CommandContext(ctx, "kubectl", "get", "-o", "yaml", "-f", "-")
-	stdin, err := cmd.StdinPipe()
+	out, err := runWithStdin(ctx, targetResource, "kubectl", "get", "-o", "yaml", "-f", "-")
 	if err != nil {
-		log.Printf("Couldn't get stdin pipe: %v\n", err)
-		return []byte("{}")
-	}
-
-	go func() {
-		defer stdin.Close()
-		io.Copy(stdin, bytes.NewBuffer(targetResource))
-	}()
-
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		log.Printf("Couldn't run command: %v\n", err)
+		log.Printf("Error running cmd: %s\n", err)
 		return []byte("{}")
 	}
 
