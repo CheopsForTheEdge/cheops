@@ -10,8 +10,8 @@ import (
 )
 
 type crdtDocument struct {
-	Id  string `json:"_id"`
-	Rev string `json:"_rev"`
+	Id  string `json:"_id,omitempty"`
+	Rev string `json:"_rev,omitempty"`
 
 	Locations  []string
 	Generation uint64
