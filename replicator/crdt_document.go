@@ -10,9 +10,16 @@ import (
 )
 
 type crdtDocument struct {
+	Id  string `json:"_id"`
+	Rev string `json:"_rev"`
+
 	Locations  []string
 	Generation uint64
 	Payload    Payload
+
+	// When true for a request, it means the intent is for this document to not exist anymore
+	// When true for a reply, it means the deletion has been processed
+	Deleted bool
 }
 
 // sort sorts a slice of Document with a stable order: if two nodes have

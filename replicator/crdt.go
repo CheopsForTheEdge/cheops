@@ -160,7 +160,7 @@ func (c *Crdt) Do(ctx context.Context, sites []string, operation Payload) (reply
 		return reply, err
 	}
 
-	if newresp.StatusCode != 201 {
+	if newresp.StatusCode != http.StatusCreated {
 		type CreatedResp struct {
 			Id string `json:"id"`
 		}
@@ -339,12 +339,18 @@ func (c *Crdt) run(ctx context.Context, sites []string, p Payload) {
 	requests := make([]crdtDocument, 0)
 	requestIdsInReplies := make(map[string]struct{})
 	for _, doc := range docs {
-		if doc.Payload.IsRequest() {
+		if doc.Payload.IsRequest() && !doc.Deleted {
 			requests = append(requests, doc)
 		} else if doc.Payload.Site == env.Myfqdn {
 			requestIdsInReplies[doc.Payload.RequestId] = struct{}{}
 		}
 	}
+
+	if len(requests) == 0 {
+		c.delete(ctx, p)
+		return
+	}
+
 	sortDocuments(requests)
 	body := mergePatches(requests)
 
@@ -386,12 +392,70 @@ func (c *Crdt) run(ctx context.Context, sites []string, p Payload) {
 	}
 	defer newresp.Body.Close()
 
-	if newresp.StatusCode != 201 {
+	if newresp.StatusCode != http.StatusCreated {
 		log.Printf("Couldn't send reply: %v\n", newresp.Status)
 		return
 	}
 
 	log.Printf("Ran %s %s\n", p.RequestId, env.Myfqdn)
+}
+
+func (c *Crdt) delete(ctx context.Context, p Payload) {
+	log.Printf("Deleting %v\n", p.ResourceId)
+	err := backends.DeleteKubernetes(ctx, []byte(p.Body))
+	if err != nil {
+		log.Printf("Couldn't delete %v: %v\n", p.ResourceId, err)
+		return
+	}
+
+	// Find related reply
+	selector := fmt.Sprintf(`{"Payload.ResourceId": "%s", "Payload.Method": "", "Payload.Site": "%s"}`, p.ResourceId, env.Myfqdn)
+	docsToDelete, err := c.getDocsForSelector(selector)
+	if err != nil {
+		log.Printf("Couldn't find reply to delete for %v: %v\n", p.ResourceId, err)
+		return
+	}
+
+	if len(docsToDelete) != 1 {
+		log.Printf("Multiple replies to delete: %#v\n", docsToDelete)
+		return
+	}
+
+	// Mark related reply as deleted
+	docToDelete := docsToDelete[0]
+	docToDelete.Deleted = true
+
+	b, err := json.Marshal(docToDelete)
+	if err != nil {
+		log.Printf("Couldn't marshal: %v\n", err)
+		return
+	}
+
+	url := fmt.Sprintf("http://localhost:5984/cheops/%s?rev=%s", docToDelete.Id, docToDelete.Rev)
+	httpReq, err := http.NewRequestWithContext(ctx, "PUT", url, bytes.NewBuffer(b))
+	if err != nil {
+		log.Printf("Couldn't build request to delete %v: %v\n", docToDelete.Id, err)
+		return
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(httpReq)
+	if err != nil {
+		log.Printf("Couldn't send request to delete %v: %v\n", docToDelete.Id, err)
+		return
+	}
+	defer resp.Body.Close()
+
+	var fail bool
+	for _, expectedCode := range []int{http.StatusCreated, http.StatusAccepted} {
+		if resp.StatusCode == expectedCode {
+			fail = true
+		}
+	}
+	if fail {
+		log.Printf("Couldn't delete %v: %v\n", docToDelete.Id, resp.Status)
+		return
+	}
 }
 
 func (c *Crdt) getDocsForId(resourceId string) ([]crdtDocument, error) {

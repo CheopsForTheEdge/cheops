@@ -80,6 +80,11 @@ func HandleKubernetes(ctx context.Context, method string, path string, headers h
 	return header, out, err
 }
 
+func DeleteKubernetes(ctx context.Context, input []byte) error {
+	_, err := runWithStdin(ctx, input, "kubectl", "delete", "-f", "-")
+	return err
+}
+
 // CurrentConfig fetches the configuration as json for the resources that is given in input.
 // The input is useful for determining the namespace and name. We let kubectl do the
 // magic itself here.
