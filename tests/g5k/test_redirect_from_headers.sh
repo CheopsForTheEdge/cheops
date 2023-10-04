@@ -13,13 +13,13 @@ nn4=$(printenv $n4)
 
 LOCATIONS="-H 'X-Cheops-Location: $nn1' -H 'X-Cheops-Location: $nn2' -H 'X-Cheops-Location: $nn3'"
 
-sed "s/REPLICAS/1/ ; s/PORT/80/" ../simple-deployment.yml.tpl > simple-deployment.yml
+sed "s/REPLICAS/1/ ; s/PORT/80/" simple-deployment.yml.tpl > simple-deployment.yml
 eval "curl -s $LOCATIONS \"http://$nn1:8079\" --data-binary @simple-deployment.yml | jq '.'"
 
 read -p "Continue ? "
 
 # Test on a site that knows nothing and with no location, should fail
-sed "s/REPLICAS/1/ ; s/PORT/90/" ../simple-deployment.yml.tpl > simple-deployment-port.yml
+sed "s/REPLICAS/1/ ; s/PORT/90/" simple-deployment.yml.tpl > simple-deployment-port.yml
 
 curl -s "http://$nn4:8079" --data-binary @simple-deployment-port.yml
 

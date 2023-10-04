@@ -14,7 +14,7 @@ nn4=$(printenv $n4)
 LOCATIONS_1="-H 'X-Cheops-Location: $nn1' -H 'X-Cheops-Location: $nn2' -H 'X-Cheops-Location: $nn3'"
 LOCATIONS_2="-H 'X-Cheops-Location: $nn1' -H 'X-Cheops-Location: $nn2' -H 'X-Cheops-Location: $nn4'"
 
-sed "s/REPLICAS/1/ ; s/PORT/80/" ../simple-deployment.yml.tpl > simple-deployment.yml
+sed "s/REPLICAS/1/ ; s/PORT/80/" simple-deployment.yml.tpl > simple-deployment.yml
 eval "curl -s $LOCATIONS_1 \"http://$nn1:8079\" --data-binary @simple-deployment.yml | jq '.'"
 
 read -p "Continue ? "
