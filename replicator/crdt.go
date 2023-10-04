@@ -296,7 +296,6 @@ func (c *Crdt) watchReplies(ctx context.Context, requestId string, repliesChan c
 // The document is sent as a raw json string, to be decoded by the function.
 // The execution of the function blocks the loop; it is good to not have it run too long
 func (c *Crdt) watch(ctx context.Context, db string, onNewDoc func(j json.RawMessage)) {
-	ready := make(chan struct{})
 
 	go func() {
 		since := ""
@@ -319,14 +318,6 @@ func (c *Crdt) watch(ctx context.Context, db string, onNewDoc func(j json.RawMes
 			}
 
 			defer feed.Body.Close()
-
-			// close the channel to signal readiness, or if already close, continue
-			select {
-			case <-ready:
-				// Do nothing
-			default:
-				close(ready)
-			}
 
 			scanner := bufio.NewScanner(feed.Body)
 			for scanner.Scan() {
