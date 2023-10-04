@@ -395,11 +395,16 @@ func (c *Crdt) run(ctx context.Context, sites []string, p Payload) {
 }
 
 func (c *Crdt) getDocsForId(resourceId string) ([]crdtDocument, error) {
+	selector := fmt.Sprintf(`{"Payload.ResourceId": "%s"}`, resourceId)
+	return c.getDocsForSelector(selector)
+}
+
+func (c *Crdt) getDocsForSelector(selector string) ([]crdtDocument, error) {
 	docs := make([]crdtDocument, 0)
 	var bookmark string
 
 	for {
-		selector := fmt.Sprintf(`{"bookmark": "%s", "selector": {"Payload.ResourceId": "%s"}}`, bookmark, resourceId)
+		selector := fmt.Sprintf(`{"bookmark": "%s", "selector": %s}`, bookmark, selector)
 
 		current, err := http.Post("http://localhost:5984/cheops/_find", "application/json", strings.NewReader(selector))
 		if err != nil {
@@ -409,7 +414,10 @@ func (c *Crdt) getDocsForId(resourceId string) ([]crdtDocument, error) {
 			return nil, fmt.Errorf("Post %s: %s", current.Request.URL.String(), current.Status)
 		}
 
-		var cr CouchResp
+		var cr struct {
+			Bookmark string         `json:"bookmark"`
+			Docs     []crdtDocument `json:"docs"`
+		}
 
 		err = json.NewDecoder(current.Body).Decode(&cr)
 		current.Body.Close()
@@ -426,11 +434,6 @@ func (c *Crdt) getDocsForId(resourceId string) ([]crdtDocument, error) {
 	}
 
 	return docs, nil
-}
-
-type CouchResp struct {
-	Bookmark string         `json:"bookmark"`
-	Docs     []crdtDocument `json:"docs"`
 }
 
 // replicate watches the _changes feed and makes sure the replication jobs
