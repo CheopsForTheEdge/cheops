@@ -41,7 +41,21 @@ func Sync(port int, d replicator.Doer) {
 
 		// The site where the user wants the resource to exist
 		desiredSites := header.Values("X-Cheops-Location")
-		d.Register(desiredSites...)
+
+		var local bool
+		for _, site := range desiredSites {
+			if site == env.Myfqdn {
+				local = true
+			}
+		}
+
+		if !local {
+			// Send the request to any site that is related to the request
+			targetSiteIdx := mathrand.Intn(len(desiredSites))
+			targetSite := desiredSites[targetSiteIdx]
+			http.Redirect(w, r, fmt.Sprintf("http://%s:%d", targetSite, port), http.StatusTemporaryRedirect)
+			return
+		}
 
 		randBytes, err := io.ReadAll(&io.LimitedReader{R: rand.Reader, N: 64})
 		if err != nil {
@@ -52,33 +66,6 @@ func Sync(port int, d replicator.Doer) {
 		if err != nil {
 			http.Error(w, "bad request", http.StatusBadRequest)
 			log.Printf("Bad request, no resourceId can be found: %s\n", err)
-			return
-		}
-
-		// The sites currently associated with the resource
-		// If the resource doesn't exist yet, check in the desired sites
-		currentSites := d.SitesFor(resourceId)
-		if len(currentSites) == 0 {
-			currentSites = desiredSites
-		}
-		if len(currentSites) == 0 {
-			http.Error(w, "bad request", http.StatusBadRequest)
-			log.Printf("No known sites and no sites in request: we can't do anything with the request")
-			return
-		}
-
-		local := false
-		for _, currentSite := range currentSites {
-			if currentSite == env.Myfqdn {
-				local = true
-			}
-		}
-
-		if !local {
-			// Send the request to any site that is related to the request
-			targetSiteIdx := mathrand.Intn(len(currentSites))
-			targetSite := currentSites[targetSiteIdx]
-			http.Redirect(w, r, fmt.Sprintf("http://%s:%d", targetSite, port), http.StatusTemporaryRedirect)
 			return
 		}
 

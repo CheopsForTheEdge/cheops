@@ -55,28 +55,6 @@ func (c *Crdt) ensureCouch() {
 			ExpectedCodes: []int{http.StatusOK},
 			Body:          `{"members":{"roles":[]},"admins":{"roles":["_admin"]}}`,
 		},
-		{
-			Method:        "DELETE",
-			URL:           "http://admin:password@localhost:5984/cheops-all",
-			ExpectedCodes: []int{http.StatusOK, http.StatusNotFound},
-			Body:          "",
-		}, {
-			Method:        "PUT",
-			URL:           "http://admin:password@localhost:5984/cheops-all",
-			ExpectedCodes: []int{http.StatusCreated, http.StatusPreconditionFailed},
-			Body:          "",
-		}, {
-			Method:        "PUT",
-			URL:           "http://admin:password@localhost:5984/cheops-all/_security",
-			ExpectedCodes: []int{http.StatusOK},
-			Body:          `{"members":{"roles":[]},"admins":{"roles":["_admin"]}}`,
-		},
-		{
-			Method:        "POST",
-			URL:           "http://admin:password@localhost:5984/cheops-all",
-			ExpectedCodes: []int{http.StatusCreated},
-			Body:          fmt.Sprintf(`{"type": "SITE", "site": "%s" }`, env.Myfqdn),
-		},
 	}
 
 	for _, req := range reqs {
@@ -251,7 +229,7 @@ wait:
 }
 
 func (c *Crdt) watchRequests() {
-	c.watch(context.Background(), "cheops", func(j json.RawMessage) {
+	c.watch(context.Background(), func(j json.RawMessage) {
 		var d crdtDocument
 		err := json.Unmarshal(j, &d)
 		if err != nil {
@@ -272,7 +250,7 @@ func (c *Crdt) watchRequests() {
 }
 
 func (c *Crdt) watchReplies(ctx context.Context, requestId string, repliesChan chan Payload) {
-	c.watch(ctx, "cheops", func(j json.RawMessage) {
+	c.watch(ctx, func(j json.RawMessage) {
 		var d crdtDocument
 		err := json.Unmarshal(j, &d)
 		if err != nil {
@@ -292,15 +270,15 @@ func (c *Crdt) watchReplies(ctx context.Context, requestId string, repliesChan c
 
 }
 
-// watch watches the _changes feed of the given database and runs a function when a new document is seen.
+// watch watches the _changes feed of the cheops database and runs a function when a new document is seen.
 // The document is sent as a raw json string, to be decoded by the function.
 // The execution of the function blocks the loop; it is good to not have it run too long
-func (c *Crdt) watch(ctx context.Context, db string, onNewDoc func(j json.RawMessage)) {
+func (c *Crdt) watch(ctx context.Context, onNewDoc func(j json.RawMessage)) {
 
 	go func() {
 		since := ""
 		for {
-			u := fmt.Sprintf("http://localhost:5984/%s/_changes?include_docs=true&feed=continuous", db)
+			u := "http://localhost:5984/cheops/_changes?include_docs=true&feed=continuous"
 			if since != "" {
 				u += fmt.Sprintf("&since=%s", since)
 			}
@@ -413,67 +391,7 @@ func (c *Crdt) run(ctx context.Context, sites []string, p Payload) {
 		return
 	}
 
-	// Post existence of doc in cheops-all, if not already there
-	c.ensureResourceExistenceInCheopsAll(p.ResourceId)
-
 	log.Printf("Ran %s %s\n", p.RequestId, env.Myfqdn)
-}
-
-// ensureResourceExistenceInCheopsAll makes sure that we have the corresponding Resource document
-// in the cheops-all database
-func (c *Crdt) ensureResourceExistenceInCheopsAll(resourceId string) {
-	resourceDoc := MetaDocument{
-		Type:       "RESOURCE",
-		ResourceId: resourceId,
-		Site:       env.Myfqdn,
-	}
-
-	type Query struct {
-		Selector MetaDocument `json:"selector"`
-	}
-	request, err := json.Marshal(Query{Selector: resourceDoc})
-	if err != nil {
-		log.Printf("Couldn't send resource doc to cheops-all: %v\n", err)
-		return
-	}
-
-	existingRep, err := http.Post("http://localhost:5984/cheops-all/_find", "application/json", bytes.NewReader(request))
-	if err != nil {
-		log.Printf("Couldn't send resource doc to cheops-all: %v\n", err)
-		return
-	}
-	defer existingRep.Body.Close()
-
-	var searchResults struct {
-		Docs []MetaDocument `json:"docs"`
-	}
-	err = json.NewDecoder(existingRep.Body).Decode(&searchResults)
-	if err != nil {
-		log.Printf("Couldn't send resource doc to cheops-all: %v\n", err)
-		return
-	}
-	for _, foundDoc := range searchResults.Docs {
-		if foundDoc.Type == "RESOURCE" && foundDoc.Site == env.Myfqdn {
-			return
-		}
-	}
-
-	bufResource, err := json.Marshal(resourceDoc)
-	if err != nil {
-		log.Printf("Couldn't marshal resource doc: %v\n", err)
-		return
-	}
-	respResource, err := http.Post("http://localhost:5984/cheops-all", "application/json", bytes.NewReader(bufResource))
-	if err != nil {
-		log.Printf("Couldn't send resource doc to cheops-all: %v\n", err)
-		return
-	}
-	defer respResource.Body.Close()
-
-	if respResource.StatusCode != 201 {
-		log.Printf("Couldn't send resource doc to cheops-all: %v\n", respResource.Status)
-		return
-	}
 }
 
 func (c *Crdt) getDocsForId(resourceId string) ([]crdtDocument, error) {
@@ -519,7 +437,7 @@ type CouchResp struct {
 // are in place
 func (c *Crdt) replicate() {
 
-	c.watch(context.Background(), "cheops", func(j json.RawMessage) {
+	c.watch(context.Background(), func(j json.RawMessage) {
 		existingJobs := c.getExistingJobs()
 
 		var d crdtDocument
@@ -546,45 +464,8 @@ func (c *Crdt) replicate() {
 					log.Printf("Couldn't add replication: %s\n", resp.Status)
 				}
 			}
-
-			// Maybe we just got informed of a new patch, we need to install the replication
-			// of metadata documents as well.
-			// Replication of cheops-all -> cheops-all
-			cheopsAllSite := fmt.Sprintf("http://%s:5984/cheops-all", location)
-			if _, ok := existingJobs[cheopsAllSite]; !ok {
-				createReplication("cheops-all", location)
-			}
 		}
 	})
-
-	c.watch(context.Background(), "cheops-all", func(j json.RawMessage) {
-		existingJobs := c.getExistingJobs()
-
-		var d MetaDocument
-		err := json.Unmarshal(j, &d)
-		if err != nil {
-			log.Printf("Couldn't decode: %s", err)
-			return
-		}
-
-		if d.Type == "SITE" && d.Site != env.Myfqdn {
-			remoteDatabase := fmt.Sprintf("http://%s:5984/cheops-all", d.Site)
-			if _, ok := existingJobs[remoteDatabase]; !ok {
-				createReplication("cheops-all", d.Site)
-			}
-		}
-	})
-}
-
-func (c *Crdt) Register(peers ...string) {
-	existingJobs := c.getExistingJobs()
-
-	for _, peer := range peers {
-		remoteDatabase := fmt.Sprintf("http://%s:5984/cheops-all", peer)
-		if _, ok := existingJobs[remoteDatabase]; !ok {
-			createReplication("cheops-all", peer)
-		}
-	}
 }
 
 func createReplication(db, otherSite string) {
@@ -601,20 +482,6 @@ func createReplication(db, otherSite string) {
 type DocChange struct {
 	Seq string          `json:"seq"`
 	Doc json.RawMessage `json:"doc"`
-}
-
-func (c *Crdt) SitesFor(resourceId string) []string {
-	docs, err := c.getDocsForId(resourceId)
-	if err != nil {
-		log.Printf("Couldn't get docs for id: %v\n", err)
-		return []string{}
-	}
-
-	if len(docs) == 0 {
-		return []string{}
-	}
-
-	return docs[len(docs)-1].Locations
 }
 
 func (c *Crdt) getExistingJobs() map[string]struct{} {

@@ -17,12 +17,6 @@ type Doer interface {
 	// and waits for all of them to reply.
 	// A reply is sent back to the caller
 	Do(ctx context.Context, sites []string, operation Payload) (reply Payload, err error)
-
-	// SitesFor retrieves the sites known by the replicator for the given resource
-	SitesFor(resourceId string) []string
-
-	// Register registers the given peers as part of the cluster
-	Register(peers ...string)
 }
 
 // Payload represents a query to be run on the network
