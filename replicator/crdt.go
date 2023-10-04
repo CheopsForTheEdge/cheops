@@ -161,12 +161,7 @@ func (c *Crdt) Do(ctx context.Context, sites []string, operation Payload) (reply
 	}
 
 	if newresp.StatusCode != http.StatusCreated {
-		type CreatedResp struct {
-			Id string `json:"id"`
-		}
-		var cr CreatedResp
-		json.NewDecoder(newresp.Body).Decode(&cr)
-		err = fmt.Errorf("Couldn't send request %s to couchdb: %s\n", cr.Id, newresp.Status)
+		err = fmt.Errorf("Couldn't send request %#v to couchdb: %s\n", newDoc, newresp.Status)
 		return
 	}
 
