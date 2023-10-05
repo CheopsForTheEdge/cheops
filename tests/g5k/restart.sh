@@ -7,8 +7,8 @@ if [ ! -d /tmp/cheops/.git ]; then
 fi
 
 cd /tmp/cheops
-git checkout matthieu
-git reset --hard origin/matthieu
+git checkout operations
+git reset --hard origin/operations
 
 /usr/lib/go-1.19/bin/go build
 rm cheops.log 2> /dev/null

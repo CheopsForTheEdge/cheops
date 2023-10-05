@@ -11,13 +11,9 @@ nn3=$(printenv $n3)
 
 LOCATIONS="-H 'X-Cheops-Location: $nn1' -H 'X-Cheops-Location: $nn2' -H 'X-Cheops-Location: $nn3'"
 
-sed "s/REPLICAS/1/ ; s/PORT/80/" simple-deployment.yml.tpl > simple-deployment.yml
-eval "curl -s $LOCATIONS \"http://$nn1:8079\" --data-binary @simple-deployment.yml | jq '.'"
+eval "curl -s $LOCATIONS \"http://$nn1:8079\" --data-binary 'mkdir /tmp/foo' | jq '.'"
 
 read -p "Continue ? "
 
-sed "s/REPLICAS/2/ ; s/PORT/80/" simple-deployment.yml.tpl > simple-deployment-replicas.yml
-sed "s/REPLICAS/1/ ; s/PORT/90/" simple-deployment.yml.tpl > simple-deployment-port.yml
-
-(eval "curl -s $LOCATIONS \"http://$nn2:8079\" --data-binary @simple-deployment-replicas.yml | jq '.'") &
-(eval "curl -s $LOCATIONS \"http://$nn3:8079\" --data-binary @simple-deployment-port.yml | jq '.'") &
+(eval "curl -s $LOCATIONS \"http://$nn2:8079\" --data-binary 'echo left > /tmp/foo/left' | jq ''") &
+(eval "curl -s $LOCATIONS \"http://$nn3:8079\" --data-binary 'echo right > /tmp/foo/right' | jq '.'") &
