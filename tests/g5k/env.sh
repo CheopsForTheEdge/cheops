@@ -14,3 +14,5 @@ do
 				printf -v $var $node
 				export $var
 done < <(oarstat -J -u | jq -r '.[] | .assigned_network_address | .[]' )
+
+oarstat -J -u | jq -r '.[] | .assigned_network_address | .[]' > ~/.oarnodes

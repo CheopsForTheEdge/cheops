@@ -2,15 +2,33 @@
 
 The current directory contains the files to test a few scenarios on Grid5000.
 
-First step: install all the necessary tools using the jupyter notebook 'cheops with kube.ipynb'.
+From the root of the git repo, on the frontend node:
+
+```
+# Book machines
+tests/g5k/book.py
+
+# Source booked machines
+. tests/g5k/env.sh
+
+# install all the necessary tools
+parallel --nonall --sshloginfile ~/.oarnodes --tag --transferfile tests/g5k/get-tip.sh exec
+parallel --nonall --sshloginfile ~/.oarnodes --tag sudo install-run-couchdb.sh
+parallel --nonall --sshloginfile ~/.oarnodes --tag sudo install-run-kubernetes.sh
+
+# start from a clean slate
+restart-with-tip.sh
+```
+
+In a development phase, re-run restart.sh every time there is a change
 
 Run multitail.sh in another tmux pane to follow activity of the nodes (they will be autoconfigured)
 
 After that there are multiple available tests:
 
-# test_parallel.sh
+## test_parallel.sh
 
-Needs 3 nodes. 
+Needs 3 nodes.
 
 - Runs a first deployment
 - asks before continuing
@@ -18,8 +36,7 @@ Needs 3 nodes.
 
 Expected result: the 2 new changes are merged and deployed on all sites
 
-
-# test_different_sites.sh
+## test_different_sites.sh
 
 Needs 4 nodes.
 
@@ -29,8 +46,7 @@ Needs 4 nodes.
 
 Expected result: the 2 deployments exist in parallel where they are supposed to
 
-
-# test_redirect.sh
+## test_redirect_from_headers.sh
 
 Needs 4 nodes.
 

@@ -43,146 +43,31 @@ This research prototype is currently under heavy development. If you are interes
 See the [LICENSE](./LICENSE) document for the full text
 
 # Install
-1. Install git if it is not on your system: `apt install -y git`
-2. Install and run Couchdb
-3. Install and run kube
-4. Compile
-5. Run
-
-## Installing and running Couchdb
 
 ```
-sudo apt update && sudo apt install -y curl apt-transport-https gnupg
-curl https://couchdb.apache.org/repo/keys.asc | gpg --dearmor | sudo tee /usr/share/keyrings/couchdb-archive-keyring.gpg >/dev/null 2>&1
-source /etc/os-release
-echo "deb [signed-by=/usr/share/keyrings/couchdb-archive-keyring.gpg] https://apache.jfrog.io/artifactory/couchdb-deb/ ${VERSION_CODENAME} main" \
-| sudo tee /etc/apt/sources.list.d/couchdb.list >/dev/null
-sudo apt-get update
+# Install and run Couchdb
+sh -x install-run-couchdb.sh
 
-COUCHDB_PASSWORD=password
-echo "couchdb couchdb/mode select standalone
-couchdb couchdb/mode seen true
-couchdb couchdb/bindaddress string 127.0.0.1
-couchdb couchdb/bindaddress seen true
-couchdb couchdb/adminpass password ${COUCHDB_PASSWORD}
-couchdb couchdb/adminpass seen true
-couchdb couchdb/adminpass_again password ${COUCHDB_PASSWORD}
-couchdb couchdb/adminpass_again seen true" | debconf-set-selections
-DEBIAN_FRONTEND=noninteractive apt-get install -y --force-yes couchdb
+# Install and run kube
+sh -x install-run-kube.sh
+
+# Get go 1.19
+apt install golang-1.19
 ```
 
-- in /opt/couchdb/etc/local.ini: add "single_node=true" after "[couchdb]"
-- in /opt/couchdb/etc/local.ini: add "bind_address = ::" after "[chttpd"]
-- start couchdb with systemd
-
-## Installing and running kube
-
-TODO: these are enoslib instructions, make them into a script
-```
-p.apt(
-    update_cache=True,
-    pkg=["apt-transport-https", "ca-certificates", "curl", "gnupg", "lsb-release"]
-)
-
-# docker
-p.apt_key(
-    url="https://download.docker.com/linux/debian/gpg"
-)
-p.apt_repository(
-    repo="deb https://download.docker.com/linux/debian {{ ansible_distribution_release }} stable",
-    update_cache=True
-)
-p.apt(
-    pkg=["docker-ce", "docker-ce-cli", "containerd.io"]
-)
-p.copy(
-    dest="/etc/docker/daemon.json",
-    content="""
-    {
-      "exec-opts": ["native.cgroupdriver=systemd"],
-      "log-driver": "json-file",
-      "log-opts": {
-      "max-size": "100m"
-      },
-      "storage-driver": "overlay2"
-    }
-    """
-)
-p.systemd(
-    daemon_reload=True,
-    name="docker",
-    state="started"
-)
-
-# kubernetes
-p.copy(
-    dest="/etc/modules-load.d/k8s.conf",
-    content="br_netfilter"
-)
-p.copy(
-    dest="/etc/sysctl.d/k8s.conf",
-    content="""
-    net.bridge.bridge-nf-call-ip6tables = 1
-    net.bridge.bridge-nf-call-iptables = 1
-    """
-)
-p.shell(
-    cmd="sysctl --system"
-)
-p.apt_key(
-    url="https://packages.cloud.google.com/apt/doc/apt-key.gpg"
-)
-p.apt_repository(
-    repo="deb https://apt.kubernetes.io/ kubernetes-xenial main",
-    update_cache=True
-)
-p.apt(
-    pkg=["kubelet=1.21.12-00", "kubeadm=1.21.12-00", "kubectl=1.21.12-00", "mount"]
-)
-p.command(
-    cmd="apt-mark hold kubelet kubeadm kubectl"
-)
-p.command(
-    cmd="swapoff -a"
-)
-p.shell(
-    cmd="kubeadm init --pod-network-cidr=10.244.0.0/16"
-)
-p.file(
-    path="{{ ansible_user_dir }}/.kube",
-    state="directory"
-)
-p.copy(
-    src="/etc/kubernetes/admin.conf",
-    remote_src=True,
-    dest="{{ ansible_user_dir }}/.kube/config"
-)
-p.copy(
-    src="{{ ansible_user_dir }}/.kube/config",
-    remote_src=True,
-    dest="{{ ansible_user_dir }}/.kube/config.proxified"
-)
-p.lineinfile(
-    regexp=".*server:.*",
-    line="    server: http://127.0.0.1:8079",
-    path="{{ ansible_user_dir }}/.kube/config.proxified"
-)
-```
-
-## Compile
-
-Get go 1.19 and compile with it:
+# Run
 
 ```
-$ /usr/lib/go-1.19/bin/go build
-$ rm cheops.log
-$ MYFQDN=<my.fq.dn> ./cheops.com 2> cheops.log &
+rm cheops.log 2> /dev/null
+killall cheops.com 2> /dev/null
+/usr/lib/go-1.19/bin/go build
+kubectl delete all --all
+MYFQDN=<my.fq.dn> ./cheops.com 2> cheops.log &
 ```
 
 # In practice
 
 If you can, deploy some nodes in grid5000 and use the jupyter notebook in `tests/g5k`. There are instructions there about what can be used and done
-
 
 # Global working principles
 
