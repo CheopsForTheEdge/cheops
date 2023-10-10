@@ -7,13 +7,14 @@ if [ ! -d /tmp/cheops/.git ]; then
 fi
 
 cd /tmp/cheops
-git checkout operations
+git reset --hard > /dev/null 2>&1
+git checkout operations > /dev/null 2>&1
+git fetch > /dev/null 2>&1
 git reset --hard origin/operations
-git pull
 
 /usr/lib/go-1.19/bin/go build
 rm cheops.log 2> /dev/null
 killall cheops.com 2> /dev/null
-kubectl delete all --all
+kubectl delete all --all > /dev/null 2>&1
 
 MYFQDN=$(uname -n) ./cheops.com 2> cheops.log &
