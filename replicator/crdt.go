@@ -103,7 +103,7 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 	r.watchReplies(repliesCtx, request.RequestId, repliesChan)
 
 	// find highest generation
-	url := fmt.Sprintf("http://localhost:5984/%s?conflicts=true", id)
+	url := fmt.Sprintf("http://localhost:5984/cheops/%s?conflicts=true", id)
 	doc, err := http.Get(url)
 	if err != nil {
 		return replies, err
