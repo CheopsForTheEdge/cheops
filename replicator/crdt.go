@@ -175,11 +175,11 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 
 	type BulkDocsEachReply struct {
 		Ok  bool   `json:"ok"`
-		Id  string `json:"string"`
+		Id  string `json:"id"`
 		Rev string `json:"rev"`
 	}
 
-	var bder BulkDocsEachReply
+	var bder []BulkDocsEachReply
 	err = json.NewDecoder(resp.Body).Decode(&bder)
 	if err != nil {
 		return nil, fmt.Errorf("Couldn't decode Bulk Docks reply: %v", err)
