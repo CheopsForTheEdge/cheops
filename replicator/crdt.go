@@ -145,7 +145,7 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 	d.Conflicts = nil
 
 	type bulkDocsRequest struct {
-		Docs []ResourceDocument
+		Docs []ResourceDocument `json:"docs"`
 	}
 
 	req := bulkDocsRequest{
