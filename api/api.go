@@ -19,8 +19,13 @@ import (
 func Run(port int, repl *replicator.Replicator) {
 
 	router := mux.NewRouter()
-	router.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		id := r.URL.EscapedPath()
+	router.PathPrefix("/{id}").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+		if id == "" {
+			http.Error(w, "bad request: missing id", http.StatusBadRequest)
+			return
+		}
 
 		defer r.Body.Close()
 		body, err := ioutil.ReadAll(r.Body)
