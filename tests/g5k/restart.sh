@@ -9,6 +9,7 @@ fi
 cd /tmp/cheops
 git checkout operations
 git reset --hard origin/operations
+git pull
 
 /usr/lib/go-1.19/bin/go build
 rm cheops.log 2> /dev/null
