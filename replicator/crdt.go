@@ -111,9 +111,17 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 	defer doc.Body.Close()
 
 	var d ResourceDocument
-	err = json.NewDecoder(doc.Body).Decode(&d)
-	if err != nil {
-		return replies, err
+
+	if doc.StatusCode == http.StatusNotFound {
+		d = ResourceDocument{
+			Id:        id,
+			Locations: sites,
+		}
+	} else {
+		err = json.NewDecoder(doc.Body).Decode(&d)
+		if err != nil {
+			return replies, err
+		}
 	}
 
 	d, err = resolveConflicts(d)
