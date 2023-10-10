@@ -1,11 +1,13 @@
 package backends
 
 import (
+	"bytes"
 	"context"
+	"os"
 	"testing"
 )
 
-func TestHandle(t *testing.T) {
+func TestHandleSimple(t *testing.T) {
 	bodies := []string{"echo -n foo"}
 	replies, err := Handle(context.Background(), bodies)
 	if err != nil {
@@ -18,5 +20,29 @@ func TestHandle(t *testing.T) {
 
 	if replies[0] != "foo" {
 		t.Fatalf("Invalid reply, got [%v], expected [foo]\n", replies[0])
+	}
+}
+
+func TestHandleRedirect(t *testing.T) {
+	defer func() {
+		os.RemoveAll("/tmp/cheopstest")
+	}()
+
+	bodies := []string{"mkdir /tmp/cheopstest", "echo something > /tmp/cheopstest/file"}
+	replies, err := Handle(context.Background(), bodies)
+	if err != nil {
+		t.Fatalf("Error when executing cmd: %v\noutputs: %v", err, replies)
+	}
+
+	if len(replies) != 2 {
+		t.Fatalf("Incorrect number of responses, got %v, expected 1\n", len(replies))
+	}
+
+	content, err := os.ReadFile("/tmp/cheopstest/file")
+	if err != nil {
+		t.Fatalf("Couldn't read test file: %v\n", err)
+	}
+	if bytes.Compare(content, []byte("something\n")) != 0 {
+		t.Fatalf("Invalid content, got [%v], expected [something\\n]\n", content)
 	}
 }
