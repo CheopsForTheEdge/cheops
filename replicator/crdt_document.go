@@ -13,7 +13,7 @@ type ResourceDocument struct {
 	Id        string   `json:"_id,omitempty"`
 	Rev       string   `json:"_rev,omitempty"`
 	Conflicts []string `json:"_conflicts,omitempty"`
-	Deleted   bool     `json:"_deleted"`
+	Deleted   bool     `json:"_deleted,omitempty"`
 
 	Locations []string
 	Units     []CrdtUnit
