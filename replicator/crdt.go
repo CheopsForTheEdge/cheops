@@ -332,7 +332,6 @@ func (r *Replicator) run(ctx context.Context, d ResourceDocument) {
 
 	// find units to run
 	// we run the first one for which we have no reply, and then all subsequent ones
-	unitsToRun := make([]CrdtUnit, 0)
 	var firstToKeep int
 	for i, unit := range d.Units {
 		if _, ok := indexedReplies[unit.RequestId]; !ok {
@@ -362,12 +361,14 @@ func (r *Replicator) run(ctx context.Context, d ResourceDocument) {
 		cmds = append(cmds, cmd)
 	}
 
+	firstUnitToRun := d.Units[firstToKeep]
+
 	// Post document for replication
 	newDoc := ReplyDocument{
 		Locations:  d.Locations,
 		Site:       env.Myfqdn,
 		RequestId:  d.Id,
-		ResourceId: unitsToRun[0].RequestId,
+		ResourceId: firstUnitToRun.RequestId,
 		Status:     status,
 		Cmds:       cmds,
 	}
@@ -388,7 +389,7 @@ func (r *Replicator) run(ctx context.Context, d ResourceDocument) {
 		return
 	}
 
-	log.Printf("Ran %s %s\n", unitsToRun[0].RequestId, env.Myfqdn)
+	log.Printf("Ran %s %s\n", firstUnitToRun.RequestId, env.Myfqdn)
 }
 
 /*
