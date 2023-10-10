@@ -11,9 +11,9 @@ nn3=$(printenv $n3)
 
 LOCATIONS="-H 'X-Cheops-Location: $nn1' -H 'X-Cheops-Location: $nn2' -H 'X-Cheops-Location: $nn3'"
 
-eval "curl -s $LOCATIONS \"http://$nn1:8079\" --data-binary 'mkdir /tmp/foo' | jq '.'"
+eval "curl -s $LOCATIONS \"http://$nn1:8079/id\" --data-binary 'mkdir /tmp/foo' | jq '.'"
 
 read -p "Continue ? "
 
-(eval "curl -s $LOCATIONS \"http://$nn2:8079\" --data-binary 'echo left > /tmp/foo/left' | jq ''") &
-(eval "curl -s $LOCATIONS \"http://$nn3:8079\" --data-binary 'echo right > /tmp/foo/right' | jq '.'") &
+(eval "curl -s $LOCATIONS \"http://$nn2:8079/id\" --data-binary 'echo left > /tmp/foo/left' | jq ''") &
+(eval "curl -s $LOCATIONS \"http://$nn3:8079/id\" --data-binary 'echo right > /tmp/foo/right' | jq '.'") &
