@@ -10,6 +10,6 @@ var app = "k8s"
 
 func main() {
 	repl := replicator.NewReplicator(7071)
-	go api.Sync(8079, repl)
+	go api.Run(8079, repl)
 	select {}
 }
