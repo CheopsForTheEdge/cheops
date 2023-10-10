@@ -144,16 +144,22 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 	conflicts := d.Conflicts
 	d.Conflicts = nil
 
-	bulkDocsRequest := []ResourceDocument{d}
+	type bulkDocsRequest struct {
+		Docs []ResourceDocument
+	}
+
+	req := bulkDocsRequest{
+		Docs: []ResourceDocument{d},
+	}
 	for _, conflict := range conflicts {
-		bulkDocsRequest = append(bulkDocsRequest, ResourceDocument{
+		req.Docs = append(req.Docs, ResourceDocument{
 			Id:      d.Id,
 			Rev:     conflict,
 			Deleted: true,
 		})
 	}
 
-	buf, err := json.Marshal(bulkDocsRequest)
+	buf, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +170,7 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated {
-		return nil, fmt.Errorf("Couldn't send request %#v to couchdb: %s", bulkDocsRequest, resp.Status)
+		return nil, fmt.Errorf("Couldn't send request %#v to couchdb: %s", string(buf), resp.Status)
 	}
 
 	type BulkDocsEachReply struct {
