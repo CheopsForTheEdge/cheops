@@ -1,72 +1,100 @@
 package replicator
 
 import (
-	"bytes"
-	"log"
+	"encoding/json"
+	"fmt"
+	"net/http"
 	"sort"
-
-	"github.com/anacrolix/torrent/bencode"
-	jp "github.com/evanphx/json-patch"
+	"strings"
 )
 
-type crdtDocument struct {
-	Id  string `json:"_id,omitempty"`
-	Rev string `json:"_rev,omitempty"`
+type ResourceDocument struct {
+	// Couchdb internal structs
+	Id        string   `json:"_id,omitempty"`
+	Rev       string   `json:"_rev,omitempty"`
+	Conflicts []string `json:"_conflicts,omitempty"`
+	Deleted   bool     `json:"_deleted"`
 
-	Locations  []string
+	Locations []string
+	Units     []CrdtUnit
+}
+
+type ReplyDocument struct {
+	Locations  []string `json:"omitempty"`
+	Site       string
+	RequestId  string
+	ResourceId string
+
+	// "OK" or "KO"
+	Status string
+	Cmds   []Cmd
+}
+
+type Cmd struct {
+	Input  string
+	Output string
+}
+
+type CrdtUnit struct {
 	Generation uint64
-	Payload    Payload
-
-	// When true for a request, it means the intent is for this document to not exist anymore
-	// When true for a reply, it means the deletion has been processed
-	Deleted bool
+	RequestId  string
+	Body       string
 }
 
-// sort sorts a slice of Document with a stable order: if two nodes have
-// the same slice of docs, the ordering will always be the same
-func sortDocuments(docs []crdtDocument) {
-	sort.Slice(docs, func(i, j int) bool {
-		if docs[i].Generation < docs[j].Generation {
-			return true
-		} else if docs[i].Generation > docs[j].Generation {
-			return false
-		} else {
-			iEncoded, erri := bencode.Marshal(docs[i].Payload)
-			jEncoded, errj := bencode.Marshal(docs[j].Payload)
-			if erri != nil || errj != nil {
-				return true
-			}
-			return bytes.Compare(iEncoded, jEncoded) <= 0
-		}
-	})
-}
-
-// mergePatches takes all requests in a given order and
-// produces a document that represents a unification of all
-// requests. The resulting document can be applied as-is
-func mergePatches(requests []crdtDocument) []byte {
-	b := []byte("{}")
-	var err error
-	for _, r := range requests {
-		b, err = jp.MergeMergePatches(b, []byte(r.Payload.Body))
+func resolveConflicts(d ResourceDocument) (ResourceDocument, error) {
+	conflicts := make([]ResourceDocument, 0)
+	for _, rev := range d.Conflicts {
+		url := fmt.Sprintf("http://localhost:5984/%s?rev=%s", d.Id, rev)
+		conflictDocResp, err := http.Get(url)
 		if err != nil {
-			log.Println("Couldn't merge patches")
-			// Not actually problematic, continue
+			return ResourceDocument{}, fmt.Errorf("Couldn't get id=%s rev=%s: %v", d.Id, rev, err)
+		}
+		defer conflictDocResp.Body.Close()
+
+		var conflictDoc ResourceDocument
+		err = json.NewDecoder(conflictDocResp.Body).Decode(&conflictDoc)
+		if err != nil {
+			return ResourceDocument{}, fmt.Errorf("Couldn't get id=%s rev=%s: %v", d.Id, rev, err)
+		}
+		conflicts = append(conflicts, conflictDoc)
+	}
+
+	return resolveConflictsWithDocs(d, conflicts), nil
+}
+
+func resolveConflictsWithDocs(winner ResourceDocument, conflicts []ResourceDocument) ResourceDocument {
+	uniqUnits := make(map[string]CrdtUnit)
+	for _, unit := range winner.Units {
+		uniqUnits[unit.RequestId] = unit
+	}
+	for _, doc := range conflicts {
+		for _, unit := range doc.Units {
+			uniqUnits[unit.RequestId] = unit
 		}
 	}
 
-	return b
+	list := make([]CrdtUnit, 0)
+	for _, unit := range uniqUnits {
+		list = append(list, unit)
+	}
+
+	list = sortUnits(list)
+
+	winner.Conflicts = []string{}
+	winner.Units = list
+
+	return winner
 }
 
-// MetaDocument are documents stored in the cheops-all database
-type MetaDocument struct {
-
-	// can be SITE or RESOURCE
-	Type string
-
-	// if type == SITE or type == RESOURCE
-	Site string
-
-	// if type == RESOURCE
-	ResourceId string `json:",omitempty"`
+func sortUnits(list []CrdtUnit) []CrdtUnit {
+	sort.Slice(list, func(i, j int) bool {
+		if list[i].Generation < list[j].Generation {
+			return true
+		} else if list[j].Generation > list[j].Generation {
+			return false
+		} else {
+			return strings.Compare(list[i].RequestId, list[j].RequestId) <= 0
+		}
+	})
+	return list
 }

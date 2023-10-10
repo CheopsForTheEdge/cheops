@@ -9,7 +9,7 @@ import (
 var app = "k8s"
 
 func main() {
-	repl := replicator.NewDoer()
+	repl := replicator.NewReplicator(7071)
 	go api.Sync(8079, repl)
 	select {}
 }

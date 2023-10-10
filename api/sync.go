@@ -3,28 +3,24 @@ package api
 import (
 	"crypto/rand"
 	"encoding/base32"
-	"fmt"
+	"encoding/json"
 	"io"
 	"io/ioutil"
 	"log"
 	mathrand "math/rand"
 	"net/http"
 	"strconv"
-	"strings"
 
-	"cheops.com/backends"
 	"cheops.com/env"
 	"cheops.com/replicator"
 	"github.com/gorilla/mux"
 )
 
-func Sync(port int, d replicator.Doer) {
+func Sync(port int, repl *replicator.Replicator) {
 
 	router := mux.NewRouter()
 	router.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		method := r.Method
-		path := r.URL.RequestURI()
-		header := r.Header
+		id := r.URL.EscapedPath()
 
 		defer r.Body.Close()
 		body, err := ioutil.ReadAll(r.Body)
@@ -40,7 +36,7 @@ func Sync(port int, d replicator.Doer) {
 		}
 
 		// The site where the user wants the resource to exist
-		desiredSites := header.Values("X-Cheops-Location")
+		desiredSites := r.Header.Values("X-Cheops-Location")
 
 		var local bool
 		for _, site := range desiredSites {
@@ -53,7 +49,9 @@ func Sync(port int, d replicator.Doer) {
 			// Send the request to any site that is related to the request
 			targetSiteIdx := mathrand.Intn(len(desiredSites))
 			targetSite := desiredSites[targetSiteIdx]
-			http.Redirect(w, r, fmt.Sprintf("http://%s:%d", targetSite, port), http.StatusTemporaryRedirect)
+			u := r.URL
+			u.Host = targetSite
+			http.Redirect(w, r, u.String(), http.StatusTemporaryRedirect)
 			return
 		}
 
@@ -62,36 +60,20 @@ func Sync(port int, d replicator.Doer) {
 			return
 		}
 
-		resourceId, err := backends.ResourceIdFor(method, path, header, body)
-		if err != nil {
-			http.Error(w, "bad request", http.StatusBadRequest)
-			log.Printf("Bad request, no resourceId can be found: %s\n", err)
-			return
+		req := replicator.CrdtUnit{
+			Body:      string(body),
+			RequestId: base32.StdEncoding.EncodeToString(randBytes),
 		}
 
-		req := replicator.Payload{
-			Method:     method,
-			ResourceId: resourceId,
-			Header:     r.Header,
-			Path:       path,
-			Body:       string(body),
-			RequestId:  base32.StdEncoding.EncodeToString(randBytes),
-			Site:       env.Myfqdn,
-		}
-
-		reply, err := d.Do(r.Context(), desiredSites, req)
+		replies, err := repl.Do(r.Context(), desiredSites, id, req)
 		if err != nil {
 			log.Println(err)
 			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
 		}
 
-		for key, vals := range reply.Header {
-			for _, val := range vals {
-				w.Header().Add(key, val)
-			}
-		}
-		io.Copy(w, strings.NewReader(reply.Body))
+		json.NewEncoder(w).Encode(replies)
+
 	})
 
 	err := http.ListenAndServe(":"+strconv.Itoa(port), router)
