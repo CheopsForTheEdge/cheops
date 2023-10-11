@@ -44,12 +44,16 @@ type CrdtUnit struct {
 func resolveConflicts(d ResourceDocument) (ResourceDocument, error) {
 	conflicts := make([]ResourceDocument, 0)
 	for _, rev := range d.Conflicts {
-		url := fmt.Sprintf("http://localhost:5984/%s?rev=%s", d.Id, rev)
+		url := fmt.Sprintf("http://localhost:5984/cheops/%s?rev=%s", d.Id, rev)
 		conflictDocResp, err := http.Get(url)
 		if err != nil {
 			return ResourceDocument{}, fmt.Errorf("Couldn't get id=%s rev=%s: %v", d.Id, rev, err)
 		}
 		defer conflictDocResp.Body.Close()
+
+		if conflictDocResp.StatusCode != http.StatusOK {
+			return ResourceDocument{}, fmt.Errorf("Couldn't get id=%s rev=%s: %v", d.Id, rev, conflictDocResp.Status)
+		}
 
 		var conflictDoc ResourceDocument
 		err = json.NewDecoder(conflictDocResp.Body).Decode(&conflictDoc)
