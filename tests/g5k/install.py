@@ -10,20 +10,6 @@ if any(['g5k-jupyterlab' in path for path in sys.path]):
     print("After:", sys.path)
 
 import enoslib as en
-from datetime import datetime, timedelta
-
-now = datetime.now()
-if now.hour >= 19:
-    max = datetime.today().replace(day=datetime.today().day +1 , hour=21, minute=0, second=0)
-elif now.hour < 9:
-    max = datetime.today().replace(hour=9, minute=0, second=0)
-else:
-    max = datetime.today().replace(hour=19, minute=0, second=0)
-
-now_plus_1_hour = now + timedelta(minutes=58)
-
-walltime = min((max - now), timedelta(minutes=55))
-walltime = f"00:{walltime.seconds // 60}:00"
 
 en.init_logging()
 
@@ -31,7 +17,7 @@ network = en.G5kNetworkConf(type="prod", roles=["my_network"], site="grenoble")
 cluster = "dahu"
 
 conf = (
-    en.G5kConf.from_settings(job_type=[], walltime=walltime, job_name="cheops")
+    en.G5kConf.from_settings(job_type=[], walltime="01:50:00", job_name="cheops")
     .add_network_conf(network)
     .add_machine(
         roles=["cheops"],
