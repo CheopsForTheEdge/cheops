@@ -36,6 +36,7 @@ func (w *watches) watch(f onNewDocFunc) {
 }
 
 func (w *watches) startWatching(ctx context.Context) {
+	var isRetrying bool
 
 	go func() {
 		since := ""
@@ -52,9 +53,15 @@ func (w *watches) startWatching(ctx context.Context) {
 			feed, err := http.DefaultClient.Do(req)
 			if err != nil || feed.StatusCode != 200 {
 				// When the database is deleted, we are here. Hopefully it will be recreated and we can continue
-				log.Printf("No _changes feed, retrying in 10s")
+				log.Println("No _changes feed, retrying in 10s")
+				isRetrying = true
 				<-time.After(10 * time.Second)
 				continue
+			}
+
+			if isRetrying {
+				log.Println("Got _changes feed back, let's go")
+				isRetrying = false
 			}
 
 			defer feed.Body.Close()
