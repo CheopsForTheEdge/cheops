@@ -36,7 +36,7 @@ func (w *watches) watch(f onNewDocFunc) {
 }
 
 func (w *watches) startWatching(ctx context.Context) {
-	var isRetrying bool
+	retryTime := 1
 
 	go func() {
 		since := ""
@@ -53,15 +53,15 @@ func (w *watches) startWatching(ctx context.Context) {
 			feed, err := http.DefaultClient.Do(req)
 			if err != nil || feed.StatusCode != 200 {
 				// When the database is deleted, we are here. Hopefully it will be recreated and we can continue
-				log.Println("No _changes feed, retrying in 10s")
-				isRetrying = true
-				<-time.After(10 * time.Second)
+				log.Printf("No _changes feed, retrying in %ds", retryTime)
+				<-time.After(time.Duration(retryTime) * time.Second)
+				retryTime = 2 * retryTime
 				continue
 			}
 
-			if isRetrying {
+			if retryTime > 1 {
 				log.Println("Got _changes feed back, let's go")
-				isRetrying = false
+				retryTime = 1
 			}
 
 			defer feed.Body.Close()
@@ -116,6 +116,10 @@ func (w *watches) startWatching(ctx context.Context) {
 					}
 				} else {
 					log.Printf("Seeing conflicts for %v, solving\n", change.Id)
+
+					b, _ := json.MarshalIndent(docWithConflicts, "", "\t")
+					log.Println(string(b))
+
 					docWithoutConflicts, err := resolveConflicts(docWithConflicts)
 					if err != nil {
 						log.Printf("Couldn't resolve conflicts for %v: %v\n", docWithoutConflicts.Id, err)
