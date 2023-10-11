@@ -367,8 +367,8 @@ func (r *Replicator) run(ctx context.Context, d ResourceDocument) {
 	newDoc := ReplyDocument{
 		Locations:  d.Locations,
 		Site:       env.Myfqdn,
-		RequestId:  d.Id,
-		ResourceId: firstUnitToRun.RequestId,
+		RequestId:  firstUnitToRun.RequestId,
+		ResourceId: d.Id,
 		Status:     status,
 		Cmds:       cmds,
 	}
