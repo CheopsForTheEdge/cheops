@@ -20,7 +20,7 @@ type ResourceDocument struct {
 }
 
 type ReplyDocument struct {
-	Locations  []string `json:"omitempty"`
+	Locations  []string
 	Site       string
 	RequestId  string
 	ResourceId string
