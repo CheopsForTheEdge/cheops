@@ -102,8 +102,8 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 	defer cancel()
 	r.watchReplies(repliesCtx, request.RequestId, repliesChan)
 
-	// find highest generation
-	url := fmt.Sprintf("http://localhost:5984/cheops/%s?conflicts=true", id)
+	// Get current revision
+	url := fmt.Sprintf("http://localhost:5984/cheops/%s", id)
 	doc, err := http.Get(url)
 	if err != nil {
 		return replies, err
@@ -116,6 +116,7 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 		d = ResourceDocument{
 			Id:        id,
 			Locations: sites,
+			Units:     make([]CrdtUnit, 0),
 		}
 	} else {
 		err = json.NewDecoder(doc.Body).Decode(&d)
@@ -124,65 +125,31 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 		}
 	}
 
-	d, err = resolveConflicts(d)
-	if err != nil {
-		return replies, fmt.Errorf("Couldn't resolve conflicts: %v", err)
-	}
-	var max uint64
-	for _, unit := range d.Units {
-		if unit.Generation > max {
-			max = unit.Generation
-		}
-	}
-	request.Generation = max + 1
+	// Add our unit
+	request.Generation = uint64(len(d.Units) + 1)
 	d.Units = append(d.Units, request)
+	sortUnits(d.Units)
 
-	// re-sort to put the new unit where it belongs
-	d = resolveConflictsWithDocs(d, nil)
-
-	// don't push back conflict as is
-	conflicts := d.Conflicts
-	d.Conflicts = nil
-
-	type bulkDocsRequest struct {
-		Docs []ResourceDocument `json:"docs"`
-	}
-
-	req := bulkDocsRequest{
-		Docs: []ResourceDocument{d},
-	}
-	for _, conflict := range conflicts {
-		req.Docs = append(req.Docs, ResourceDocument{
-			Id:      d.Id,
-			Rev:     conflict,
-			Deleted: true,
-		})
-	}
-
-	buf, err := json.Marshal(req)
+	// Send the newly formatted document
+	// Note that there might be conflicts at this point, it's ok: the Requests Watcher will solve it before
+	// running the command
+	buf, err := json.Marshal(d)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := http.Post("http://localhost:5984/cheops/_bulk_docs", "application/json", bytes.NewReader(buf))
+	httpReq, err := http.NewRequest("PUT", fmt.Sprintf("http://localhost:5984/cheops/%s", d.Id), bytes.NewReader(buf))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(httpReq)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusCreated {
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusAccepted {
 		return nil, fmt.Errorf("Couldn't send request %#v to couchdb: %s", string(buf), resp.Status)
-	}
-
-	type BulkDocsEachReply struct {
-		Ok  bool   `json:"ok"`
-		Id  string `json:"id"`
-		Rev string `json:"rev"`
-	}
-
-	var bder []BulkDocsEachReply
-	err = json.NewDecoder(resp.Body).Decode(&bder)
-	if err != nil {
-		return nil, fmt.Errorf("Couldn't decode Bulk Docks reply: %v", err)
 	}
 
 	// Gather replies sent on the channel created at the beginning
@@ -258,7 +225,8 @@ func (r *Replicator) watchReplies(ctx context.Context, requestId string, replies
 
 }
 
-// watch watches the _changes feed of the cheops database and runs a function when a new document is seen.
+// watch watches the _changes feed of the cheops database, resolves all conflicts for said document
+// and runs a function when a new document is seen.
 // The document is sent as a raw json string, to be decoded by the function.
 // The execution of the function blocks the loop; it is good to not have it run too long
 func (r *Replicator) watch(ctx context.Context, onNewDoc func(j json.RawMessage)) {
@@ -292,18 +260,60 @@ func (r *Replicator) watch(ctx context.Context, onNewDoc func(j json.RawMessage)
 					continue
 				}
 
-				var d DocChange
-				err := json.NewDecoder(strings.NewReader(s)).Decode(&d)
+				var change DocChange
+				err := json.NewDecoder(strings.NewReader(s)).Decode(&change)
 				if err != nil {
 					log.Printf("Couldn't decode: %s", err)
 					continue
 				}
-				if len(d.Doc) == 0 {
+				if len(change.Doc) == 0 {
 					continue
 				}
 
-				onNewDoc(d.Doc)
-				since = d.Seq
+				// The _changes feed can also output conflicts for every document change, so
+				// in theory there could be some optimization here by telling it to do so
+				// and directly working with the results. However, 2 problems:
+				// - we don't know which revision is the winner. It's an array and it seems to be
+				//   the first one, but the documentation says the order is not stable
+				// - the code must be idempotent, ie we must be able to see the same "changes" multiple
+				//   times. If we saw a conflict, solved it, and then saw it again, we'd try to
+				//   update the same winning revision, but it would be another conflict because
+				//   in the meantime the winning revision has changed.
+				//
+				// So we have to be inefficient and call this every time.
+				url := fmt.Sprintf("http://localhost:5984/cheops/%s?conflicts=true", change.Id)
+				docWithConflictsResp, err := http.Get(url)
+				if err != nil {
+					log.Printf("Couldn't get doc with conflicts: %v\n", err)
+					continue
+				}
+				defer docWithConflictsResp.Body.Close()
+
+				var docWithConflicts ResourceDocument
+				err = json.NewDecoder(docWithConflictsResp.Body).Decode(&docWithConflicts)
+				if err != nil {
+					log.Printf("unmarshall error: %v\n", err)
+					continue
+				}
+
+				if len(docWithConflicts.Conflicts) == 0 {
+					// resource has no conflicts, or it's a ReplyDocument
+					onNewDoc(change.Doc)
+				} else {
+					log.Printf("Seeing conflicts for %v, solving\n", change.Id)
+					docWithoutConflicts, err := resolveConflicts(docWithConflicts)
+					if err != nil {
+						log.Printf("Couldn't resolve conflicts for %v: %v\n", docWithoutConflicts.Id, err)
+						continue
+					}
+					r.postResolution(docWithoutConflicts, docWithConflicts.Conflicts)
+
+					// We don't need to call the onNewDoc function here:
+					// the previous update will be retriggered, and next time
+					// there won't be conflicts so then it will trigger the call
+				}
+
+				since = change.Seq
 			}
 
 			select {
@@ -315,6 +325,57 @@ func (r *Replicator) watch(ctx context.Context, onNewDoc func(j json.RawMessage)
 
 		}
 	}()
+}
+
+func (r *Replicator) postResolution(docWithoutConflicts ResourceDocument, conflicts []string) {
+	type bulkDocsRequest struct {
+		Docs []ResourceDocument `json:"docs"`
+	}
+
+	req := bulkDocsRequest{
+		Docs: []ResourceDocument{docWithoutConflicts},
+	}
+	for _, conflict := range conflicts {
+		req.Docs = append(req.Docs, ResourceDocument{
+			Id:      docWithoutConflicts.Id,
+			Rev:     conflict,
+			Deleted: true,
+		})
+	}
+
+	buf, err := json.Marshal(req)
+	if err != nil {
+		log.Printf("Marshalling error: %v\n", err)
+	}
+	resp, err := http.Post("http://localhost:5984/cheops/_bulk_docs", "application/json", bytes.NewReader(buf))
+	if err != nil {
+		log.Printf("Couldn't POST _bulk_docs for %v: %v\n", string(buf), err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		log.Printf("Couldn't send _bulk_docs request %#v to couchdb: %s", string(buf), resp.Status)
+	}
+
+	type BulkDocsEachReply struct {
+		Ok     bool   `json:"ok"`
+		Id     string `json:"id"`
+		Rev    string `json:"rev"`
+		Error  string `json:"error"`
+		Reason string `json:"reason"`
+	}
+
+	var bder []BulkDocsEachReply
+	err = json.NewDecoder(resp.Body).Decode(&bder)
+	if err != nil {
+		log.Printf("Couldn't decode Bulk Docks reply: %v", err)
+	}
+
+	for _, reply := range bder {
+		if !reply.Ok {
+			log.Printf("Couldn't post _bulk_docs for %v:%v: %v -- %v\n", reply.Id, reply.Rev, reply.Error, reply.Reason)
+		}
+	}
 }
 
 func (r *Replicator) run(ctx context.Context, d ResourceDocument) {
@@ -556,6 +617,7 @@ func createReplication(db, otherSite string) {
 
 type DocChange struct {
 	Seq string          `json:"seq"`
+	Id  string          `json:"id"`
 	Doc json.RawMessage `json:"doc"`
 }
 

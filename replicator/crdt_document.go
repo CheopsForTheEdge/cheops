@@ -78,7 +78,7 @@ func resolveConflictsWithDocs(winner ResourceDocument, conflicts []ResourceDocum
 		list = append(list, unit)
 	}
 
-	list = sortUnits(list)
+	sortUnits(list)
 
 	winner.Conflicts = []string{}
 	winner.Units = list
@@ -86,7 +86,7 @@ func resolveConflictsWithDocs(winner ResourceDocument, conflicts []ResourceDocum
 	return winner
 }
 
-func sortUnits(list []CrdtUnit) []CrdtUnit {
+func sortUnits(list []CrdtUnit) {
 	sort.Slice(list, func(i, j int) bool {
 		if list[i].Generation < list[j].Generation {
 			return true
@@ -96,5 +96,4 @@ func sortUnits(list []CrdtUnit) []CrdtUnit {
 			return strings.Compare(list[i].RequestId, list[j].RequestId) <= 0
 		}
 	})
-	return list
 }
