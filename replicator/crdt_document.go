@@ -90,7 +90,7 @@ func sortUnits(list []CrdtUnit) []CrdtUnit {
 	sort.Slice(list, func(i, j int) bool {
 		if list[i].Generation < list[j].Generation {
 			return true
-		} else if list[j].Generation > list[j].Generation {
+		} else if list[i].Generation > list[j].Generation {
 			return false
 		} else {
 			return strings.Compare(list[i].RequestId, list[j].RequestId) <= 0
