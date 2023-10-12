@@ -38,23 +38,17 @@ func (r *Replicator) ensureCouch() {
 		URL           string
 		ExpectedCodes []int
 		Body          string
-	}{
-		{
-			Method:        "DELETE",
-			URL:           "http://admin:password@localhost:5984/cheops",
-			ExpectedCodes: []int{http.StatusOK, http.StatusNotFound},
-			Body:          "",
-		}, {
-			Method:        "PUT",
-			URL:           "http://admin:password@localhost:5984/cheops",
-			ExpectedCodes: []int{http.StatusCreated, http.StatusPreconditionFailed},
-			Body:          "",
-		}, {
-			Method:        "PUT",
-			URL:           "http://admin:password@localhost:5984/cheops/_security",
-			ExpectedCodes: []int{http.StatusOK},
-			Body:          `{"members":{"roles":[]},"admins":{"roles":["_admin"]}}`,
-		},
+	}{{
+		Method:        "PUT",
+		URL:           "http://admin:password@localhost:5984/cheops",
+		ExpectedCodes: []int{http.StatusCreated, http.StatusPreconditionFailed},
+		Body:          "",
+	}, {
+		Method:        "PUT",
+		URL:           "http://admin:password@localhost:5984/cheops/_security",
+		ExpectedCodes: []int{http.StatusOK},
+		Body:          `{"members":{"roles":[]},"admins":{"roles":["_admin"]}}`,
+	},
 	}
 
 	for _, req := range reqs {
