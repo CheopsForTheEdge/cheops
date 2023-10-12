@@ -117,9 +117,6 @@ func (w *watches) startWatching(ctx context.Context) {
 				} else {
 					log.Printf("Seeing conflicts for %v, solving\n", change.Id)
 
-					b, _ := json.MarshalIndent(docWithConflicts, "", "\t")
-					log.Println(string(b))
-
 					docWithoutConflicts, err := resolveConflicts(docWithConflicts)
 					if err != nil {
 						log.Printf("Couldn't resolve conflicts for %v: %v\n", docWithoutConflicts.Id, err)
