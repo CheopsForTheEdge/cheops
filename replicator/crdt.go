@@ -48,6 +48,20 @@ func (r *Replicator) ensureCouch() {
 		URL:           "http://admin:password@localhost:5984/cheops/_security",
 		ExpectedCodes: []int{http.StatusOK},
 		Body:          `{"members":{"roles":[]},"admins":{"roles":["_admin"]}}`,
+	}, {
+		Method:        "PUT",
+		URL:           "http://admin:password@localhost:5984/cheops/_design/cheops",
+		ExpectedCodes: []int{http.StatusCreated, http.StatusConflict},
+		Body: `
+{
+  "views": {
+    "by-location": {
+      "map": "function (doc) {\n  for (const location of doc.Locations) {\n    emit(location, null);\n  }\n}",
+      "reduce": "_count"
+    }
+  },
+  "language": "javascript"
+}`,
 	},
 	}
 
@@ -422,9 +436,75 @@ func (r *Replicator) getDocsForSelector(selector string) ([]json.RawMessage, err
 // are in place
 func (r *Replicator) replicate() {
 
-	r.w.watch(func(j json.RawMessage) {
+	manageReplications := func(locations []string) {
 		existingJobs := r.getExistingJobs()
+		for _, location := range locations {
+			if location == env.Myfqdn {
+				continue
+			}
 
+			var body string
+			cheopsSite := fmt.Sprintf("http://%s:5984/cheops", location)
+			if _, ok := existingJobs[cheopsSite]; !ok {
+				// Replication doesn't exist, create it
+				body = fmt.Sprintf(`{"continuous": true, "source": "http://localhost:5984/cheops", "target": "http://%s:5984/cheops", "selector": {"Locations": {"$elemMatch": {"$eq": "%s"}}}}`, location, location)
+			}
+
+			resp, err := http.Post("http://admin:password@localhost:5984/_replicate", "application/json", strings.NewReader(body))
+			if err != nil {
+				log.Printf("Couldn't add replication: %s\n", err)
+			}
+			if resp.StatusCode != 202 {
+				log.Printf("Couldn't add replication: %s\n", resp.Status)
+			}
+		}
+	}
+
+	// Re-install replication if it's not there
+	// If the target is not accessible couchdb deletes the replication,
+	// so we have to sometimes recreate it
+	go func() {
+		for _ = range time.Tick(5 * time.Minute) {
+			// Anonymous function to make sure defer works
+			func() {
+				allTagsResp, err := http.Get("http://localhost:5984/cheops/_design/cheops/_view/by-location?group=true")
+				if err != nil {
+					log.Printf("Error getting by-location view: %v\n", err)
+					return
+				}
+				if allTagsResp.StatusCode != http.StatusOK {
+					log.Printf("Error getting by-location view: %v\n", allTagsResp.Status)
+					return
+				}
+
+				type Row struct {
+					Key string `json:"key"`
+
+					// We don't care about the value
+				}
+				var allTags struct {
+					Rows []Row `json:"rows"`
+				}
+
+				defer allTagsResp.Body.Close()
+				err = json.NewDecoder(allTagsResp.Body).Decode(&allTags)
+				if err != nil {
+					log.Printf("Error getting by-location view: %v\n", err)
+					return
+				}
+
+				locations := make([]string, 0)
+				for _, row := range allTags.Rows {
+					locations = append(locations, row.Key)
+				}
+				manageReplications(locations)
+			}()
+
+		}
+	}()
+
+	// Install replication if it's new
+	r.w.watch(func(j json.RawMessage) {
 		var d ResourceDocument
 		err := json.Unmarshal(j, &d)
 		if err != nil {
@@ -432,24 +512,7 @@ func (r *Replicator) replicate() {
 			return
 		}
 
-		for _, location := range d.Locations {
-			if location == env.Myfqdn {
-				continue
-			}
-
-			// Replication of cheops -> cheops
-			cheopsSite := fmt.Sprintf("http://%s:5984/cheops", location)
-			if _, ok := existingJobs[cheopsSite]; !ok {
-				body := fmt.Sprintf(`{"continuous": true, "source": "http://localhost:5984/cheops", "target": "http://%s:5984/cheops", "selector": {"Locations": {"$elemMatch": {"$eq": "%s"}}}}`, location, location)
-				resp, err := http.Post("http://admin:password@localhost:5984/_replicate", "application/json", strings.NewReader(body))
-				if err != nil {
-					log.Printf("Couldn't add replication: %s\n", err)
-				}
-				if resp.StatusCode != 202 {
-					log.Printf("Couldn't add replication: %s\n", resp.Status)
-				}
-			}
-		}
+		manageReplications(d.Locations)
 	})
 }
 
