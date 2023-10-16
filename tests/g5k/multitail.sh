@@ -4,7 +4,7 @@
 
 command="multitail"
 while read node; do
-	command="$command -l \"ssh $node tail -F /tmp/cheops/cheops.log\""
+	command="$command -l \"ssh $node sudo journalctl -u cheops.service -f\""
 done < <(printenv | grep "$(id -un)_NODE" | cut -d '=' -f 2 )
 
 eval $command

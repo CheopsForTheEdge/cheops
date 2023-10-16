@@ -1,0 +1,12 @@
+[Unit]
+Description=cheops
+After=network-online.target
+Wants=couchdb.service
+
+[Service]
+Restart=on-failure
+ExecStart=/tmp/cheops/cheops.com
+EnvironmentFile=/tmp/cheops/runenv
+
+[Install]
+WantedBy=multi-user.target
