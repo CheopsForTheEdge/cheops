@@ -7,11 +7,9 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	mathrand "math/rand"
 	"net/http"
 	"strconv"
 
-	"cheops.com/env"
 	"cheops.com/replicator"
 	"github.com/gorilla/mux"
 )
@@ -43,23 +41,6 @@ func Run(port int, repl *replicator.Replicator) {
 		// The site where the user wants the resource to exist
 		desiredSites := r.Header.Values("X-Cheops-Location")
 
-		var local bool
-		for _, site := range desiredSites {
-			if site == env.Myfqdn {
-				local = true
-			}
-		}
-
-		if !local {
-			// Send the request to any site that is related to the request
-			targetSiteIdx := mathrand.Intn(len(desiredSites))
-			targetSite := desiredSites[targetSiteIdx]
-			u := r.URL
-			u.Host = targetSite
-			http.Redirect(w, r, u.String(), http.StatusTemporaryRedirect)
-			return
-		}
-
 		randBytes, err := io.ReadAll(&io.LimitedReader{R: rand.Reader, N: 64})
 		if err != nil {
 			return
@@ -72,6 +53,11 @@ func Run(port int, repl *replicator.Replicator) {
 
 		replies, err := repl.Do(r.Context(), desiredSites, id, req)
 		if err != nil {
+			if err == replicator.ErrDoesNotExist {
+				log.Printf("resource [%s] does not exist on this site\n", id)
+				http.Error(w, "does not exist", http.StatusNotFound)
+				return
+			}
 			log.Println(err)
 			http.Error(w, "internal error", http.StatusInternalServerError)
 			return

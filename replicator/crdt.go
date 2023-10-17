@@ -14,6 +14,10 @@ import (
 	"cheops.com/env"
 )
 
+var (
+	ErrDoesNotExist error = fmt.Errorf("doesn't exist")
+)
+
 type Replicator struct {
 	w *watches
 }
@@ -104,6 +108,9 @@ func (r *Replicator) ensureIndex() {
 	}
 }
 
+// Do handles the request such that it is properly replicated and propagated.
+// If the resource doesn't exist, it will be created if the list of sites is not nil or empty; if there are no sites, an ErrDoesNotExist is returned.
+// If the resource already exists and the list of sites is not nil or empty, it will be updated with the desired sites.
 func (r *Replicator) Do(ctx context.Context, sites []string, id string, request CrdtUnit) (replies []ReplyDocument, err error) {
 
 	// Prepare replies gathering before running the request
@@ -124,6 +131,12 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 	var d ResourceDocument
 
 	if doc.StatusCode == http.StatusNotFound {
+		if len(sites) == 0 {
+			// We are asked to create a document but with no sites: this is invalid, the caller needs to specify
+			// where the resource is supposed to be
+			return nil, ErrDoesNotExist
+		}
+
 		d = ResourceDocument{
 			Id:        id,
 			Locations: sites,
@@ -133,6 +146,10 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 		err = json.NewDecoder(doc.Body).Decode(&d)
 		if err != nil {
 			return replies, err
+		}
+
+		if len(sites) > 0 {
+			d.Locations = sites
 		}
 	}
 
