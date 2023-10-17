@@ -9,12 +9,23 @@ if any(['g5k-jupyterlab' in path for path in sys.path]):
     sys.path.insert(1, os.environ['HOME'] + '/.local/lib/python3.9/site-packages')
     print("After:", sys.path)
 
+import socket
+hostname = socket.gethostname()
+if hostname == "fnantes":
+    site = "nantes"
+    cluster = "econome"
+elif hostname == "fgrenoble":
+    site = "grenoble"
+    cluster = "dahu"
+else:
+    site = "nantes"
+    cluster = "econome"
+
 import enoslib as en
 
 en.init_logging()
 
-network = en.G5kNetworkConf(type="prod", roles=["my_network"], site="grenoble")
-cluster = "dahu"
+network = en.G5kNetworkConf(type="prod", roles=["my_network"], site=site)
 
 conf = (
     en.G5kConf.from_settings(job_type=[], walltime="01:50:00", job_name="cheops")
