@@ -316,66 +316,6 @@ func (r *Replicator) run(ctx context.Context, d ResourceDocument) {
 	log.Printf("Ran %s %s\n", firstUnitToRun.RequestId, env.Myfqdn)
 }
 
-/*
-func (r *Replicator) delete(ctx context.Context, p Payload) {
-	log.Printf("Deleting %v\n", p.ResourceId)
-	err := backends.DeleteKubernetes(ctx, []byte(p.Body))
-	if err != nil {
-		log.Printf("Couldn't delete %v: %v\n", p.ResourceId, err)
-		return
-	}
-
-	// Find related reply
-	selector := fmt.Sprintf(`{"Payload.ResourceId": "%s", "Payload.Method": "", "Payload.Site": "%s"}`, p.ResourceId, env.Myfqdn)
-	docsToDelete, err := r.getDocsForSelector(selector)
-	if err != nil {
-		log.Printf("Couldn't find reply to delete for %v: %v\n", p.ResourceId, err)
-		return
-	}
-
-	if len(docsToDelete) != 1 {
-		log.Printf("Multiple replies to delete: %#v\n", docsToDelete)
-		return
-	}
-
-	// Mark related reply as deleted
-	docToDelete := docsToDelete[0]
-	docToDelete.Deleted = true
-
-	b, err := json.Marshal(docToDelete)
-	if err != nil {
-		log.Printf("Couldn't marshal: %v\n", err)
-		return
-	}
-
-	url := fmt.Sprintf("http://localhost:5984/cheops/%s?rev=%s", docToDelete.Id, docToDelete.Rev)
-	httpReq, err := http.NewRequestWithContext(ctx, "PUT", url, bytes.NewBuffer(b))
-	if err != nil {
-		log.Printf("Couldn't build request to delete %v: %v\n", docToDelete.Id, err)
-		return
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-
-	resp, err := http.DefaultClient.Do(httpReq)
-	if err != nil {
-		log.Printf("Couldn't send request to delete %v: %v\n", docToDelete.Id, err)
-		return
-	}
-	defer resp.Body.Close()
-
-	var fail bool
-	for _, expectedCode := range []int{http.StatusCreated, http.StatusAccepted} {
-		if resp.StatusCode == expectedCode {
-			fail = true
-		}
-	}
-	if fail {
-		log.Printf("Couldn't delete %v: %v\n", docToDelete.Id, resp.Status)
-		return
-	}
-}
-*/
-
 func (r *Replicator) getRepliesForId(resourceId string) ([]ReplyDocument, error) {
 	selector := fmt.Sprintf(`{"ResourceId": "%s"}`, resourceId)
 
