@@ -15,7 +15,8 @@ import (
 )
 
 var (
-	ErrDoesNotExist error = fmt.Errorf("doesn't exist")
+	ErrDoesNotExist   error = fmt.Errorf("doesn't exist")
+	ErrInvalidRequest error = fmt.Errorf("invalid request")
 )
 
 type Replicator struct {
@@ -111,14 +112,21 @@ func (r *Replicator) ensureIndex() {
 // Do handles the request such that it is properly replicated and propagated.
 // If the resource doesn't exist, it will be created if the list of sites is not nil or empty; if there are no sites, an ErrDoesNotExist is returned.
 // If the resource already exists and the list of sites is not nil or empty, it will be updated with the desired sites.
+//
+// If the request has an empty body, it means sites are expected to change. In that case we don't wait for replies from other sites.
+// If the resource doesn't already exist, an ErrInvalidRequest is returned
 func (r *Replicator) Do(ctx context.Context, sites []string, id string, request CrdtUnit) (replies []ReplyDocument, err error) {
 
-	// Prepare replies gathering before running the request
-	// It's all asynchronous
-	repliesChan := make(chan ReplyDocument)
-	repliesCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	r.watchReplies(repliesCtx, request.RequestId, repliesChan)
+	var repliesChan chan ReplyDocument
+
+	if len(request.Body) > 0 {
+		// Prepare replies gathering before running the request
+		// It's all asynchronous
+		repliesChan = make(chan ReplyDocument)
+		repliesCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		r.watchReplies(repliesCtx, request.RequestId, repliesChan)
+	}
 
 	// Get current revision
 	url := fmt.Sprintf("http://localhost:5984/cheops/%s", id)
@@ -131,6 +139,10 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 	var d ResourceDocument
 
 	if doc.StatusCode == http.StatusNotFound {
+		if len(request.Body) == 0 {
+			return nil, fmt.Errorf("Will not create a document with an empty body")
+		}
+
 		if len(sites) == 0 {
 			// We are asked to create a document but with no sites: this is invalid, the caller needs to specify
 			// where the resource is supposed to be
@@ -153,10 +165,12 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 		}
 	}
 
-	// Add our unit
-	request.Generation = uint64(len(d.Units) + 1)
-	d.Units = append(d.Units, request)
-	sortUnits(d.Units)
+	// Add our unit if needed
+	if len(request.Body) > 0 {
+		request.Generation = uint64(len(d.Units) + 1)
+		d.Units = append(d.Units, request)
+		sortUnits(d.Units)
+	}
 
 	// Send the newly formatted document
 	// We of course assume that the revision hasn't changed since the last Get, so this might fail.
@@ -178,6 +192,10 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusAccepted {
 		return nil, fmt.Errorf("Couldn't send request %#v to couchdb: %s", string(buf), resp.Status)
+	}
+
+	if len(request.Body) == 0 {
+		return nil, nil
 	}
 
 	// Gather replies sent on the channel created at the beginning

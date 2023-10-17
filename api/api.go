@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"cheops.com/replicator"
 	"github.com/gorilla/mux"
@@ -47,7 +48,7 @@ func Run(port int, repl *replicator.Replicator) {
 		}
 
 		req := replicator.CrdtUnit{
-			Body:      string(body),
+			Body:      strings.TrimSpace(string(body)),
 			RequestId: base32.StdEncoding.EncodeToString(randBytes),
 		}
 
@@ -55,9 +56,16 @@ func Run(port int, repl *replicator.Replicator) {
 		if err != nil {
 			if err == replicator.ErrDoesNotExist {
 				log.Printf("resource [%s] does not exist on this site\n", id)
-				http.Error(w, "does not exist", http.StatusNotFound)
+				http.NotFound(w, r)
 				return
 			}
+
+			if err == replicator.ErrInvalidRequest {
+				log.Printf("invalid request for [%s]\n", id)
+				http.Error(w, "invalid request", http.StatusBadRequest)
+				return
+			}
+
 			log.Println(err)
 			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
