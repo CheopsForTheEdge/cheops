@@ -301,9 +301,9 @@ func (r *Replicator) run(ctx context.Context, d ResourceDocument) {
 	bodies := make([]string, 0)
 	for _, unit := range d.Units[firstToKeep:] {
 		bodies = append(bodies, unit.Body)
+		log.Printf("will apply [%s]\n", unit.Body)
 	}
 
-	log.Printf("applying %s\n", bodies)
 	replies, err := backends.Handle(ctx, bodies)
 
 	status := "OK"

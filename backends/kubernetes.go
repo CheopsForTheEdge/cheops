@@ -51,13 +51,14 @@ func Handle(ctx context.Context, bodies []string) (replies []string, err error) 
 	replies = make([]string, 0)
 	doRun := true
 
-	for _, body := range bodies {
+	for i, body := range bodies {
 		var output string
 		if doRun {
 			out, err2 := runWithStdin(ctx, body)
 			if err2 != nil {
 				err = err2
 				doRun = false
+				log.Printf("Error running command %d, skipping %d\n", i+1, len(bodies)-i-1)
 			}
 			output = out
 		}
