@@ -139,6 +139,10 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 
 	var d ResourceDocument
 
+	// Filled in case of migration
+	var deletedSites []string
+	var currentRev string
+
 	if doc.StatusCode == http.StatusNotFound {
 		if len(request.Body) == 0 {
 			return nil, fmt.Errorf("Will not create a document with an empty body")
@@ -163,7 +167,23 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 		}
 
 		if len(sites) > 0 {
+			deletedSites = make([]string, 0)
+			for _, old := range d.Locations {
+				remains := false
+				for _, new := range sites {
+					if old == new {
+						remains = true
+						break
+					}
+				}
+				if !remains {
+					deletedSites = append(deletedSites, old)
+				}
+			}
+
 			d.Locations = sites
+
+			currentRev = d.Rev
 		}
 	}
 
@@ -194,6 +214,16 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusAccepted {
 		return nil, fmt.Errorf("Couldn't send request %#v to couchdb: %s", string(buf), resp.Status)
+	}
+
+	// Send information to delete
+	for _, oldSite := range deletedSites {
+		r.postDocument(DeleteDocument{
+			ResourceId:  id,
+			ResourceRev: currentRev,
+			Locations:   []string{oldSite},
+			Type:        "DELETE",
+		})
 	}
 
 	if len(request.Body) == 0 {

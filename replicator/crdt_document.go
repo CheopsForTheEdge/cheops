@@ -35,6 +35,18 @@ type ReplyDocument struct {
 	// Always REPLY
 	Type string
 }
+
+type DeleteDocument struct {
+	ResourceId  string
+	ResourceRev string
+
+	// Will always be a single string with the site,
+	// but we reuse the existing infrastructure that manages replication
+	// for a list of locations
+	Locations []string
+
+	// Always DELETE
+	Type string
 }
 
 type Cmd struct {
