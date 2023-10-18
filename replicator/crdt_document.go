@@ -17,6 +17,9 @@ type ResourceDocument struct {
 
 	Locations []string
 	Units     []CrdtUnit
+
+	// Always RESOURCE
+	Type string
 }
 
 type ReplyDocument struct {
@@ -28,6 +31,10 @@ type ReplyDocument struct {
 	// "OK" or "KO"
 	Status string
 	Cmds   []Cmd
+
+	// Always REPLY
+	Type string
+}
 }
 
 type Cmd struct {

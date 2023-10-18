@@ -43,21 +43,22 @@ func (r *Replicator) ensureCouch() {
 		URL           string
 		ExpectedCodes []int
 		Body          string
-	}{{
-		Method:        "PUT",
-		URL:           "http://admin:password@localhost:5984/cheops",
-		ExpectedCodes: []int{http.StatusCreated, http.StatusPreconditionFailed},
-		Body:          "",
-	}, {
-		Method:        "PUT",
-		URL:           "http://admin:password@localhost:5984/cheops/_security",
-		ExpectedCodes: []int{http.StatusOK},
-		Body:          `{"members":{"roles":[]},"admins":{"roles":["_admin"]}}`,
-	}, {
-		Method:        "PUT",
-		URL:           "http://admin:password@localhost:5984/cheops/_design/cheops",
-		ExpectedCodes: []int{http.StatusCreated, http.StatusConflict},
-		Body: `
+	}{
+		{
+			Method:        "PUT",
+			URL:           "http://admin:password@localhost:5984/cheops",
+			ExpectedCodes: []int{http.StatusCreated, http.StatusPreconditionFailed},
+			Body:          "",
+		}, {
+			Method:        "PUT",
+			URL:           "http://admin:password@localhost:5984/cheops/_security",
+			ExpectedCodes: []int{http.StatusOK},
+			Body:          `{"members":{"roles":[]},"admins":{"roles":["_admin"]}}`,
+		}, {
+			Method:        "PUT",
+			URL:           "http://admin:password@localhost:5984/cheops/_design/cheops",
+			ExpectedCodes: []int{http.StatusCreated, http.StatusConflict},
+			Body: `
 {
   "views": {
     "by-location": {
@@ -67,7 +68,7 @@ func (r *Replicator) ensureCouch() {
   },
   "language": "javascript"
 }`,
-	},
+		},
 	}
 
 	for _, req := range reqs {
@@ -153,6 +154,7 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 			Id:        id,
 			Locations: sites,
 			Units:     make([]CrdtUnit, 0),
+			Type:      "RESOURCE",
 		}
 	} else {
 		err = json.NewDecoder(doc.Body).Decode(&d)
@@ -241,11 +243,7 @@ func (r *Replicator) watchRequests() {
 			return
 		}
 
-		if len(d.Locations) == 0 {
-			// CouchDB status message, discard
-			return
-		}
-		if len(d.Units) == 0 {
+		if d.Type != "RESOURCE" {
 			return
 		}
 
@@ -259,6 +257,10 @@ func (r *Replicator) watchReplies(ctx context.Context, requestId string, replies
 		err := json.Unmarshal(j, &d)
 		if err != nil {
 			log.Printf("Couldn't decode: %s", err)
+			return
+		}
+
+		if d.Type != "REPLY" {
 			return
 		}
 
@@ -322,29 +324,18 @@ func (r *Replicator) run(ctx context.Context, d ResourceDocument) {
 
 	firstUnitToRun := d.Units[firstToKeep]
 
-	// Post document for replication
-	newDoc := ReplyDocument{
+	// Post reply for replication
+	err = r.postDocument(ReplyDocument{
 		Locations:  d.Locations,
 		Site:       env.Myfqdn,
 		RequestId:  firstUnitToRun.RequestId,
 		ResourceId: d.Id,
 		Status:     status,
 		Cmds:       cmds,
-	}
-	buf, err := json.Marshal(newDoc)
+		Type:       "REPLY",
+	})
 	if err != nil {
-		log.Printf("Couldn't marshal reply: %v\n", err)
-		return
-	}
-	newresp, err := http.Post("http://localhost:5984/cheops", "application/json", bytes.NewReader(buf))
-	if err != nil {
-		log.Printf("Couldn't send reply: %v\n", err)
-		return
-	}
-	defer newresp.Body.Close()
-
-	if newresp.StatusCode != http.StatusCreated {
-		log.Printf("Couldn't send reply: %v\n", newresp.Status)
+		log.Println(err)
 		return
 	}
 
