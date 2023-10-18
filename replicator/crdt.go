@@ -491,17 +491,6 @@ func (r *Replicator) replicate() {
 	})
 }
 
-func createReplication(db, otherSite string) {
-	body := fmt.Sprintf(`{"continuous": true, "source": "http://localhost:5984/%s", "target": "http://%s:5984/%s"}`, db, otherSite, db)
-	resp, err := http.Post("http://admin:password@localhost:5984/_replicate", "application/json", strings.NewReader(body))
-	if err != nil {
-		log.Printf("Couldn't add replication: %s\n", err)
-	}
-	if resp.StatusCode != 202 {
-		log.Printf("Couldn't add replication: %s\n", resp.Status)
-	}
-}
-
 type DocChange struct {
 	Seq string          `json:"seq"`
 	Id  string          `json:"id"`
