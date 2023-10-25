@@ -264,7 +264,8 @@ wait:
 		}
 		return replies, nil
 	}
-	return nil, fmt.Errorf("No replies")
+	log.Printf("No replies for %s\n", request.RequestId)
+	return nil, nil
 }
 
 func (r *Replicator) watchRequests() {
