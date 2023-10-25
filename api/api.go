@@ -41,7 +41,12 @@ func Run(port int, repl *replicator.Replicator) {
 		}
 
 		// The site where the user wants the resource to exist
-		desiredSites := r.Header.Values("X-Cheops-Location")
+		desiredSites := make([]string, 0)
+		for _, group := range r.Header.Values("X-Cheops-Location") {
+			for _, val := range strings.Split(group, ",") {
+				desiredSites = append(desiredSites, strings.TrimSpace(val))
+			}
+		}
 
 		forMe := false
 		for _, desiredSite := range desiredSites {
