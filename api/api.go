@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"cheops.com/env"
 	"cheops.com/replicator"
 	"github.com/gorilla/mux"
 )
@@ -41,6 +42,17 @@ func Run(port int, repl *replicator.Replicator) {
 
 		// The site where the user wants the resource to exist
 		desiredSites := r.Header.Values("X-Cheops-Location")
+
+		forMe := false
+		for _, desiredSite := range desiredSites {
+			if desiredSite == env.Myfqdn {
+				forMe = true
+			}
+		}
+		if !forMe {
+			http.Error(w, "Site is not in locations", http.StatusBadRequest)
+			return
+		}
 
 		randBytes, err := io.ReadAll(&io.LimitedReader{R: rand.Reader, N: 64})
 		if err != nil {

@@ -277,6 +277,16 @@ func (r *Replicator) watchRequests() {
 			return
 		}
 
+		forMe := false
+		for _, location := range d.Locations {
+			if location == env.Myfqdn {
+				forMe = true
+			}
+		}
+		if !forMe {
+			return
+		}
+
 		r.run(context.Background(), d)
 	})
 }
