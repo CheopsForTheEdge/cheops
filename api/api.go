@@ -77,9 +77,9 @@ func Run(port int, repl *replicator.Replicator) {
 				return
 			}
 
-			if err == replicator.ErrInvalidRequest {
-				log.Printf("invalid request for [%s]\n", id)
-				http.Error(w, "invalid request", http.StatusBadRequest)
+			if e, ok := err.(replicator.ErrInvalidRequest); ok {
+				log.Printf("invalid request for [%s]: %s\n", id, e)
+				http.Error(w, e.Error(), http.StatusBadRequest)
 				return
 			}
 

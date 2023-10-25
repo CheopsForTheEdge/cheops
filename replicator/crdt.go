@@ -15,9 +15,12 @@ import (
 )
 
 var (
-	ErrDoesNotExist   error = fmt.Errorf("doesn't exist")
-	ErrInvalidRequest error = fmt.Errorf("invalid request")
+	ErrDoesNotExist error = fmt.Errorf("doesn't exist")
 )
+
+type ErrInvalidRequest string
+
+func (e ErrInvalidRequest) Error() string { return string(e) }
 
 type Replicator struct {
 	w *watches
@@ -145,7 +148,7 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 
 	if doc.StatusCode == http.StatusNotFound {
 		if len(request.Body) == 0 {
-			return nil, fmt.Errorf("Will not create a document with an empty body")
+			return nil, ErrInvalidRequest("will not create a document with an empty body")
 		}
 
 		if len(sites) == 0 {
