@@ -63,6 +63,7 @@ func Run(port int, repl *replicator.Replicator) {
 
 		randBytes, err := io.ReadAll(&io.LimitedReader{R: rand.Reader, N: 64})
 		if err != nil {
+			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
 		}
 
