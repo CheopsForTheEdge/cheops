@@ -474,7 +474,7 @@ func (r *Replicator) replicate() {
 	// If the target is not accessible couchdb deletes the replication,
 	// so we have to sometimes recreate it
 	go func() {
-		for _ = range time.Tick(5 * time.Minute) {
+		for _ = range time.Tick(10 * time.Second) {
 			// Anonymous function to make sure defer works
 			func() {
 				allTagsResp, err := http.Get("http://localhost:5984/cheops/_design/cheops/_view/by-location?group=true")
