@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -461,12 +462,22 @@ func (r *Replicator) replicate() {
 			}
 
 			resp, err := http.Post("http://admin:password@localhost:5984/_replicate", "application/json", strings.NewReader(body))
+			defer resp.Body.Close()
+
 			if err != nil {
 				log.Printf("Couldn't add replication: %s\n", err)
 			}
 			if resp.StatusCode != 202 {
 				log.Printf("Couldn't add replication: %s\n", resp.Status)
 			}
+
+			log.Printf("Added replication to %s\n", location)
+			b, err := io.ReadAll(resp.Body)
+			if err != nil {
+				log.Printf("Couldn't read replication response body: %v\n", err)
+				return
+			}
+			log.Printf("%s\n", string(b))
 		}
 	}
 
