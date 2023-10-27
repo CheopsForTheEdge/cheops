@@ -74,7 +74,7 @@ id = ''.join(random.choice(string.ascii_lowercase) for i in range(10))
 
 r1 = requests.post(f"http://{roles[0].alias}:8079/{id}", data='mkdir -p /tmp/foo', headers=locations_header)
 if r1.status_code == 200:
-    pp(r1.text)
+    pp(json.loads(r1.text))
 
 print("init ok")
 
