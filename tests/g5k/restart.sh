@@ -10,6 +10,8 @@ rm cheops.log 2> /dev/null
 killall cheops.com 2> /dev/null
 kubectl delete all --all > /dev/null 2>&1
 curl -s -XDELETE 'admin:password@localhost:5984/cheops' > /dev/null
+curl -s -XDELETE 'admin:password@localhost:5984/_replicator' > /dev/null
+curl -s -X PUT http://admin:password@localhost:5984/_replicator > /dev/null
 
 echo "MYFQDN=$(uname -n)" > runenv
 
