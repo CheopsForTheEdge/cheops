@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -447,82 +446,34 @@ func (r *Replicator) getDocsForSelector(selector string) ([]json.RawMessage, err
 // are in place
 func (r *Replicator) replicate() {
 
+	// Use a function so we can defer
 	manageReplications := func(locations []string) {
-		existingJobs := r.getExistingJobs()
+		existingJobs := r.getExistingReplications()
 		for _, location := range locations {
 			if location == env.Myfqdn {
 				continue
 			}
 
-			var body string
-			cheopsSite := fmt.Sprintf("http://%s:5984/cheops", location)
-			if _, ok := existingJobs[cheopsSite]; !ok {
-				// Replication doesn't exist, create it
-				body = fmt.Sprintf(`{"continuous": true, "source": "http://localhost:5984/cheops", "target": "http://%s:5984/cheops", "selector": {"Locations": {"$elemMatch": {"$eq": "%s"}}}}`, location, location)
+			cheopsSite := fmt.Sprintf("http://%s:5984/cheops/", location)
+			if _, ok := existingJobs[cheopsSite]; ok {
+				continue
 			}
 
-			resp, err := http.Post("http://admin:password@localhost:5984/_replicate", "application/json", strings.NewReader(body))
+			// Replication doesn't exist, create it
+			body := fmt.Sprintf(`{"continuous": true, "source": "http://localhost:5984/cheops/", "target": "%s", "selector": {"Locations": {"$elemMatch": {"$eq": "%s"}}}}`, cheopsSite, location)
+
+			resp, err := http.Post("http://admin:password@localhost:5984/_replicator", "application/json", strings.NewReader(body))
 			defer resp.Body.Close()
 
 			if err != nil {
 				log.Printf("Couldn't add replication: %s\n", err)
 			}
-			if resp.StatusCode != 202 {
+			if resp.StatusCode != 201 {
 				log.Printf("Couldn't add replication: %s\n", resp.Status)
-			}
 
-			log.Printf("Added replication to %s\n", location)
-			b, err := io.ReadAll(resp.Body)
-			if err != nil {
-				log.Printf("Couldn't read replication response body: %v\n", err)
-				return
 			}
-			log.Printf("%s\n", string(b))
 		}
 	}
-
-	// Re-install replication if it's not there
-	// If the target is not accessible couchdb deletes the replication,
-	// so we have to sometimes recreate it
-	go func() {
-		for _ = range time.Tick(10 * time.Second) {
-			// Anonymous function to make sure defer works
-			func() {
-				allTagsResp, err := http.Get("http://localhost:5984/cheops/_design/cheops/_view/by-location?group=true")
-				if err != nil {
-					log.Printf("Error getting by-location view: %v\n", err)
-					return
-				}
-				if allTagsResp.StatusCode != http.StatusOK {
-					log.Printf("Error getting by-location view: %v\n", allTagsResp.Status)
-					return
-				}
-
-				type Row struct {
-					Key string `json:"key"`
-
-					// We don't care about the value
-				}
-				var allTags struct {
-					Rows []Row `json:"rows"`
-				}
-
-				defer allTagsResp.Body.Close()
-				err = json.NewDecoder(allTagsResp.Body).Decode(&allTags)
-				if err != nil {
-					log.Printf("Error getting by-location view: %v\n", err)
-					return
-				}
-
-				locations := make([]string, 0)
-				for _, row := range allTags.Rows {
-					locations = append(locations, row.Key)
-				}
-				manageReplications(locations)
-			}()
-
-		}
-	}()
 
 	// Install replication if it's new
 	r.w.watch(func(j json.RawMessage) {
@@ -543,35 +494,35 @@ type DocChange struct {
 	Doc json.RawMessage `json:"doc"`
 }
 
-func (r *Replicator) getExistingJobs() map[string]struct{} {
-	existingJobs, err := http.Get("http://admin:password@localhost:5984/_scheduler/jobs")
+func (r *Replicator) getExistingReplications() map[string]struct{} {
+	existingReplications, err := http.Get("http://admin:password@localhost:5984/_scheduler/docs")
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer existingJobs.Body.Close()
+	defer existingReplications.Body.Close()
 
-	if existingJobs.StatusCode != 200 {
-		log.Fatal(fmt.Errorf("Can't get existing replication jobs: %s", existingJobs.Status))
+	if existingReplications.StatusCode != 200 {
+		log.Fatal(fmt.Errorf("Can't get existing replication docs: %s", existingReplications.Status))
 	}
 
-	var js Jobs
-	err = json.NewDecoder(existingJobs.Body).Decode(&js)
+	var js Replications
+	err = json.NewDecoder(existingReplications.Body).Decode(&js)
 	if err != nil {
 		log.Fatalf("Couldn't decode: %s", err)
 	}
 
 	ret := make(map[string]struct{})
-	for _, j := range js.Jobs {
+	for _, j := range js.Replications {
 		ret[j.Target] = struct{}{}
 	}
 
 	return ret
 }
 
-type Jobs struct {
-	Jobs []Job `json:"jobs"`
+type Replications struct {
+	Replications []Replication `json:"docs"`
 }
 
-type Job struct {
+type Replication struct {
 	Target string `json:"target"`
 }
