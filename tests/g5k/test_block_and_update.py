@@ -72,11 +72,12 @@ import json
 locations_header = {'X-Cheops-Location': ', '.join([r.alias for r in roles[:3]])}
 id = ''.join(random.choice(string.ascii_lowercase) for i in range(10))
 
-r1 = requests.post(f"http://{roles[0].alias}:8079/{id}", data='mkdir -p /tmp/foo', headers=locations_header)
-if r1.status_code == 200:
-    pp(json.loads(r1.text))
+print("=> init")
 
-print("init ok")
+r1 = requests.post(f"http://{roles[0].alias}:8079/{id}", data='mkdir -p /tmp/foo', headers=locations_header)
+if r1.status_code != 200:
+    print(f"==> Error: {r1.text}")
+    sys.exit()
 
 with en.actions(roles=roles[1]) as p:
     p.iptables(
@@ -93,14 +94,14 @@ with en.actions(roles=roles[1]) as p:
             state="present"
     )
 
-print("blocked")
-
+print("=> blocked")
 
 r2 = requests.post(f"http://{roles[0].alias}:8079/{id}", data = 'echo update > /tmp/foo/file')
 if r2.status_code != 200:
-    print("Error posting update")
-    print(r2.content)
+    print(f"==> Error: {r2.content}")
     sys.exit()
+
+print("=> updated")
 
 with en.actions(roles=roles[:3]) as p:
     p.uri(
@@ -110,10 +111,13 @@ with en.actions(roles=roles[:3]) as p:
     )
     results = p.results
 
-res = [{r.host: json.loads(r.payload['content'])} for r in results.filter(task="uri")]
-pp(res)
+for r in results.filter(task="uri"):
+    content = json.loads(r.payload['content'])
+    if r.host == roles[1].alias:
+        assert len(content['Units']) == 1
+    else:
+        assert len(content['Units']) == 2
 
-sys.exit()
 with en.actions(roles=roles[1]) as p:
     p.iptables(
             chain="INPUT",
@@ -128,4 +132,26 @@ with en.actions(roles=roles[1]) as p:
             jump="DROP",
             state="absent"
     )
-print("unblocked")
+
+while True:
+    try:
+        res = requests.get(f"http://{roles[1].alias}:5984/cheops/{id}", timeout=2)
+        break
+    except requests.exceptions.Timeout:
+        print("no reply")
+
+print("=> unblocked")
+
+import time
+from datetime import datetime, timedelta
+start = datetime.now()
+while True:
+    if datetime.now() - start > timedelta(seconds=15):
+        print("==> No sync after timeout")
+        sys.exit()
+    res = requests.get(f"http://{roles[1].alias}:5984/cheops/{id}", timeout=2)
+    if len(res.json()['Units']) == 2:
+        break
+    time.sleep(2)
+
+print("=> synced")
