@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/base32"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -93,6 +94,7 @@ func Run(port int, repl *replicator.Replicator) {
 
 		for reply := range replies {
 			json.NewEncoder(w).Encode(reply)
+			fmt.Fprintf(w, "\n")
 		}
 
 	})
