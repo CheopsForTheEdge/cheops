@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/base32"
 	"encoding/json"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -92,9 +91,13 @@ func Run(port int, repl *replicator.Replicator) {
 			return
 		}
 
+		w.WriteHeader(http.StatusOK)
+		w.Header().Set("Content-Type", "application/json")
 		for reply := range replies {
 			json.NewEncoder(w).Encode(reply)
-			fmt.Fprintf(w, "\n")
+			if f, ok := w.(http.Flusher); ok {
+				f.Flush()
+			}
 		}
 
 	})
