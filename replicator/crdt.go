@@ -119,16 +119,19 @@ func (r *Replicator) ensureIndex() {
 //
 // If the request has an empty body, it means sites are expected to change. In that case we don't wait for replies from other sites.
 // If the resource doesn't already exist, an ErrInvalidRequest is returned
-func (r *Replicator) Do(ctx context.Context, sites []string, id string, request CrdtUnit) (replies []ReplyDocument, err error) {
+//
+// The output is a chan of each individual reply as they arrive. After a timeout or all replies are sent, the chan is closed
+func (r *Replicator) Do(ctx context.Context, sites []string, id string, request CrdtUnit) (replies chan ReplyDocument, err error) {
 
 	var repliesChan chan ReplyDocument
+	var cancel func()
 
 	if len(request.Body) > 0 {
 		// Prepare replies gathering before running the request
 		// It's all asynchronous
 		repliesChan = make(chan ReplyDocument)
-		repliesCtx, cancel := context.WithCancel(ctx)
-		defer cancel()
+		var repliesCtx context.Context
+		repliesCtx, cancel = context.WithCancel(ctx)
 		r.watchReplies(repliesCtx, request.RequestId, repliesChan)
 	}
 
@@ -144,6 +147,7 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 
 	// Filled in case of migration
 	var deletedSites []string
+	var newSites []string
 	var currentRev string
 
 	if doc.StatusCode == http.StatusNotFound {
@@ -181,6 +185,19 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 				}
 				if !remains {
 					deletedSites = append(deletedSites, old)
+				}
+			}
+
+			for _, new := range sites {
+				remains := false
+				for _, old := range d.Locations {
+					if old == new {
+						remains = true
+						break
+					}
+				}
+				if !remains {
+					newSites = append(newSites, new)
 				}
 			}
 
@@ -229,43 +246,42 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 		})
 	}
 
-	if len(request.Body) == 0 {
-		return nil, nil
+	var expected int
+	if len(request.Body) > 0 {
+		expected = len(d.Locations)
+	} else {
+		expected = len(newSites)
 	}
 
-	// Gather replies sent on the channel created at the beginning
-	// of this function
-	replies = make([]ReplyDocument, 0, len(sites))
-wait:
-	for i := 0; i < len(sites); i++ {
-		select {
-		case <-ctx.Done():
-			if err := ctx.Err(); err != nil {
-				return nil, err
+	ret := make(chan ReplyDocument)
+
+	go func() {
+		defer func() {
+			cancel()
+			close(repliesChan)
+			close(ret)
+		}()
+
+		for i := 0; i < expected; i++ {
+			select {
+			case <-ctx.Done():
+				if err := ctx.Err(); err != nil {
+					log.Printf("Error with runing %s: %s\n", request.RequestId, err)
+					return
+				}
+			case reply := <-repliesChan:
+				ret <- reply
+			case <-time.After(20 * time.Second):
+				// timeout
+				//
+				// Because there are multiple cases, let's leave it like that,
+				// some goroutines will wait for nothing, that's alright
+				return
 			}
-		case reply := <-repliesChan:
-			replies = append(replies, reply)
-		case <-time.After(20 * time.Second):
-			// timeout
-			// happens when the node didn't do the request locally
-			// but request comes from replication group (could be optimized by creating
-			// the channel here only, so we know)
-			// or when the reply doesn't arrive locally.
-			//
-			// Because there are multiple cases, let's leave it like that,
-			// some goroutines will wait for nothing, that's alright
-			break wait
 		}
-	}
-	if len(replies) > 0 {
-		// Hide locations for the reply, they're not useful to the caller
-		for _, rep := range replies {
-			rep.Locations = nil
-		}
-		return replies, nil
-	}
-	log.Printf("No replies for %s\n", request.RequestId)
-	return nil, nil
+	}()
+
+	return ret, nil
 }
 
 func (r *Replicator) watchRequests() {

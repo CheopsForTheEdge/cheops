@@ -91,7 +91,9 @@ func Run(port int, repl *replicator.Replicator) {
 			return
 		}
 
-		json.NewEncoder(w).Encode(replies)
+		for reply := range replies {
+			json.NewEncoder(w).Encode(reply)
+		}
 
 	})
 
