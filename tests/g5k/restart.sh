@@ -27,3 +27,6 @@ if [ "$status" != "0" ]; then
 else
 				echo "startup done"
 fi
+
+cd cli
+/usr/lib/go-1.19/bin/go build
