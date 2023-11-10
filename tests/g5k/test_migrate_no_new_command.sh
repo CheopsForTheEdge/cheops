@@ -11,15 +11,12 @@ nn3=$(printenv $n3)
 n4=$(id -un)_NODE_4
 nn4=$(printenv $n4)
 
-LOCATIONS_BEFORE="-H 'X-Cheops-Location: $nn1' -H 'X-Cheops-Location: $nn2' -H 'X-Cheops-Location: $nn3'"
-LOCATIONS_AFTER="-H 'X-Cheops-Location: $nn1' -H 'X-Cheops-Location: $nn2' -H 'X-Cheops-Location: $nn4'"
+id=$(cat /dev/urandom | head -c 20 | base32)
 
-id=$(cat /dev/urandom | head -c 20 | base64)
-
-eval "curl -s $LOCATIONS_BEFORE \"http://$nn1:8079/$id\" --data-binary 'mkdir /tmp/foo > /dev/null' | jq '.'"
+curl -v -H "X-Cheops-Location: $nn1" -H "X-Cheops-Location: $nn2" -H "X-Cheops-Location: $nn3" "http://$nn1:8079/$id" --data-binary 'mkdir /tmp/foo > /dev/null'
 
 read -p "Continue ? "
 
-eval "curl -s $LOCATIONS_AFTER \"http://$nn1:8079/$id\" --data-binary 'mkdir /tmp/foo > /dev/null' | jq '.'"
+curl -v -H "X-Cheops-Location: $nn1" -H "X-Cheops-Location: $nn2" -H "X-Cheops-Location: $nn4" "http://$nn1:8079/$id" --data-binary 'mkdir /tmp/foo > /dev/null'
 
 echo Expected: no new command with different sites
