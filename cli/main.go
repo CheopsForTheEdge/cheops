@@ -1,9 +1,10 @@
 package main
 
 import (
+	"bufio"
+	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"math/rand"
 	"net/http"
@@ -74,5 +75,22 @@ func main() {
 		log.Fatalf("Couldn't run request: %v\n", err)
 	}
 	defer res.Body.Close()
-	io.Copy(os.Stdout, res.Body)
+
+	type reply struct {
+		Site   string
+		Status string
+	}
+	sc := bufio.NewScanner(res.Body)
+	for sc.Scan() {
+		var r reply
+		err := json.Unmarshal(sc.Bytes(), &r)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+		fmt.Printf("%s\t%s\n", r.Site, r.Status)
+	}
+	if err := sc.Err(); err != nil {
+		fmt.Println(err)
+	}
 }
