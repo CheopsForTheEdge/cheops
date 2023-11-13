@@ -1,11 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"os"
 
+	"cheops.com/replicator"
 	"github.com/alecthomas/kong"
 )
 
@@ -15,13 +15,42 @@ type ShowCmd struct {
 }
 
 func (s *ShowCmd) Run(ctx *kong.Context) error {
-	url := fmt.Sprintf("http://%s:5984/cheops/%s", s.Hint, s.Id)
-	res, err := http.Get(url)
+	hosts, err := getAndShow(s.Hint, s.Id)
 	if err != nil {
 		return err
 	}
+
+	for _, host := range hosts {
+		if host != s.Hint {
+			_, err := getAndShow(host, s.Id)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func getAndShow(host, id string) (allHosts []string, err error) {
+	url := fmt.Sprintf("http://%s:5984/cheops/%s", host, id)
+	res, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
 	defer res.Body.Close()
 
-	_, err = io.Copy(os.Stdout, res.Body)
-	return err
+	var m replicator.ResourceDocument
+	err = json.NewDecoder(res.Body).Decode(&m)
+	if err != nil {
+		return nil, err
+	}
+
+	bytes, err := json.MarshalIndent(m, "", "\t")
+	if err != nil {
+		return nil, err
+	}
+	fmt.Printf("%s\n", bytes)
+
+	return m.Locations, nil
 }
