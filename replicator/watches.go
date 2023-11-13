@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"cheops.com/model"
 )
 
 type onNewDocFunc func(j json.RawMessage)
@@ -102,7 +104,7 @@ func (w *watches) startWatching(ctx context.Context) {
 				}
 				defer docWithConflictsResp.Body.Close()
 
-				var docWithConflicts ResourceDocument
+				var docWithConflicts model.ResourceDocument
 				err = json.NewDecoder(docWithConflictsResp.Body).Decode(&docWithConflicts)
 				if err != nil {
 					log.Printf("unmarshall error: %v\n", err)
@@ -117,7 +119,7 @@ func (w *watches) startWatching(ctx context.Context) {
 				} else {
 					log.Printf("Seeing conflicts for %v, solving\n", change.Id)
 
-					docWithoutConflicts, err := resolveConflicts(docWithConflicts)
+					docWithoutConflicts, err := model.ResolveConflicts(docWithConflicts)
 					if err != nil {
 						log.Printf("Couldn't resolve conflicts for %v: %v\n", docWithoutConflicts.Id, err)
 						continue
@@ -143,16 +145,16 @@ func (w *watches) startWatching(ctx context.Context) {
 	}()
 }
 
-func (w *watches) postResolution(docWithoutConflicts ResourceDocument, conflicts []string) {
+func (w *watches) postResolution(docWithoutConflicts model.ResourceDocument, conflicts []string) {
 	type bulkDocsRequest struct {
-		Docs []ResourceDocument `json:"docs"`
+		Docs []model.ResourceDocument `json:"docs"`
 	}
 
 	req := bulkDocsRequest{
-		Docs: []ResourceDocument{docWithoutConflicts},
+		Docs: []model.ResourceDocument{docWithoutConflicts},
 	}
 	for _, conflict := range conflicts {
-		req.Docs = append(req.Docs, ResourceDocument{
+		req.Docs = append(req.Docs, model.ResourceDocument{
 			Id:      docWithoutConflicts.Id,
 			Rev:     conflict,
 			Deleted: true,

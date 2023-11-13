@@ -1,4 +1,4 @@
-package replicator
+package model
 
 import (
 	"encoding/json"
@@ -60,7 +60,7 @@ type CrdtUnit struct {
 	Body       string
 }
 
-func resolveConflicts(d ResourceDocument) (ResourceDocument, error) {
+func ResolveConflicts(d ResourceDocument) (ResourceDocument, error) {
 	conflicts := make([]ResourceDocument, 0)
 	for _, rev := range d.Conflicts {
 		url := fmt.Sprintf("http://localhost:5984/cheops/%s?rev=%s", d.Id, rev)
@@ -101,7 +101,7 @@ func resolveConflictsWithDocs(winner ResourceDocument, conflicts []ResourceDocum
 		list = append(list, unit)
 	}
 
-	sortUnits(list)
+	SortUnits(list)
 
 	winner.Conflicts = []string{}
 	winner.Units = list
@@ -109,7 +109,7 @@ func resolveConflictsWithDocs(winner ResourceDocument, conflicts []ResourceDocum
 	return winner
 }
 
-func sortUnits(list []CrdtUnit) {
+func SortUnits(list []CrdtUnit) {
 	sort.Slice(list, func(i, j int) bool {
 		if list[i].Generation < list[j].Generation {
 			return true

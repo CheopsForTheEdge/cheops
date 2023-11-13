@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"cheops.com/replicator"
+	"cheops.com/model"
 	"github.com/alecthomas/kong"
 )
 
@@ -40,7 +40,7 @@ func getAndShow(host, id string) (allHosts []string, err error) {
 	}
 	defer res.Body.Close()
 
-	var m replicator.ResourceDocument
+	var m model.ResourceDocument
 	err = json.NewDecoder(res.Body).Decode(&m)
 	if err != nil {
 		return nil, err

@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"cheops.com/env"
+	"cheops.com/model"
 	"cheops.com/replicator"
 	"github.com/gorilla/mux"
 )
@@ -67,7 +68,7 @@ func Run(port int, repl *replicator.Replicator) {
 			return
 		}
 
-		req := replicator.CrdtUnit{
+		req := model.CrdtUnit{
 			Body:      strings.TrimSpace(string(body)),
 			RequestId: base32.StdEncoding.EncodeToString(randBytes),
 		}

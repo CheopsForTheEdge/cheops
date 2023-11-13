@@ -12,6 +12,7 @@ import (
 
 	"cheops.com/backends"
 	"cheops.com/env"
+	"cheops.com/model"
 )
 
 var (
@@ -121,15 +122,15 @@ func (r *Replicator) ensureIndex() {
 // If the resource doesn't already exist, an ErrInvalidRequest is returned
 //
 // The output is a chan of each individual reply as they arrive. After a timeout or all replies are sent, the chan is closed
-func (r *Replicator) Do(ctx context.Context, sites []string, id string, request CrdtUnit) (replies chan ReplyDocument, err error) {
+func (r *Replicator) Do(ctx context.Context, sites []string, id string, request model.CrdtUnit) (replies chan model.ReplyDocument, err error) {
 
-	var repliesChan chan ReplyDocument
+	var repliesChan chan model.ReplyDocument
 	var cancel func()
 
 	if len(request.Body) > 0 {
 		// Prepare replies gathering before running the request
 		// It's all asynchronous
-		repliesChan = make(chan ReplyDocument)
+		repliesChan = make(chan model.ReplyDocument)
 		var repliesCtx context.Context
 		repliesCtx, cancel = context.WithCancel(ctx)
 		r.watchReplies(repliesCtx, request.RequestId, repliesChan)
@@ -143,7 +144,7 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 	}
 	defer doc.Body.Close()
 
-	var d ResourceDocument
+	var d model.ResourceDocument
 
 	// Filled in case of migration
 	var deletedSites []string
@@ -161,10 +162,10 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 			return nil, ErrDoesNotExist
 		}
 
-		d = ResourceDocument{
+		d = model.ResourceDocument{
 			Id:        id,
 			Locations: sites,
-			Units:     make([]CrdtUnit, 0),
+			Units:     make([]model.CrdtUnit, 0),
 			Type:      "RESOURCE",
 		}
 	} else {
@@ -211,7 +212,7 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 	if len(request.Body) > 0 {
 		request.Generation = uint64(len(d.Units) + 1)
 		d.Units = append(d.Units, request)
-		sortUnits(d.Units)
+		model.SortUnits(d.Units)
 	}
 
 	// Send the newly formatted document
@@ -238,7 +239,7 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 
 	// Send information to delete
 	for _, oldSite := range deletedSites {
-		r.postDocument(DeleteDocument{
+		r.postDocument(model.DeleteDocument{
 			ResourceId:  id,
 			ResourceRev: currentRev,
 			Locations:   []string{oldSite},
@@ -253,7 +254,7 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 		expected = len(newSites)
 	}
 
-	ret := make(chan ReplyDocument)
+	ret := make(chan model.ReplyDocument)
 
 	go func() {
 		defer func() {
@@ -286,7 +287,7 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 
 func (r *Replicator) watchRequests() {
 	r.w.watch(func(j json.RawMessage) {
-		var d ResourceDocument
+		var d model.ResourceDocument
 		err := json.Unmarshal(j, &d)
 		if err != nil {
 			log.Printf("Couldn't decode %s", err)
@@ -311,9 +312,9 @@ func (r *Replicator) watchRequests() {
 	})
 }
 
-func (r *Replicator) watchReplies(ctx context.Context, requestId string, repliesChan chan ReplyDocument) {
+func (r *Replicator) watchReplies(ctx context.Context, requestId string, repliesChan chan model.ReplyDocument) {
 	r.w.watch(func(j json.RawMessage) {
-		var d ReplyDocument
+		var d model.ReplyDocument
 		err := json.Unmarshal(j, &d)
 		if err != nil {
 			log.Printf("Couldn't decode: %s", err)
@@ -338,7 +339,7 @@ func (r *Replicator) watchReplies(ctx context.Context, requestId string, replies
 
 }
 
-func (r *Replicator) run(ctx context.Context, d ResourceDocument) {
+func (r *Replicator) run(ctx context.Context, d model.ResourceDocument) {
 	docs, err := r.getRepliesForId(d.Id)
 	if err != nil {
 		log.Printf("Couldn't get docs for id: %v\n", err)
@@ -373,9 +374,9 @@ func (r *Replicator) run(ctx context.Context, d ResourceDocument) {
 		status = "KO"
 	}
 
-	cmds := make([]Cmd, 0)
+	cmds := make([]model.Cmd, 0)
 	for i := range bodies {
-		cmd := Cmd{
+		cmd := model.Cmd{
 			Input:  bodies[i],
 			Output: replies[i],
 		}
@@ -385,7 +386,7 @@ func (r *Replicator) run(ctx context.Context, d ResourceDocument) {
 	firstUnitToRun := d.Units[firstToKeep]
 
 	// Post reply for replication
-	err = r.postDocument(ReplyDocument{
+	err = r.postDocument(model.ReplyDocument{
 		Locations:  d.Locations,
 		Site:       env.Myfqdn,
 		RequestId:  firstUnitToRun.RequestId,
@@ -402,16 +403,16 @@ func (r *Replicator) run(ctx context.Context, d ResourceDocument) {
 	log.Printf("Ran %s %s\n", firstUnitToRun.RequestId, env.Myfqdn)
 }
 
-func (r *Replicator) getRepliesForId(resourceId string) ([]ReplyDocument, error) {
+func (r *Replicator) getRepliesForId(resourceId string) ([]model.ReplyDocument, error) {
 	selector := fmt.Sprintf(`{"ResourceId": "%s"}`, resourceId)
 
 	docs, err := r.getDocsForSelector(selector)
 	if err != nil {
 		return nil, err
 	}
-	out := make([]ReplyDocument, 0)
+	out := make([]model.ReplyDocument, 0)
 	for _, doc := range docs {
-		var rep ReplyDocument
+		var rep model.ReplyDocument
 		err := json.Unmarshal(doc, &rep)
 		if err != nil {
 			return nil, err
@@ -493,7 +494,7 @@ func (r *Replicator) replicate() {
 
 	// Install replication if it's new
 	r.w.watch(func(j json.RawMessage) {
-		var d ResourceDocument
+		var d model.ResourceDocument
 		err := json.Unmarshal(j, &d)
 		if err != nil {
 			log.Printf("Couldn't decode: %s", err)
