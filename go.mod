@@ -15,6 +15,7 @@ replace (
 )
 
 require (
+	github.com/alecthomas/kong v0.8.1
 	github.com/anacrolix/torrent v1.52.3
 	github.com/arangodb/go-driver v0.0.0-20210825071748-9f1169c6a7dc
 	github.com/evanphx/json-patch v0.5.2
