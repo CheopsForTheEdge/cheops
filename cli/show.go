@@ -75,23 +75,55 @@ func (s *ShowCmd) Run(ctx *kong.Context) error {
 }
 
 func getContentAndOtherHosts(host, id string) (content string, allHosts []string, err error) {
-	url := fmt.Sprintf("http://%s:5984/cheops/%s", host, id)
-	res, err := http.Get(url)
+	selector := fmt.Sprintf(`{
+	"selector": {
+		"$or": [
+			{"ResourceId": "%s", "Type": "DELETE"},
+			{"_id": %s}
+		]
+	}
+}`, id, id)
+	url := fmt.Sprintf("http://%s:5984/cheops/_find", host)
+	res, err := http.Post(url, "application/json", strings.NewReader(selector))
 	if err != nil {
 		return "", nil, err
 	}
 	defer res.Body.Close()
 
-	var m model.ResourceDocument
-	err = json.NewDecoder(res.Body).Decode(&m)
+	var r struct {
+		Docs []json.RawMessage `json:"docs"`
+	}
+	err = json.NewDecoder(res.Body).Decode(&r)
 	if err != nil {
 		return "", nil, err
 	}
 
-	bytes, err := json.MarshalIndent(m, "", "\t")
-	if err != nil {
-		return "", nil, err
+	var bytes []byte
+
+	for _, doc := range r.Docs {
+		var delete model.DeleteDocument
+		err := json.Unmarshal(doc, &delete)
+		if err == nil {
+			bytes, err = json.MarshalIndent(delete, "", "\t")
+			if err != nil {
+				return "", nil, err
+			}
+			allHosts = delete.Locations
+		} else {
+			var resource model.ResourceDocument
+			err = json.Unmarshal(doc, &resource)
+			if err == nil {
+				bytes, err = json.MarshalIndent(resource, "", "\t")
+				if err != nil {
+					return "", nil, err
+				}
+				allHosts = resource.Locations
+			} else {
+				return "", nil, err
+			}
+		}
 	}
 
-	return string(bytes), m.Locations, nil
+	return string(bytes), allHosts, nil
+
 }
