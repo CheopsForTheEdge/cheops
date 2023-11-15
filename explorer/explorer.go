@@ -3,7 +3,6 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"encoding/json"
 	"flag"
@@ -145,7 +144,7 @@ type NodeDir struct {
 }
 
 func (n *NodeDir) Attr(ctx context.Context, a *fuse.Attr) error {
-	a.Inode = 1
+	a.Inode = 0
 	a.Mode = os.ModeDir | 0o555
 	return nil
 }
@@ -153,8 +152,18 @@ func (n *NodeDir) Attr(ctx context.Context, a *fuse.Attr) error {
 var _ fs.NodeStringLookuper = (*NodeDir)(nil)
 
 func (n *NodeDir) Lookup(ctx context.Context, name string) (fs.Node, error) {
-	if name == "ids" {
-		return &IdsFile{n.node}, nil
+	ids, err := getIds(n.node)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, v := range ids {
+		if name == v {
+			return &ResourceFile{
+				node: n.node,
+				id:   v,
+			}, nil
+		}
 	}
 	return nil, syscall.ENOENT
 }
@@ -162,45 +171,23 @@ func (n *NodeDir) Lookup(ctx context.Context, name string) (fs.Node, error) {
 var _ fs.HandleReadDirAller = (*NodeDir)(nil)
 
 func (n *NodeDir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
-	return []fuse.Dirent{{Inode: 0, Name: "ids", Type: fuse.DT_File}}, nil
-}
-
-type IdsFile struct {
-	node string
-}
-
-var _ fs.Node = (*IdsFile)(nil)
-
-func (idsf *IdsFile) Attr(ctx context.Context, a *fuse.Attr) error {
-	a.Inode = 0
-	a.Mode = 0o444
-
-	c, err := getContent(idsf.node)
+	ids, err := getIds(n.node)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	a.Size = uint64(len(c))
-	return nil
-}
 
-var _ fs.NodeOpener = (*File)(nil)
-
-func (idsf *IdsFile) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.OpenResponse) (fs.Handle, error) {
-	if !req.Flags.IsReadOnly() {
-		return nil, fuse.Errno(syscall.EACCES)
+	entries := make([]fuse.Dirent, 0)
+	for _, id := range ids {
+		entries = append(entries, fuse.Dirent{
+			Inode: 0,
+			Name:  id,
+			Type:  fuse.DT_File,
+		})
 	}
-	resp.Flags |= fuse.OpenKeepCache
-	return idsf, nil
+	return entries, nil
 }
 
-var _ fs.Handle = (*IdsFile)(nil)
-var _ fs.HandleReadAller = (*IdsFile)(nil)
-
-func (idsf *IdsFile) ReadAll(ctx context.Context) ([]byte, error) {
-	return getContent(idsf.node)
-}
-
-func getContent(node string) ([]byte, error) {
+func getIds(node string) ([]string, error) {
 	url := fmt.Sprintf("http://%s:5984/cheops/_find", node)
 	res, err := http.Post(url, "application/json", strings.NewReader(`{"selector": {"Type": "RESOURCE"}}`))
 	if err != nil {
@@ -216,11 +203,66 @@ func getContent(node string) ([]byte, error) {
 		return nil, err
 	}
 
-	var content bytes.Buffer
+	var ids []string
 	for _, doc := range r.Docs {
-		fmt.Fprintf(&content, "%s\n", doc.Id)
+		ids = append(ids, doc.Id)
 	}
-	return content.Bytes(), nil
+	return ids, nil
+}
+
+type ResourceFile struct {
+	node    string
+	id      string
+	content []byte
+}
+
+var _ fs.Node = (*ResourceFile)(nil)
+
+func (rf *ResourceFile) Attr(ctx context.Context, a *fuse.Attr) error {
+	a.Inode = 0
+	a.Mode = 0o444
+
+	c, err := getResource(rf.node, rf.id)
+	if err != nil {
+		return err
+	}
+	a.Size = uint64(len(c))
+	rf.content = c
+	return nil
+}
+
+var _ fs.NodeOpener = (*File)(nil)
+
+func (rf *ResourceFile) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.OpenResponse) (fs.Handle, error) {
+	if !req.Flags.IsReadOnly() {
+		return nil, fuse.Errno(syscall.EACCES)
+	}
+	resp.Flags |= fuse.OpenKeepCache
+	return rf, nil
+}
+
+var _ fs.Handle = (*ResourceFile)(nil)
+var _ fs.HandleReadAller = (*ResourceFile)(nil)
+
+func (rf *ResourceFile) ReadAll(ctx context.Context) ([]byte, error) {
+	return rf.content, nil
+}
+
+func getResource(node, id string) ([]byte, error) {
+	url := fmt.Sprintf("http://%s:5984/cheops/%s", node, id)
+	res, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	var r model.ResourceDocument
+	err = json.NewDecoder(res.Body).Decode(&r)
+	if err != nil {
+		return nil, err
+	}
+
+	return json.MarshalIndent(r, "", "\t")
 }
 
 type File struct {
