@@ -162,7 +162,7 @@ func (n *NodeDir) Lookup(ctx context.Context, name string) (fs.Node, error) {
 var _ fs.HandleReadDirAller = (*NodeDir)(nil)
 
 func (n *NodeDir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
-	return []fuse.Dirent{{Inode: 2, Name: "ids", Type: fuse.DT_File}}, nil
+	return []fuse.Dirent{{Inode: 0, Name: "ids", Type: fuse.DT_File}}, nil
 }
 
 type IdsFile struct {
@@ -172,7 +172,7 @@ type IdsFile struct {
 var _ fs.Node = (*IdsFile)(nil)
 
 func (idsf *IdsFile) Attr(ctx context.Context, a *fuse.Attr) error {
-	a.Inode = 2
+	a.Inode = 0
 	a.Mode = 0o444
 
 	c, err := getContent(idsf.node)
@@ -232,7 +232,7 @@ type File struct {
 var _ fs.Node = (*File)(nil)
 
 func (f *File) Attr(ctx context.Context, a *fuse.Attr) error {
-	a.Inode = 2
+	a.Inode = 0
 	a.Mode = 0o444
 	t := f.content.Load().(string)
 	a.Size = uint64(len(t))
