@@ -1,15 +1,19 @@
 #!/usr/bin/env sh
 
-cd $(dirname $0)
+before=$(pwd)
+trap "cd $before" EXIT
 
-. ./env.sh
+cd $(dirname $0)/../..
+here=$(pwd)
 
-rm ~/repos/cheops/cli/cli 2> /dev/null
+. tests/g5k/env.sh
 
-env | grep "_NODE_" | cut -d '=' -f 2 | parallel --tag \
-				'rsync --rsync-path="sudo -Sv && rsync" -az --delete ~/repos/cheops {}:/tmp && echo transfer done || echo transfer failed'
+rm $here/cli/cli 2> /dev/null
+
+cat ~/.oarnodes | parallel --tag \
+				"rsync --rsync-path='sudo -Sv && rsync' -az --delete $here/ {}:/tmp/cheops && echo transfer done || echo transfer failed"
 
 parallel --nonall --tag --sshloginfile ~/.oarnodes --line-buffer sudo sh /tmp/cheops/tests/g5k/restart.sh
 
-scp $(sed 1q ~/.oarnodes):/tmp/cheops/cli/cli ~/repos/cheops/cli/ > /dev/null
+scp $(sed 1q ~/.oarnodes):/tmp/cheops/cli/cli $here/cli/ > /dev/null
 
