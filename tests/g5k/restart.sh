@@ -28,5 +28,9 @@ else
 				echo "startup done"
 fi
 
-cd cli
-/usr/lib/go-1.19/bin/go build
+for bin in cli explorer
+do
+				cd $bin
+				/usr/lib/go-1.19/bin/go build
+				cd ..
+done

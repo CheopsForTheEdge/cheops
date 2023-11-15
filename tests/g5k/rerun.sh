@@ -15,5 +15,7 @@ cat ~/.oarnodes | parallel --tag \
 
 parallel --nonall --tag --sshloginfile ~/.oarnodes --line-buffer sudo sh /tmp/cheops/tests/g5k/restart.sh
 
-scp $(sed 1q ~/.oarnodes):/tmp/cheops/cli/cli $here/cli/ > /dev/null
-
+for bin in cli explorer
+do
+				scp $(sed 1q ~/.oarnodes):/tmp/cheops/$bin/$bin $here/$bin/ > /dev/null
+done
