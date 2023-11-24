@@ -16,10 +16,10 @@ LOCATIONS_AFTER="-H 'X-Cheops-Location: $nn1' -H 'X-Cheops-Location: $nn2' -H 'X
 
 id=$(cat /dev/urandom | head -c 20 | base64)
 
-eval "curl -s $LOCATIONS_BEFORE \"http://$nn1:8079/$id\" --data-binary 'mkdir /tmp/foo > /dev/null' | jq '.'"
+eval "curl -s $LOCATIONS_BEFORE \"http://$nn1:8079/$id\" --data-binary 'mkdir -p /tmp/foo > /dev/null' | jq '.'"
 
 read -p "Continue ? "
 
-eval "curl -s $LOCATIONS_AFTER \"http://$nn1:8079/$id\" --data-binary 'mkdir /tmp/foo > /dev/null' | jq '.'"
+eval "curl -s $LOCATIONS_AFTER \"http://$nn1:8079/$id\" --data-binary 'mkdir -p /tmp/foo > /dev/null' | jq '.'"
 
 echo Expected: a new command with different sites

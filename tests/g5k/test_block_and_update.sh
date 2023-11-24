@@ -17,7 +17,7 @@ LOCATIONS="-H 'X-Cheops-Location: $nn1' -H 'X-Cheops-Location: $nn2' -H 'X-Cheop
 id=$(head -c 20 /dev/urandom | base32)
 echo "id is $id"
 
-eval "curl -s $LOCATIONS \"http://$nn1:8079/$id\" --data-binary 'mkdir /tmp/foo; touch /tmp/foo/left' | jq '.' > 1"
+eval "curl -s $LOCATIONS \"http://$nn1:8079/$id\" --data-binary 'mkdir -p /tmp/foo; touch /tmp/foo/left' | jq '.' > 1"
 
 echo "sleeping a few secs"
 sleep 5
@@ -25,7 +25,7 @@ sleep 5
 ssh $nn2 sudo nft add rule ip filter INPUT ip saddr 127.0.0.1 accept
 ssh $nn2 sudo nft add rule ip filter INPUT tcp dport 5984 drop
 
-curl -s "http://$nn1:8079/$id" --data-binary 'mkdir /tmp/foo; touch /tmp/foo/right' | jq '.' > 2
+curl -s "http://$nn1:8079/$id" --data-binary 'mkdir -p /tmp/foo; touch /tmp/foo/right' | jq '.' > 2
 
 echo "status during the block"
 for node in $nn1 $nn2 $nn3
