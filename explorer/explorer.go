@@ -1,4 +1,15 @@
 // Explorerfs implements a file system with cheops content
+//
+// After mounting, the hierarchy is the following:
+// /mount/point
+//	├── site1
+//	|	├── id1
+//	|	├── id2
+//	|	├── id3
+//	└── site2
+//		├── id1
+//		└── id2
+
 package main
 
 import (

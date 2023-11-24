@@ -1,3 +1,18 @@
+// show.go displays a given resource. A hint must be given with a site to know where to fetch the resource.
+// The resource will be fetched from all sites it is supposed to exist, and concatenate sites where the content is the same
+//
+// Usage:
+// $ cli show --id <resource-id> --hint siteX
+//
+// Output:
+//
+// siteX
+// siteY
+//     {
+//        "_id": <resource-id>,
+//        [...]
+//     }
+
 package main
 
 import (

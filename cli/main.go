@@ -1,3 +1,12 @@
+// cli is a command line interface to interact with cheops without using HTTP calls.
+// It allows running subcommands to do specific stuff
+//
+// Available commands:
+// - exec
+// - show
+//
+// See the relevant files for more information
+
 package main
 
 import (

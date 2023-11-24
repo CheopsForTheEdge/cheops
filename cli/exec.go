@@ -1,3 +1,8 @@
+// exec.go allows executing a command on a given resource and given locations
+//
+// Usage:
+// $ cli --id <resource-id> --locations "site1,site2" mkdir /tmp/foo
+
 package main
 
 import (
