@@ -352,17 +352,34 @@ func (r *Replicator) run(ctx context.Context, d model.ResourceDocument) {
 		indexedReplies[doc.RequestId] = struct{}{}
 	}
 
+	type UnitToRun struct {
+		model.CrdtUnit
+		alreadyRan bool
+	}
+
 	// find units to run
-	// we run the first one for which we have no reply, and then all subsequent ones
-	var firstToKeep int
-	for i, unit := range d.Units {
-		if _, ok := indexedReplies[unit.RequestId]; !ok {
-			firstToKeep = i
-			break
+	// we run the first one for which we have no reply,
+	// and then all subsequent ones to be sure that everything is run in the same order
+	//
+	// We also need to remember all units that we run that weren't before, so that we can
+	// mark them as ran
+	unitsToRun := make([]UnitToRun, 0)
+	for _, unit := range d.Units {
+		toAdd := UnitToRun{
+			CrdtUnit: unit,
 		}
+		_, ok := indexedReplies[unit.RequestId]
+		toAdd.alreadyRan = ok
+
+		// If the list is empty and the unit wasn't already ran, add it
+		// Otherwise if there already is something, add them all
+		if !toAdd.alreadyRan && len(unitsToRun) == 0 || len(unitsToRun) > 0 {
+			unitsToRun = append(unitsToRun, toAdd)
+		}
+
 	}
 	bodies := make([]string, 0)
-	for _, unit := range d.Units[firstToKeep:] {
+	for _, unit := range unitsToRun {
 		bodies = append(bodies, unit.Body)
 		log.Printf("will apply [%s]\n", unit.Body)
 	}
@@ -374,33 +391,31 @@ func (r *Replicator) run(ctx context.Context, d model.ResourceDocument) {
 		status = "KO"
 	}
 
-	cmds := make([]model.Cmd, 0)
-	for i := range bodies {
+	// Post reply for replication
+	for i, unit := range unitsToRun {
+		log.Printf("Ran %s %s\n", unit.RequestId, env.Myfqdn)
+
+		if unit.alreadyRan {
+			continue
+		}
 		cmd := model.Cmd{
 			Input:  bodies[i],
 			Output: replies[i],
 		}
-		cmds = append(cmds, cmd)
+
+		err = r.postDocument(model.ReplyDocument{
+			Locations:  d.Locations,
+			Site:       env.Myfqdn,
+			RequestId:  unit.RequestId,
+			ResourceId: d.Id,
+			Status:     status,
+			Cmd:        cmd,
+			Type:       "REPLY",
+		})
+		if err != nil {
+			log.Println(err)
+		}
 	}
-
-	firstUnitToRun := d.Units[firstToKeep]
-
-	// Post reply for replication
-	err = r.postDocument(model.ReplyDocument{
-		Locations:  d.Locations,
-		Site:       env.Myfqdn,
-		RequestId:  firstUnitToRun.RequestId,
-		ResourceId: d.Id,
-		Status:     status,
-		Cmds:       cmds,
-		Type:       "REPLY",
-	})
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	log.Printf("Ran %s %s\n", firstUnitToRun.RequestId, env.Myfqdn)
 }
 
 func (r *Replicator) getRepliesForId(resourceId string) ([]model.ReplyDocument, error) {

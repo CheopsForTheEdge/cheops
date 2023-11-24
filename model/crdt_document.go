@@ -30,7 +30,7 @@ type ReplyDocument struct {
 
 	// "OK" or "KO"
 	Status string
-	Cmds   []Cmd
+	Cmd
 
 	// Always REPLY
 	Type string
