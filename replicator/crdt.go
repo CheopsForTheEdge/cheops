@@ -419,7 +419,7 @@ func (r *Replicator) run(ctx context.Context, d model.ResourceDocument) {
 }
 
 func (r *Replicator) getRepliesForId(resourceId string) ([]model.ReplyDocument, error) {
-	selector := fmt.Sprintf(`{"ResourceId": "%s"}`, resourceId)
+	selector := fmt.Sprintf(`{"Type": "REPLY", "ResourceId": "%s", "Site": "%s"}`, resourceId, env.Myfqdn)
 
 	docs, err := r.getDocsForSelector(selector)
 	if err != nil {
