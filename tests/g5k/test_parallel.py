@@ -1,18 +1,17 @@
-
+#!/usr/bin/env python
 
 import sys
 import os
 import enoslib as en
 
-def pp(arg):
-    print(json.dumps(arg, indent=4))
-
+# Hack
 if any(['g5k-jupyterlab' in path for path in sys.path]):
     print("Running on Grid'5000 notebooks, applying workaround for https://intranet.grid5000.fr/bugzilla/show_bug.cgi?id=13606")
     print("Before:", sys.path)
     sys.path.insert(1, os.environ['HOME'] + '/.local/lib/python3.9/site-packages')
     print("After:", sys.path)
 
+# Make it work on nantes and grenoble
 import socket
 hostname = socket.gethostname()
 if hostname == "fnantes":
@@ -25,12 +24,11 @@ else:
     site = "nantes"
     cluster = "econome"
 
+# Get the cluster
 import enoslib as en
 
 en.init_logging()
-
 network = en.G5kNetworkConf(type="prod", roles=["my_network"], site=site)
-
 conf = (
     en.G5kConf.from_settings(job_type=[], walltime="01:50:00", job_name="cheops")
     .add_network_conf(network)
@@ -42,7 +40,6 @@ conf = (
     )
     .finalize()
 )
-
 provider = en.G5k(conf)
 rroles, networks = provider.init()
 en.sync_info(rroles, networks)
@@ -50,7 +47,7 @@ en.sync_info(rroles, networks)
 roles = rroles["cheops"]
 hosts = [r.alias for r in roles]
 
-
+# Ensure firewall allows sync
 with en.actions(roles=roles[:3]) as p:
     p.iptables(
             chain="INPUT",
@@ -67,18 +64,18 @@ with en.actions(roles=roles[:3]) as p:
     )
 
 
-
+# Build useful variables that will be reused
 import random, string
-
 locations_header = {'X-Cheops-Location': ', '.join([r.alias for r in roles[:3]])}
 id = ''.join(random.choice(string.ascii_lowercase) for i in range(10))
 
-
+# Apply a first command, as an "init"
 import requests
 r1 = requests.post(f"http://{hosts[0]}:8079/{id}", data='mkdir -p /tmp/foo; ls /tmp/foo', headers=locations_header)
 assert r1.status_code == 200
 
 
+# Deactivate sync (by blocking at firewall level), send 2 parallel, conflicting commands, and reactivate sync
 import json
 
 replies = [requests.get(f"http://{hosts[0]}:5984/cheops/{id}") for host in hosts]
@@ -125,7 +122,7 @@ with en.actions(roles=roles[:3]) as p:
     )
 
 
-
+# After sync is re-enabled, wait for changes to be synchronized
 import time
 def is_synchronized():
     for host in hosts:
@@ -145,6 +142,7 @@ while True:
     else:
         time.sleep(1)
 
+# Once content is synchronized, make sure it is actually the same
 replies = [requests.get(f"http://{hosts[0]}:5984/cheops/{id}") for host in hosts]
 for reply in replies:
     assert reply.status_code == 200
@@ -159,7 +157,7 @@ for u in units[1:]:
     assert u[1]['Generation'] == 2
     assert u[2]['Generation'] == 2
 
-
+# Make sure the replies are all ok
 for host in hosts[:3]:
     query = {"selector": {
         "Type": "REPLY",
