@@ -124,15 +124,20 @@ func (r *Replicator) ensureIndex() {
 // The output is a chan of each individual reply as they arrive. After a timeout or all replies are sent, the chan is closed
 func (r *Replicator) Do(ctx context.Context, sites []string, id string, request model.CrdtUnit) (replies chan model.ReplyDocument, err error) {
 
-	var repliesChan chan model.ReplyDocument
-	var cancel func()
+	repliesChan := make(chan model.ReplyDocument)
+	done := func() {
+		close(repliesChan)
+	}
 
 	if len(request.Body) > 0 {
 		// Prepare replies gathering before running the request
 		// It's all asynchronous
-		repliesChan = make(chan model.ReplyDocument)
 		var repliesCtx context.Context
-		repliesCtx, cancel = context.WithCancel(ctx)
+		repliesCtx, cancel := context.WithCancel(ctx)
+		done = func() {
+			cancel()
+			close(repliesChan)
+		}
 		r.watchReplies(repliesCtx, request.RequestId, repliesChan)
 	}
 
@@ -258,8 +263,7 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 
 	go func() {
 		defer func() {
-			cancel()
-			close(repliesChan)
+			done()
 			close(ret)
 		}()
 
