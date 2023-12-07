@@ -256,6 +256,8 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 
 	ret := make(chan model.ReplyDocument)
 
+	log.Printf("Expected: %v\n", expected)
+
 	go func() {
 		defer func() {
 			cancel()
@@ -266,13 +268,16 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 		for i := 0; i < expected; i++ {
 			select {
 			case <-ctx.Done():
+				log.Printf("Close done")
 				if err := ctx.Err(); err != nil {
 					log.Printf("Error with runing %s: %s\n", request.RequestId, err)
 					return
 				}
 			case reply := <-repliesChan:
+				log.Printf("got 1")
 				ret <- reply
 			case <-time.After(20 * time.Second):
+				log.Printf("timeout")
 				// timeout
 				//
 				// Because there are multiple cases, let's leave it like that,
@@ -325,14 +330,17 @@ func (r *Replicator) watchReplies(ctx context.Context, requestId string, replies
 			return
 		}
 
+		log.Printf("got reply for %v\n", requestId)
 		if d.RequestId != requestId {
 			return
 		}
 
 		select {
 		case <-ctx.Done():
+			log.Println("replies done")
 			return
 		default:
+			log.Println("default")
 			repliesChan <- d
 		}
 	})
