@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# This tests
+# This test
 # - creates a resource
 # - lets it be synchronized
 # - blocks synchronization
@@ -12,29 +12,8 @@
 import sys
 import os
 import enoslib as en
-import time
 
-def wait_synchronization():
-    def is_synchronized():
-        for host in hosts:
-            changes = requests.get(f"http://{host}:5984/cheops/_changes")
-            current = changes.json()['last_seq']
-
-            sched = requests.get(f"http://{host}:5984/_scheduler/docs", auth=("admin", "password"))
-            for doc in sched.json()['docs']:
-                if 'info' not in doc or 'source_seq' not in doc['info']:
-                    # Replication is just installed but not started yet, so we wait a bit more
-                    return False
-                synchronized = doc['info']['source_seq']
-                if synchronized != current:
-                    return False
-        return True
-
-    while True:
-        if is_synchronized():
-            break
-        else:
-            time.sleep(1)
+import synchronization
 
 # Hack
 if any(['g5k-jupyterlab' in path for path in sys.path]):
@@ -106,7 +85,7 @@ id = ''.join(random.choice(string.ascii_lowercase) for i in range(10))
 import requests
 r1 = requests.post(f"http://{hosts[0]}:8079/{id}", data='mkdir -p /tmp/foo; ls /tmp/foo', headers=locations_header)
 assert r1.status_code == 200
-wait_synchronization()
+synchronization.wait(hosts)
 
 replies = [requests.get(f"http://{host}:5984/cheops/{id}") for host in hosts[:3]]
 for reply in replies:
@@ -132,6 +111,7 @@ with en.actions(roles=roles_for_hosts) as p:
     )
 
 # Wait for blocking to be in place
+import time
 time.sleep(3)
 
 r = requests.post(f"http://{hosts[0]}:8079/{id}", data='echo left > /tmp/foo/content', headers=locations_header)
@@ -157,7 +137,7 @@ with en.actions(roles=roles_for_hosts) as p:
 
 
 # After sync is re-enabled, wait for changes to be synchronized
-wait_synchronization()
+synchronization.wait(hosts)
 
 # Once content is synchronized, make sure it is actually the same
 replies = [requests.get(f"http://{host}:5984/cheops/{id}") for host in hosts[:3]]

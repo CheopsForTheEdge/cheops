@@ -6,6 +6,7 @@
 import sys
 import os
 import enoslib as en
+import synchronization
 
 # Hack
 if any(['g5k-jupyterlab' in path for path in sys.path]):
@@ -81,25 +82,7 @@ assert r1.status_code == 200
 r2 = requests.post(f"http://{hosts[1]}:8079/{id2}", data='mkdir -p /tmp/foo; echo right > /tmp/foo/right', headers=locations_header_2)
 assert r2.status_code == 200
 
-# Wait for synchronization
-import time
-def is_synchronized():
-    for host in hosts:
-        changes = requests.get(f"http://{host}:5984/cheops/_changes")
-        current = changes.json()['last_seq']
-
-        sched = requests.get(f"http://{host}:5984/_scheduler/docs", auth=("admin", "password"))
-        for doc in sched.json()['docs']:
-            synchronized = doc['info']['source_seq']
-            if synchronized != current:
-                return False
-    return True
-
-while True:
-    if is_synchronized():
-        break
-    else:
-        time.sleep(1)
+synchronization.wait(hosts)
 
 # Check everything is there
 import json
