@@ -16,3 +16,4 @@ cheops.log
 .nfs*
 cli/cli
 explorer/explorer
+__pycache__
