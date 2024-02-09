@@ -1,0 +1,1 @@
+Watch -r goimports -w . '&&' gofmt -w . '&&' go test '&&' go build
