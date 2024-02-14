@@ -65,8 +65,8 @@ func (r *Replicator) ensureCouch() {
 			Body: `
 {
   "views": {
-    "by-location": {
-      "map": "function (doc) {\n  for (const location of doc.Locations) {\n    emit(location, null);\n  }\n}",
+    "resources-by-location": {
+      "map": "function (doc) {\n  if(doc.Type != 'RESOURCE') return;\n  for (const location of doc.Locations) {\n    emit(location, null);\n  }\n}",
       "reduce": "_count"
     }
   },
