@@ -105,7 +105,7 @@ for host in hosts[:3]:
 
 # Set the Locations to the second set
 locations_header_2 = {'X-Cheops-Location': ', '.join([h for h in hosts[1:]])}
-r = requests.post(f"http://{hosts[1]}:8079/{id}", data='', headers=locations_header_2)
+r = requests.post(f"http://{hosts[1]}:8079/{id}", data='echo migrated > /tmp/foo/content', headers=locations_header_2)
 assert r.status_code == 200
 
 synchronization.wait(hosts)
@@ -128,9 +128,9 @@ for host in hosts[1:]:
     assert r.status_code == 200
     resource = r.json()
     assert resource['Locations'] == hosts[1:]
-    assert len(resource['Units']) == 1
+    assert len(resource['Units']) == 2
 
-# Verify we have 1 reply for each host in the new set
+# Verify we have the 2 replies for the 2 units for each host in the new set
 for host in hosts[1:]:
     query = {
         "selector": {
@@ -142,7 +142,7 @@ for host in hosts[1:]:
     assert r.status_code == 200
 
     docs = r.json()['docs']
-    assert len(docs) == 1
+    assert len(docs) == 2
 
 # Verify we have the proper content everywhere we expect
 roles_for_hosts = [role for role in roles if role.alias in hosts[1:]]
@@ -153,3 +153,13 @@ with en.actions(roles=roles_for_hosts) as p:
 contents = [content.payload['stdout'] for content in results.filter(task="shell")]
 for content in contents[1:]:
     assert content == contents[0]
+
+# Verify we don't have the new content in the old locations
+with en.actions(roles=[role for role in roles if role not in roles_for_hosts]) as p:
+    p.shell("cat /tmp/foo/content")
+    results = p.results
+
+old_contents = [content.payload['stdout'] for content in results.filter(task="shell")]
+for old_content in old_contents:
+    assert old_content != contents[0]
+
