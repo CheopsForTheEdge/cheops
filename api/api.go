@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"cheops.com/env"
 	"cheops.com/model"
@@ -71,6 +72,7 @@ func Run(port int, repl *replicator.Replicator) {
 		req := model.CrdtUnit{
 			Body:      strings.TrimSpace(string(body)),
 			RequestId: base32.StdEncoding.EncodeToString(randBytes),
+			Time:      time.Now(),
 		}
 
 		replies, err := repl.Do(r.Context(), desiredSites, id, req)

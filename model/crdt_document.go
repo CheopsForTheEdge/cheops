@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"time"
 )
 
 type ResourceDocument struct {
@@ -58,6 +59,7 @@ type CrdtUnit struct {
 	Generation uint64
 	RequestId  string
 	Body       string
+	Time       time.Time
 }
 
 func ResolveConflicts(d ResourceDocument) (ResourceDocument, error) {
