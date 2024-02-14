@@ -68,6 +68,11 @@ func (r *Replicator) ensureCouch() {
     "resources-by-location": {
       "map": "function (doc) {\n  if(doc.Type != 'RESOURCE') return;\n  for (const location of doc.Locations) {\n    emit(location, null);\n  }\n}",
       "reduce": "_count"
+    },
+    "by-resource": {
+      "map": "function (doc) {\n  if(doc.Type != 'RESOURCE') return;\n  emit(null, null);\n}",
+      "reduce": "_count"
+
     }
   },
   "language": "javascript"
