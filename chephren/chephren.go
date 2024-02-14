@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"cheops.com/env"
 	"cheops.com/replicator"
@@ -15,19 +16,19 @@ import (
 func Run(port int, repl *replicator.Replicator) {
 
 	router := mux.NewRouter()
-	router.PathPrefix("/node").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		type nodeReply struct {
-			Name           string `json:"name"`
-			State          string `json:"state"`
-			ResourcesCount int    `json:"resourcesCount"`
-			Address        string `json:"address"`
-		}
-
+	router.HandleFunc("/node", func(w http.ResponseWriter, r *http.Request) {
 		count, err := repl.Count()
 		if err != nil {
 			log.Printf("Error with count: %v\n", err)
 			http.Error(w, "Internal error with counting", http.StatusInternalServerError)
 			return
+		}
+
+		type nodeReply struct {
+			Name           string `json:"name"`
+			State          string `json:"state"`
+			ResourcesCount int    `json:"resourcesCount"`
+			Address        string `json:"address"`
 		}
 
 		resp := nodeReply{
@@ -39,6 +40,35 @@ func Run(port int, repl *replicator.Replicator) {
 		json.NewEncoder(w).Encode(resp)
 
 	})
+
+	resourcesRouter := router.PathPrefix("/resources").Subrouter()
+	resourcesRouter.HandleFunc("", func(w http.ResponseWriter, r *http.Request) {
+		resources, err := repl.GetResources()
+		if err != nil {
+			log.Printf("Error with getResources: %v\n", err)
+			http.Error(w, "Internal error with getResources", http.StatusInternalServerError)
+			return
+		}
+
+		type resourceReply struct {
+			Id            string
+			Name          string
+			LastUpdate    time.Time
+			CommandsCount int
+		}
+
+		resp := make([]resourceReply, 0)
+		for _, resource := range resources {
+			rr := resourceReply{
+				Id:            resource.Id,
+				Name:          resource.Id,
+				LastUpdate:    resource.Units[len(resource.Units)-1].Time,
+				CommandsCount: len(resource.Units),
+			}
+			resp = append(resp, rr)
+		}
+		json.NewEncoder(w).Encode(resp)
+	}).Methods("GET")
 
 	err := http.ListenAndServe(":"+strconv.Itoa(port), router)
 	if err != nil && err != http.ErrServerClosed {

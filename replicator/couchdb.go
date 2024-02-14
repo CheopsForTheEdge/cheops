@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"cheops.com/model"
 )
 
 func (r *Replicator) postDocument(v interface{}) error {
@@ -47,4 +49,33 @@ func (r *Replicator) Count() (int, error) {
 		return 0, fmt.Errorf("Bad reply: %#v\n", resp)
 	}
 	return resp.Rows[0].Value, err
+}
+
+func (r *Replicator) GetResources() ([]model.ResourceDocument, error) {
+	byResourceResp, err := http.Get("http://admin:password@localhost:5984/cheops/_design/cheops/_view/by-resource?reduce=false&include_docs=true")
+	if err != nil {
+		return nil, fmt.Errorf("Error running by-resource view: %v\n", err)
+	}
+	if byResourceResp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("Error running by-resource view: status is %v\n", byResourceResp.Status)
+	}
+
+	type byResource struct {
+		Rows []struct {
+			Doc model.ResourceDocument `json:"doc"`
+		} `json:"rows"`
+	}
+
+	var resp byResource
+	err = json.NewDecoder(byResourceResp.Body).Decode(&resp)
+	if err != nil {
+		return nil, fmt.Errorf("Error running by-resource view: %v\n", err)
+	}
+
+	resources := make([]model.ResourceDocument, 0)
+	for _, row := range resp.Rows {
+		resources = append(resources, row.Doc)
+	}
+	return resources, err
+
 }
