@@ -1,1 +1,4 @@
 Watch -r goimports -w . '&&' gofmt -w . '&&' go test '&&' go build
+
+# cli
+./cli exec --config=config.json --local-logic=local --sites='s1&s2' --command='7z a {.}'

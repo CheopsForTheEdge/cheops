@@ -1,44 +1,103 @@
 // exec.go allows executing a command on a given resource and given locations
 //
 // Usage:
-// $ cli --id <resource-id> --locations "site1,site2" mkdir /tmp/foo
+// $ cli --cmd "kubectl create deployment {deployment.yml}" --sites "S1&S2" --local-logic ll.cue --config config.json
 
 package main
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"math/rand"
+	"io"
+	"io/fs"
+	"log"
+	"mime/multipart"
 	"net/http"
+	"net/textproto"
+	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/alecthomas/kong"
 )
 
+var siteRE = regexp.MustCompile("[^&,]+")
+var cmdWithFilesRE = regexp.MustCompile("{([^}]+)}")
+
 type ExecCmd struct {
-	Id        string   `help:"Id of resource, must not be empty" required:""`
-	Locations []string `help:"Locations of resource" optional:""`
-	Command   string   `arg:""`
+	Command    string `help:"Command to run" required:"" short:""`
+	Sites      string `help:"sites to deploy to" required:""`
+	LocalLogic string `help:"Local logic file" required:""`
+	Config     string `help:"config file" required:""`
 }
 
 func (e *ExecCmd) Run(ctx *kong.Context) error {
-	// TODO cache id -> host to reuse it
-	var host string
-	if len(e.Locations) > 0 {
-		host = e.Locations[rand.Intn(len(e.Locations))]
-	}
+	host := siteRE.FindString(e.Sites)
 
 	if host == "" {
 		return fmt.Errorf("No host to send request to")
 	}
 
-	url := fmt.Sprintf("http://%s:8079/%s", host, e.Id)
+	for _, file := range []string{e.Config, e.LocalLogic} {
+		fi, err := os.Stat(file)
+		if err != nil {
+			return fmt.Errorf("Invalid config or local logic file %s: %v\n", file, err)
+		}
+		if !fi.Mode().IsRegular() {
+			return fmt.Errorf("Invalid config or local logic file %s: file mode is %v\n", file, fi.Mode())
+		}
+	}
+
+	matches := cmdWithFilesRE.FindAllStringSubmatch(e.Command, -1)
+	targetFiles := make([]string, 0)
+	for _, match := range matches {
+		if len(match) >= 1 {
+			_, err := os.Stat(match[1])
+			if err != nil {
+				return fmt.Errorf("Invalid referenced file %s: %v\n", match[1], err)
+			}
+			targetFiles = append(targetFiles, match[1])
+		}
+	}
+
+	var b bytes.Buffer
+	mw := multipart.NewWriter(&b)
+	err := mw.WriteField("sites", e.Sites)
+	if err != nil {
+		log.Fatalf("Error with sites: %v\n", err)
+	}
+	writeFile(mw, "local-logic", e.LocalLogic)
+	writeFile(mw, "config.json", e.Config)
+
+	seenFiles := make(map[string]struct{})
+	for _, file := range targetFiles {
+		name := file
+		if _, ok := seenFiles[file]; ok {
+			name = name + ".1"
+		}
+		writeFileOrDir(mw, name, file)
+	}
+
+	err = mw.Close()
+	if err != nil {
+		log.Fatalf("Error with form: %v\n", err)
+	}
+
+	boundary := mw.Boundary()
+	fmt.Println(boundary)
+
+	io.Copy(os.Stderr, &b)
+	return nil
+
+	url := fmt.Sprintf("http://%s:8079", host)
 	req, err := http.NewRequest("POST", url, strings.NewReader(e.Command))
 	if err != nil {
 		return fmt.Errorf("Error building request: %v\n", err)
 	}
-	req.Header.Set("X-Cheops-Location", strings.Join(e.Locations, ","))
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("Couldn't run request: %v\n", err)
@@ -60,4 +119,95 @@ func (e *ExecCmd) Run(ctx *kong.Context) error {
 		fmt.Printf("%s\t%s\n", r.Site, r.Status)
 	}
 	return sc.Err()
+}
+
+func writeFileOrDir(mw *multipart.Writer, filename, path string) {
+	stat, err := os.Stat(path)
+	if err != nil {
+		log.Fatalf("Error with %s: %v\n", filename, err)
+	}
+	if stat.Mode().IsRegular() {
+		writeFile(mw, filename, path)
+	} else {
+		writeDir(mw, filename, path)
+	}
+}
+
+func writeFile(mw *multipart.Writer, filename, path string) {
+	fw, err := mw.CreateFormFile(filename, filename)
+	if err != nil {
+		log.Fatalf("Error with %s: %v\n", filename, err)
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		log.Fatalf("Error with %s: %v\n", filename, err)
+	}
+	fi, err := f.Stat()
+	if err != nil {
+		log.Fatalf("Error with %s: %v\n", filename, err)
+	}
+	if !fi.Mode().IsRegular() {
+		log.Fatalf("Error with %s: %v\n", filename, err)
+	}
+
+	defer f.Close()
+	_, err = io.Copy(fw, f)
+	if err != nil {
+		log.Fatalf("Error with %s: %v\n", filename, err)
+	}
+}
+
+func writeDir(mw *multipart.Writer, filename, path string) {
+	var b bytes.Buffer
+	mixedw := multipart.NewWriter(&b)
+	defer mixedw.Close()
+
+	err := filepath.WalkDir(path, func(name string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		if !info.Mode().IsRegular() {
+			return errors.New("zip: cannot add non-regular file")
+		}
+
+		h := make(textproto.MIMEHeader)
+		h.Set("Content-Disposition", fmt.Sprintf(`attachment; name="%s"`, filename))
+		h.Set("Content-Type", "application/octetstream")
+		ffw, err := mixedw.CreatePart(h)
+		if err != nil {
+			log.Fatalf("Error with %s: %v\n", filename, err)
+		}
+		f, err := os.Open(name)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		_, err = io.Copy(ffw, f)
+		return err
+	})
+	if err != nil {
+		log.Fatalf("Error with %s: %v\n", path, err)
+	}
+
+	h := make(textproto.MIMEHeader)
+	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"`, filename))
+	h.Set("Content-Type", "multipart/mixed")
+	h.Set("Boundary", mixedw.Boundary())
+	fw, err := mw.CreatePart(h)
+	if err != nil {
+		log.Fatalf("Error with %s: %v\n", filename, err)
+	}
+
+	_, err = io.Copy(fw, &b)
+	if err != nil {
+		log.Fatalf("Error with %s: %v\n", path, err)
+	}
+
 }
