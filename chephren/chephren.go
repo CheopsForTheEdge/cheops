@@ -17,7 +17,7 @@ import (
 
 func Run(port int, repl *replicator.Replicator) {
 
-	router := mux.NewRouter()
+	router := mux.NewRouter().SkipClean(true)
 	corsMiddleware := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			u, err := url.Parse(r.Header.Get("Origin"))
@@ -30,7 +30,7 @@ func Run(port int, repl *replicator.Replicator) {
 	}
 	router.Use(corsMiddleware)
 
-	apiRouter := router.PathPrefix("/api").Subrouter()
+	apiRouter := router.PathPrefix("//api").Subrouter()
 	apiRouter.HandleFunc("/node", func(w http.ResponseWriter, r *http.Request) {
 		count, err := repl.Count()
 		if err != nil {
