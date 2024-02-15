@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"cheops.com/env"
@@ -16,6 +18,18 @@ import (
 func Run(port int, repl *replicator.Replicator) {
 
 	router := mux.NewRouter()
+	corsMiddleware := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			u, err := url.Parse(r.Header.Get("Origin"))
+			if err == nil && strings.Contains(u.Host, ".grid5000.fr") {
+				w.Header().Set("Access-Control-Allow-Origin", u.String())
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+	router.Use(corsMiddleware)
+
 	apiRouter := router.PathPrefix("/api").Subrouter()
 	apiRouter.HandleFunc("/node", func(w http.ResponseWriter, r *http.Request) {
 		count, err := repl.Count()
