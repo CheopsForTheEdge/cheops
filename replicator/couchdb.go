@@ -45,6 +45,9 @@ func (r *Replicator) Count() (int, error) {
 
 	var resp byResource
 	err = json.NewDecoder(byResourceResp.Body).Decode(&resp)
+	if len(resp.Rows) == 0 {
+		return 0, nil
+	}
 	if len(resp.Rows) != 1 {
 		return 0, fmt.Errorf("Bad reply: %#v\n", resp)
 	}
