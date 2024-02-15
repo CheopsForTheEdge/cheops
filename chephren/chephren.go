@@ -66,10 +66,10 @@ func Run(port int, repl *replicator.Replicator) {
 		}
 
 		type resourceReply struct {
-			Id            string
-			Name          string
-			LastUpdate    time.Time
-			CommandsCount int
+			Id            string    `json:"id"`
+			Name          string    `json:"name"`
+			LastUpdate    time.Time `json:"lastUpdate"`
+			CommandsCount int       `json:"commandsCount"`
 		}
 
 		resp := make([]resourceReply, 0)
