@@ -56,8 +56,7 @@ func Run(port int, repl *replicator.Replicator) {
 
 	})
 
-	resourcesRouter := apiRouter.PathPrefix("/resources").Subrouter()
-	resourcesRouter.HandleFunc("", func(w http.ResponseWriter, r *http.Request) {
+	apiRouter.HandleFunc("/resources", func(w http.ResponseWriter, r *http.Request) {
 		resources, err := repl.GetResources()
 		if err != nil {
 			log.Printf("Error with getResources: %v\n", err)
@@ -85,7 +84,7 @@ func Run(port int, repl *replicator.Replicator) {
 		json.NewEncoder(w).Encode(resp)
 	}).Methods("GET")
 
-	resourcesRouter.HandleFunc("/{id}", func(w http.ResponseWriter, r *http.Request) {
+	apiRouter.HandleFunc("/resource/{id}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		id := vars["id"]
 		d, err := repl.Get(id)
@@ -121,7 +120,7 @@ func Run(port int, repl *replicator.Replicator) {
 		}
 
 		json.NewEncoder(w).Encode(resp)
-	})
+	}).Methods("GET")
 
 	err := http.ListenAndServe(":"+strconv.Itoa(port), router)
 	if err != nil && err != http.ErrServerClosed {
