@@ -9,6 +9,22 @@ import (
 	"cheops.com/model"
 )
 
+func (r *Replicator) Get(id string) (model.ResourceDocument, error) {
+	u := fmt.Sprintf("http://localhost:5984/cheops/%s", id)
+	resp, err := http.Get(u)
+	if err != nil {
+		return model.ResourceDocument{}, fmt.Errorf("Couldn't get %s: %v", id, err)
+	}
+	defer resp.Body.Close()
+
+	var d model.ResourceDocument
+	err = json.NewDecoder(resp.Body).Decode(&d)
+	if err != nil {
+		return model.ResourceDocument{}, fmt.Errorf("Couldn't get %s: %v", id, err)
+	}
+	return d, nil
+}
+
 func (r *Replicator) postDocument(v interface{}) error {
 	buf, err := json.Marshal(v)
 	if err != nil {

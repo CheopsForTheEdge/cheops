@@ -65,16 +65,16 @@ func Run(port int, repl *replicator.Replicator) {
 			return
 		}
 
-		type resourceReply struct {
+		type resourceSummaryReply struct {
 			Id            string    `json:"id"`
 			Name          string    `json:"name"`
 			LastUpdate    time.Time `json:"lastUpdate"`
 			CommandsCount int       `json:"commandsCount"`
 		}
 
-		resp := make([]resourceReply, 0)
+		resp := make([]resourceSummaryReply, 0)
 		for _, resource := range resources {
-			rr := resourceReply{
+			rr := resourceSummaryReply{
 				Id:            resource.Id,
 				Name:          resource.Id,
 				LastUpdate:    resource.Units[len(resource.Units)-1].Time,
@@ -84,6 +84,44 @@ func Run(port int, repl *replicator.Replicator) {
 		}
 		json.NewEncoder(w).Encode(resp)
 	}).Methods("GET")
+
+	resourcesRouter.HandleFunc("/{id}", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+		d, err := repl.Get(id)
+		if err != nil {
+			log.Printf("Error with getResource %s: %v\n", id, err)
+			http.Error(w, "Internal error with getResource", http.StatusInternalServerError)
+			return
+		}
+
+		type commandReply struct {
+			Value string    `json:"value"`
+			Date  time.Time `json:"date"`
+		}
+		type resourceReply struct {
+			Id         string         `json:"id"`
+			Name       string         `json:"name"`
+			LastUpdate time.Time      `json:"lastUpdate"`
+			Commands   []commandReply `json:"commands"`
+		}
+
+		commands := make([]commandReply, 0)
+		for _, unit := range d.Units {
+			commands = append(commands, commandReply{
+				Value: unit.Body,
+				Date:  unit.Time,
+			})
+		}
+		resp := resourceReply{
+			Id:         d.Id,
+			Name:       d.Id,
+			LastUpdate: d.Units[len(d.Units)-1].Time,
+			Commands:   commands,
+		}
+
+		json.NewEncoder(w).Encode(resp)
+	})
 
 	err := http.ListenAndServe(":"+strconv.Itoa(port), router)
 	if err != nil && err != http.ErrServerClosed {
