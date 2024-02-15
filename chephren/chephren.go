@@ -95,8 +95,8 @@ func Run(port int, repl *replicator.Replicator) {
 		}
 
 		type commandReply struct {
-			Value string    `json:"value"`
-			Date  time.Time `json:"date"`
+			Command string    `json:"command"`
+			Date    time.Time `json:"date"`
 		}
 		type resourceReply struct {
 			Id         string         `json:"id"`
@@ -108,8 +108,8 @@ func Run(port int, repl *replicator.Replicator) {
 		commands := make([]commandReply, 0)
 		for _, unit := range d.Units {
 			commands = append(commands, commandReply{
-				Value: unit.Body,
-				Date:  unit.Time,
+				Command: unit.Body,
+				Date:    unit.Time,
 			})
 		}
 		resp := resourceReply{
