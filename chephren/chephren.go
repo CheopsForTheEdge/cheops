@@ -16,7 +16,8 @@ import (
 func Run(port int, repl *replicator.Replicator) {
 
 	router := mux.NewRouter()
-	router.HandleFunc("/node", func(w http.ResponseWriter, r *http.Request) {
+	apiRouter := router.PathPrefix("/api").Subrouter()
+	apiRouter.HandleFunc("/node", func(w http.ResponseWriter, r *http.Request) {
 		count, err := repl.Count()
 		if err != nil {
 			log.Printf("Error with count: %v\n", err)
@@ -41,7 +42,7 @@ func Run(port int, repl *replicator.Replicator) {
 
 	})
 
-	resourcesRouter := router.PathPrefix("/resources").Subrouter()
+	resourcesRouter := apiRouter.PathPrefix("/resources").Subrouter()
 	resourcesRouter.HandleFunc("", func(w http.ResponseWriter, r *http.Request) {
 		resources, err := repl.GetResources()
 		if err != nil {
