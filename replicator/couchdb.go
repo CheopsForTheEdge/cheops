@@ -33,6 +33,8 @@ func (r *Replicator) Count() (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("Error running by-resource view: %v\n", err)
 	}
+	defer byResourceResp.Body.Close()
+
 	if byResourceResp.StatusCode != http.StatusOK {
 		return 0, fmt.Errorf("Error running by-resource view: status is %v\n", byResourceResp.Status)
 	}
@@ -59,6 +61,8 @@ func (r *Replicator) GetResources() ([]model.ResourceDocument, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Error running by-resource view: %v\n", err)
 	}
+	defer byResourceResp.Body.Close()
+
 	if byResourceResp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("Error running by-resource view: status is %v\n", byResourceResp.Status)
 	}
