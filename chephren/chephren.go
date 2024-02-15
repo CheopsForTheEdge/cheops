@@ -49,7 +49,7 @@ func Run(port int, repl *replicator.Replicator) {
 		resp := nodeReply{
 			Name:           env.Myfqdn,
 			Address:        fmt.Sprintf("http://%s:%d", env.Myfqdn, port),
-			State:          "UP",
+			State:          "ONLINE",
 			ResourcesCount: count,
 		}
 		json.NewEncoder(w).Encode(resp)
