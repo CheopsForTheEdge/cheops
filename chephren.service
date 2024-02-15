@@ -1,0 +1,12 @@
+[Unit]
+Description=chephren
+After=network-online.target
+Wants=cheops.service
+
+[Service]
+Restart=on-failure
+ExecStart=/usr/bin/python -m http.server
+WorkingDirectory=/tmp/cheops/chephren-ui
+
+[Install]
+WantedBy=multi-user.target

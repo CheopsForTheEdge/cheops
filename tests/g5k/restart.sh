@@ -15,10 +15,14 @@ curl -s -X PUT http://admin:password@localhost:5984/_replicator > /dev/null
 
 echo "MYFQDN=$(uname -n)" > runenv
 
-cp cheops.service /lib/systemd/system
-systemctl daemon-reload
-systemctl enable cheops
-systemctl restart cheops
+for service in cheops chephren
+do
+
+				cp $service.service /lib/systemd/system
+				systemctl daemon-reload
+				systemctl enable $service
+				systemctl restart $service
+done
 
 status=$(systemctl show cheops | grep ExecMainStatus | cut -d '=' -f 2)
 if [ "$status" != "0" ]; then
