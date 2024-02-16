@@ -1,4 +1,7 @@
 Watch -r goimports -w . '&&' gofmt -w . '&&' go test '&&' go build
 
 # cli
-./cli exec --config=config.json --local-logic=local --sites='s1&s2' --command='7z a {.}'
+./cli exec --command='mkdir foo && cat {/etc/hostname} > foo/hostname' --sites='localhost&other' --local-logic=local --config=config.json
+
+# server
+MYFQDN=localhost ./cheops.com
