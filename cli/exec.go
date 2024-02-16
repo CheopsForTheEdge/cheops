@@ -1,7 +1,10 @@
 // exec.go allows executing a command on a given resource and given locations
 //
 // Usage:
-// $ cli --cmd "kubectl create deployment {deployment.yml}" --sites "S1&S2" --local-logic ll.cue --config config.json
+// $ cli --command "kubectl create deployment {deployment.yml}" --sites "S1&S2" --local-logic ll.cue --config config.json
+//
+// In the command, any file wrapped with {} will be sent in the request (so that it can be used remotely).
+// The local-logic and config file must exist; they will also be sent.
 
 package main
 
@@ -52,18 +55,6 @@ func (e *ExecCmd) Run(ctx *kong.Context) error {
 		}
 	}
 
-	matches := cmdWithFilesRE.FindAllStringSubmatch(e.Command, -1)
-	targetFiles := make([]string, 0)
-	for _, match := range matches {
-		if len(match) >= 1 {
-			_, err := os.Stat(match[1])
-			if err != nil {
-				return fmt.Errorf("Invalid referenced file %s: %v\n", match[1], err)
-			}
-			targetFiles = append(targetFiles, match[1])
-		}
-	}
-
 	var b bytes.Buffer
 	mw := multipart.NewWriter(&b)
 	err := mw.WriteField("sites", e.Sites)
@@ -73,13 +64,40 @@ func (e *ExecCmd) Run(ctx *kong.Context) error {
 	writeFile(mw, "local-logic", e.LocalLogic)
 	writeFile(mw, "config.json", e.Config)
 
+	// Command management
+	// We replace every named file that will be local (such as {/etc/hostname}) with a base file
+	// ({hostname} in this example), and we add the file to the request form.
+	// We also add a suffix .i if the same name appears multiple times
+	replacements := make([][]string, 0)
+	matches := cmdWithFilesRE.FindAllStringSubmatch(e.Command, -1)
 	seenFiles := make(map[string]struct{})
-	for _, file := range targetFiles {
-		name := file
-		if _, ok := seenFiles[file]; ok {
-			name = name + ".1"
+	for _, match := range matches {
+		path := match[1]
+		_, err := os.Stat(path)
+		if err != nil {
+			return fmt.Errorf("Invalid referenced file %s: %v\n", path, err)
 		}
-		writeFileOrDir(mw, name, file)
+		basename := filepath.Base(path)
+		name := basename
+		i := 0
+		for {
+			if _, seen := seenFiles[name]; !seen {
+				break
+			}
+			i += 1
+			name = fmt.Sprintf("%s.%d", basename, i)
+		}
+		writeFileOrDir(mw, name, path)
+		replacements = append(replacements, []string{path, name})
+	}
+
+	command := e.Command
+	for _, replacement := range replacements {
+		command = strings.Replace(command, replacement[0], replacement[1], 1)
+	}
+	err = mw.WriteField("command", command)
+	if err != nil {
+		log.Fatalf("Error with command: %v\n", err)
 	}
 
 	err = mw.Close()
@@ -87,22 +105,21 @@ func (e *ExecCmd) Run(ctx *kong.Context) error {
 		log.Fatalf("Error with form: %v\n", err)
 	}
 
-	boundary := mw.Boundary()
-	fmt.Println(boundary)
-
-	io.Copy(os.Stderr, &b)
-	return nil
-
 	url := fmt.Sprintf("http://%s:8079", host)
-	req, err := http.NewRequest("POST", url, strings.NewReader(e.Command))
+	req, err := http.NewRequest("POST", url, &b)
 	if err != nil {
 		return fmt.Errorf("Error building request: %v\n", err)
 	}
+	req.Header.Set("Content-Type", fmt.Sprintf("multipart/form-data; boundary=%s", mw.Boundary()))
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("Couldn't run request: %v\n", err)
 	}
 	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusCreated {
+		return fmt.Errorf("Couldn't run request: %v\n", res.Status)
+	}
 
 	type reply struct {
 		Site   string

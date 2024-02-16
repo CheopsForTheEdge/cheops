@@ -5,7 +5,6 @@ import (
 	"encoding/base32"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"strconv"
@@ -15,37 +14,57 @@ import (
 	"cheops.com/env"
 	"cheops.com/model"
 	"cheops.com/replicator"
-	"github.com/gorilla/mux"
 )
 
 func Run(port int, repl *replicator.Replicator) {
-
-	router := mux.NewRouter()
-	router.PathPrefix("/{id}").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		vars := mux.Vars(r)
-		id := vars["id"]
-		if id == "" {
-			http.Error(w, "bad request: missing id", http.StatusBadRequest)
-			return
-		}
-
-		defer r.Body.Close()
-		body, err := ioutil.ReadAll(r.Body)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		err := r.ParseMultipartForm(1024 * 1024)
 		if err != nil {
+			log.Printf("Error parsing multipart form: %v\n", err)
 			http.Error(w, "bad request", http.StatusBadRequest)
 			return
 		}
 
-		err = r.ParseForm()
+		configFiles, ok := r.MultipartForm.File["config.json"]
+		if !ok || len(configFiles) != 1 {
+			log.Println("Missing config.json file")
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		configFile, err := configFiles[0].Open()
 		if err != nil {
+			log.Printf("Error with config.json file: %v\n", err)
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		defer configFile.Close()
+
+		var config model.ResourceConfig
+		err = json.NewDecoder(configFile).Decode(&config)
+		if err != nil {
+			log.Printf("Error with config.json file: %v\n", err)
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		id := config.Id
+		if id == "" {
+			log.Println("Missing id")
 			http.Error(w, "bad request", http.StatusBadRequest)
 			return
 		}
 
 		// The site where the user wants the resource to exist
+		sites, ok := r.MultipartForm.Value["sites"]
+		if !ok {
+			log.Println("Missing sites")
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+
 		desiredSites := make([]string, 0)
-		for _, group := range r.Header.Values("X-Cheops-Location") {
-			for _, val := range strings.Split(group, ",") {
+		for _, group := range sites {
+			for _, val := range strings.Split(group, "&") {
 				desiredSites = append(desiredSites, strings.TrimSpace(val))
 			}
 		}
@@ -69,11 +88,22 @@ func Run(port int, repl *replicator.Replicator) {
 			return
 		}
 
+		commands, ok := r.MultipartForm.Value["command"]
+		if !ok || len(commands) != 1 {
+			log.Println("Missing command")
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+
 		req := model.CrdtUnit{
-			Body:      strings.TrimSpace(string(body)),
+			Body:      strings.TrimSpace(string(commands[0])),
 			RequestId: base32.StdEncoding.EncodeToString(randBytes),
 			Time:      time.Now(),
 		}
+
+		log.Printf("id: %#v\n", id)
+		log.Printf("desiredSites: %#v\n", desiredSites)
+		log.Printf("req: %#v\n", req)
 
 		replies, err := repl.Do(r.Context(), desiredSites, id, req)
 		if err != nil {
@@ -94,7 +124,7 @@ func Run(port int, repl *replicator.Replicator) {
 			return
 		}
 
-		w.WriteHeader(http.StatusOK)
+		w.WriteHeader(http.StatusCreated)
 		w.Header().Set("Content-Type", "application/json")
 		for reply := range replies {
 			json.NewEncoder(w).Encode(reply)
@@ -105,7 +135,7 @@ func Run(port int, repl *replicator.Replicator) {
 
 	})
 
-	err := http.ListenAndServe(":"+strconv.Itoa(port), router)
+	err := http.ListenAndServe(":"+strconv.Itoa(port), mux)
 	if err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
 	}
