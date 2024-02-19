@@ -25,8 +25,6 @@ func Run(port int, repl *replicator.Replicator) {
 		if !ok {
 			return
 		}
-		log.Printf("id=%v command=[%v]\n", id, command)
-		log.Printf("files=%#v\n", files)
 		commands := []backends.ShellCommand{{
 			Command: string(command),
 			Files:   files,
