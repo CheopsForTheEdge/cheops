@@ -25,6 +25,8 @@ func Run(port int, repl *replicator.Replicator) {
 		if !ok {
 			return
 		}
+		log.Printf("id=%v command=[%v]\n", id, command)
+		log.Printf("files=%#v\n", files)
 		commands := []backends.ShellCommand{{
 			Command: string(command),
 			Files:   files,
@@ -42,8 +44,8 @@ func Run(port int, repl *replicator.Replicator) {
 
 		}
 
-		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
+		w.Header().Set("Content-Type", "application/json")
 
 		type reply struct {
 			Site   string
@@ -99,8 +101,8 @@ func Run(port int, repl *replicator.Replicator) {
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
+		w.Header().Set("Content-Type", "application/json")
 		for reply := range replies {
 			json.NewEncoder(w).Encode(reply)
 			if f, ok := w.(http.Flusher); ok {
@@ -117,7 +119,7 @@ func Run(port int, repl *replicator.Replicator) {
 }
 
 func parseRequest(w http.ResponseWriter, r *http.Request) (id, command string, config model.ResourceConfig, sites []string, files map[string][]byte, ok bool) {
-
+	ok = false
 	err := r.ParseMultipartForm(1024 * 1024)
 	if err != nil {
 		log.Printf("Error parsing multipart form: %v\n", err)
@@ -187,6 +189,12 @@ func parseRequest(w http.ResponseWriter, r *http.Request) (id, command string, c
 		return
 	}
 	command = strings.TrimSpace(commands[0])
+	if command == "" {
+		log.Println("Missing command")
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+
+	}
 
 	ok = true
 	return
