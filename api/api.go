@@ -5,6 +5,7 @@ import (
 	"encoding/base32"
 	"encoding/json"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"strconv"
@@ -197,6 +198,29 @@ func parseRequest(w http.ResponseWriter, r *http.Request) (id, command string, c
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 
+	}
+
+	files = make(map[string][]byte)
+	for name, requestFiles := range r.MultipartForm.File {
+		if name == "config.json" || name == "local-logic" {
+			continue
+		}
+		if len(requestFiles) != 1 {
+			log.Printf("Warning: not exactly one file for name=%s, got %d, taking 1st one only\n", name, len(files))
+		}
+		f, err := requestFiles[0].Open()
+		if err != nil {
+			log.Printf("Couldn't open %s: %v\n", name, err)
+			continue
+		}
+
+		content, err := ioutil.ReadAll(f)
+		f.Close()
+		if err != nil {
+			log.Printf("Couldn't open %s: %v\n", name, err)
+			continue
+		}
+		files[name] = content
 	}
 
 	ok = true
