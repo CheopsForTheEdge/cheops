@@ -11,7 +11,11 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"regexp"
+	"strings"
 )
+
+var cmdWithFilesRE = regexp.MustCompile("{([^}]+)}")
 
 // A Command is a command with the files it needs
 type ShellCommand struct {
@@ -41,9 +45,18 @@ func runWithStdin(ctx context.Context, cmd ShellCommand) (output string, err err
 		}
 	}
 
+	// replace all patterns
+
+	input := cmd.Command
+	matches := cmdWithFilesRE.FindAllStringSubmatch(cmd.Command, -1)
+	for _, match := range matches {
+		input = strings.Replace(input, match[0], match[1], 1)
+	}
+	log.Printf("Removed patterns from [%s] result: [%s]\n", cmd.Command, input)
+
 	execCommand := exec.CommandContext(ctx, "sh")
 	execCommand.Dir = dir
-	log.Printf("Running sh on %v\n", cmd.Command)
+	log.Printf("Running sh on %v\n", input)
 
 	stdin, err := execCommand.StdinPipe()
 	if err != nil {
@@ -53,17 +66,17 @@ func runWithStdin(ctx context.Context, cmd ShellCommand) (output string, err err
 
 	go func() {
 		defer stdin.Close()
-		io.WriteString(stdin, cmd.Command)
+		io.WriteString(stdin, input)
 	}()
 
 	out, err := execCommand.CombinedOutput()
 	if err != nil {
-		log.Printf("Couldn't run [%s]: %v\n", cmd.Command, err)
+		log.Printf("Couldn't run [%s]: %v\n", input, err)
 		return "", fmt.Errorf("internal error")
 	}
 	scanner := bufio.NewScanner(bytes.NewBuffer(out))
 	for scanner.Scan() {
-		log.Printf("[%s]: %s\n", cmd.Command, scanner.Text())
+		log.Printf("[%s]: %s\n", input, scanner.Text())
 	}
 
 	if execCommand.ProcessState != nil && !execCommand.ProcessState.Success() {
