@@ -134,7 +134,7 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 		close(repliesChan)
 	}
 
-	if len(request.Body) > 0 {
+	if len(request.Command.Command) > 0 {
 		// Prepare replies gathering before running the request
 		// It's all asynchronous
 		var repliesCtx context.Context
@@ -162,7 +162,7 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 	var currentRev string
 
 	if doc.StatusCode == http.StatusNotFound {
-		if len(request.Body) == 0 {
+		if len(request.Command.Command) == 0 {
 			return nil, ErrInvalidRequest("will not create a document with an empty body")
 		}
 
@@ -219,7 +219,7 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 	}
 
 	// Add our unit if needed
-	if len(request.Body) > 0 {
+	if len(request.Command.Command) > 0 {
 		request.Generation = uint64(len(d.Units) + 1)
 		d.Units = append(d.Units, request)
 		model.SortUnits(d.Units)
@@ -258,7 +258,7 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 	}
 
 	var expected int
-	if len(request.Body) > 0 {
+	if len(request.Command.Command) > 0 {
 		expected = len(d.Locations)
 	} else {
 		expected = len(newSites)
@@ -387,13 +387,13 @@ func (r *Replicator) run(ctx context.Context, d model.ResourceDocument) {
 		}
 
 	}
-	bodies := make([]string, 0)
+	commands := make([]backends.ShellCommand, 0)
 	for _, unit := range unitsToRun {
-		bodies = append(bodies, unit.Body)
-		log.Printf("will apply [%s]\n", unit.Body)
+		commands = append(commands, unit.Command)
+		log.Printf("will apply [%s]\n", unit.Command.Command)
 	}
 
-	replies, err := backends.Handle(ctx, bodies)
+	replies, err := backends.Handle(ctx, commands)
 
 	status := "OK"
 	if err != nil {
@@ -408,7 +408,7 @@ func (r *Replicator) run(ctx context.Context, d model.ResourceDocument) {
 			continue
 		}
 		cmd := model.Cmd{
-			Input:  bodies[i],
+			Input:  commands[i].Command,
 			Output: replies[i],
 		}
 

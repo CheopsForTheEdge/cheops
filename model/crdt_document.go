@@ -7,6 +7,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"cheops.com/backends"
 )
 
 type ResourceDocument struct {
@@ -58,7 +60,7 @@ type Cmd struct {
 type CrdtUnit struct {
 	Generation uint64
 	RequestId  string
-	Body       string
+	Command    backends.ShellCommand
 	Time       time.Time
 }
 

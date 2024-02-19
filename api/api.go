@@ -21,11 +21,15 @@ import (
 func Run(port int, repl *replicator.Replicator) {
 	m := mux.NewRouter()
 	m.HandleFunc("/direct", func(w http.ResponseWriter, r *http.Request) {
-		id, command, _, _, ok := parseRequest(w, r)
+		id, command, _, _, files, ok := parseRequest(w, r)
 		if !ok {
 			return
 		}
-		replies, err := backends.Handle(r.Context(), []string{string(command)})
+		commands := []backends.ShellCommand{{
+			Command: string(command),
+			Files:   files,
+		}}
+		replies, err := backends.Handle(r.Context(), commands)
 		status := "OK"
 		if err != nil {
 			status = "KO"
@@ -55,7 +59,7 @@ func Run(port int, repl *replicator.Replicator) {
 	})
 
 	m.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		id, command, _, sites, ok := parseRequest(w, r)
+		id, command, _, sites, files, ok := parseRequest(w, r)
 		if !ok {
 			return
 		}
@@ -66,8 +70,12 @@ func Run(port int, repl *replicator.Replicator) {
 			return
 		}
 
+		cmd := backends.ShellCommand{
+			Command: command,
+			Files:   files,
+		}
 		req := model.CrdtUnit{
-			Body:      command,
+			Command:   cmd,
 			RequestId: base32.StdEncoding.EncodeToString(randBytes),
 			Time:      time.Now(),
 		}
@@ -108,7 +116,7 @@ func Run(port int, repl *replicator.Replicator) {
 	}
 }
 
-func parseRequest(w http.ResponseWriter, r *http.Request) (id, command string, config model.ResourceConfig, sites []string, ok bool) {
+func parseRequest(w http.ResponseWriter, r *http.Request) (id, command string, config model.ResourceConfig, sites []string, files map[string][]byte, ok bool) {
 
 	err := r.ParseMultipartForm(1024 * 1024)
 	if err != nil {

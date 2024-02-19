@@ -108,7 +108,7 @@ func Run(port int, repl *replicator.Replicator) {
 		commands := make([]commandReply, 0)
 		for _, unit := range d.Units {
 			commands = append(commands, commandReply{
-				Command: unit.Body,
+				Command: unit.Command.Command,
 				Date:    unit.Time,
 			})
 		}
