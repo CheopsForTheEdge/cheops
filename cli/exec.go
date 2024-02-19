@@ -23,12 +23,15 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
+	"cheops.com/model"
 	"github.com/alecthomas/kong"
+	"golang.org/x/sync/errgroup"
 )
 
-var siteRE = regexp.MustCompile("[^&,]+")
+var sitesRE = regexp.MustCompile("[^&,]+")
 var cmdWithFilesRE = regexp.MustCompile("{([^}]+)}")
 
 type ExecCmd struct {
@@ -39,12 +42,6 @@ type ExecCmd struct {
 }
 
 func (e *ExecCmd) Run(ctx *kong.Context) error {
-	host := siteRE.FindString(e.Sites)
-
-	if host == "" {
-		return fmt.Errorf("No host to send request to")
-	}
-
 	for _, file := range []string{e.Config, e.LocalLogic} {
 		fi, err := os.Stat(file)
 		if err != nil {
@@ -105,20 +102,54 @@ func (e *ExecCmd) Run(ctx *kong.Context) error {
 		log.Fatalf("Error with form: %v\n", err)
 	}
 
-	url := fmt.Sprintf("http://%s:8079", host)
-	req, err := http.NewRequest("POST", url, &b)
+	// Determine if it is nosync or not
+	// This will change the endpoint and the sites to run to
+	f, err := os.Open(e.Config)
 	if err != nil {
-		return fmt.Errorf("Error building request: %v\n", err)
+		log.Fatalf("Error opening config: %v\n", err)
 	}
-	req.Header.Set("Content-Type", fmt.Sprintf("multipart/form-data; boundary=%s", mw.Boundary()))
+	defer f.Close()
+	var config model.ResourceConfig
+	err = json.NewDecoder(f).Decode(&config)
+	if err != nil {
+		log.Fatalf("Error opening config: %v\n", err)
+	}
+	if config.Mode == model.ModeNosync {
+		hosts := sitesRE.FindAllString(e.Sites, -1)
+		var g errgroup.Group
+		for _, host := range hosts {
+			host := host // necessary for goroutines
+			g.Go(func() error {
+				url := fmt.Sprintf("http://%s:8079/direct", host)
+				return doRequest(url, mw.Boundary(), b)
+			})
+		}
+		return g.Wait()
+	} else {
+		host := sitesRE.FindString(e.Sites)
+		if host == "" {
+			return fmt.Errorf("No host to send request to")
+		}
+		url := fmt.Sprintf("http://%s:8079", host)
+		return doRequest(url, mw.Boundary(), b)
+	}
+}
+
+func doRequest(url, boundary string, body bytes.Buffer) error {
+	req, err := http.NewRequest("POST", url, &body)
+	if err != nil {
+		return fmt.Errorf("Error building request for %s: %v\n", url, err)
+	}
+	req.Header.Set("Content-Length", strconv.Itoa(body.Len()))
+	req.Header.Set("Content-Type", fmt.Sprintf("multipart/form-data; boundary=%s", boundary))
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("Couldn't run request: %v\n", err)
+		return fmt.Errorf("Couldn't run request on %s: %v\n", url, err)
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusCreated {
-		return fmt.Errorf("Couldn't run request: %v\n", res.Status)
+		return fmt.Errorf("Couldn't run request on %s: %v\n", url, res.Status)
 	}
 
 	type reply struct {
@@ -133,9 +164,10 @@ func (e *ExecCmd) Run(ctx *kong.Context) error {
 			fmt.Println(err)
 			continue
 		}
-		fmt.Printf("%s\t%s\n", r.Site, r.Status)
+		fmt.Printf("%s %s\n", r.Status, r.Site)
 	}
 	return sc.Err()
+
 }
 
 func writeFileOrDir(mw *multipart.Writer, filename, path string) {

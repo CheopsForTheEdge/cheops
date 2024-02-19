@@ -18,5 +18,6 @@ require (
 	github.com/alecthomas/kong v0.8.1
 	github.com/anacrolix/fuse v0.2.0
 	github.com/gorilla/mux v1.8.0
+	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	golang.org/x/sys v0.8.0 // indirect
 )

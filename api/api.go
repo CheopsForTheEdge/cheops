@@ -11,75 +11,53 @@ import (
 	"strings"
 	"time"
 
+	"cheops.com/backends"
 	"cheops.com/env"
 	"cheops.com/model"
 	"cheops.com/replicator"
+	"github.com/gorilla/mux"
 )
 
 func Run(port int, repl *replicator.Replicator) {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		err := r.ParseMultipartForm(1024 * 1024)
-		if err != nil {
-			log.Printf("Error parsing multipart form: %v\n", err)
-			http.Error(w, "bad request", http.StatusBadRequest)
-			return
-		}
-
-		configFiles, ok := r.MultipartForm.File["config.json"]
-		if !ok || len(configFiles) != 1 {
-			log.Println("Missing config.json file")
-			http.Error(w, "bad request", http.StatusBadRequest)
-			return
-		}
-		configFile, err := configFiles[0].Open()
-		if err != nil {
-			log.Printf("Error with config.json file: %v\n", err)
-			http.Error(w, "bad request", http.StatusBadRequest)
-			return
-		}
-		defer configFile.Close()
-
-		var config model.ResourceConfig
-		err = json.NewDecoder(configFile).Decode(&config)
-		if err != nil {
-			log.Printf("Error with config.json file: %v\n", err)
-			http.Error(w, "bad request", http.StatusBadRequest)
-			return
-		}
-		id := config.Id
-		if id == "" {
-			log.Println("Missing id")
-			http.Error(w, "bad request", http.StatusBadRequest)
-			return
-		}
-
-		// The site where the user wants the resource to exist
-		sites, ok := r.MultipartForm.Value["sites"]
+	m := mux.NewRouter()
+	m.HandleFunc("/direct", func(w http.ResponseWriter, r *http.Request) {
+		id, command, _, _, ok := parseRequest(w, r)
 		if !ok {
-			log.Println("Missing sites")
-			http.Error(w, "bad request", http.StatusBadRequest)
 			return
 		}
-
-		desiredSites := make([]string, 0)
-		for _, group := range sites {
-			for _, val := range strings.Split(group, "&") {
-				desiredSites = append(desiredSites, strings.TrimSpace(val))
-			}
+		replies, err := backends.Handle(r.Context(), []string{string(command)})
+		status := "OK"
+		if err != nil {
+			status = "KO"
 		}
 
-		if len(desiredSites) > 0 {
-			forMe := false
-			for _, desiredSite := range desiredSites {
-				if desiredSite == env.Myfqdn {
-					forMe = true
-				}
-			}
-			if !forMe {
-				http.Error(w, "Site is not in locations", http.StatusBadRequest)
-				return
-			}
+		if len(replies) != 1 {
+			log.Printf("Error running command id=%v command=[%s]: invalid number of replies, got %d\n", id, command, len(replies))
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+
+		type reply struct {
+			Site   string
+			Status string
+		}
+		json.NewEncoder(w).Encode(reply{
+			Site:   env.Myfqdn,
+			Status: status,
+		})
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
+	})
+
+	m.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		id, command, _, sites, ok := parseRequest(w, r)
+		if !ok {
+			return
 		}
 
 		randBytes, err := io.ReadAll(&io.LimitedReader{R: rand.Reader, N: 64})
@@ -88,24 +66,13 @@ func Run(port int, repl *replicator.Replicator) {
 			return
 		}
 
-		commands, ok := r.MultipartForm.Value["command"]
-		if !ok || len(commands) != 1 {
-			log.Println("Missing command")
-			http.Error(w, "bad request", http.StatusBadRequest)
-			return
-		}
-
 		req := model.CrdtUnit{
-			Body:      strings.TrimSpace(string(commands[0])),
+			Body:      command,
 			RequestId: base32.StdEncoding.EncodeToString(randBytes),
 			Time:      time.Now(),
 		}
 
-		log.Printf("id: %#v\n", id)
-		log.Printf("desiredSites: %#v\n", desiredSites)
-		log.Printf("req: %#v\n", req)
-
-		replies, err := repl.Do(r.Context(), desiredSites, id, req)
+		replies, err := repl.Do(r.Context(), sites, id, req)
 		if err != nil {
 			if err == replicator.ErrDoesNotExist {
 				log.Printf("resource [%s] does not exist on this site\n", id)
@@ -124,8 +91,8 @@ func Run(port int, repl *replicator.Replicator) {
 			return
 		}
 
-		w.WriteHeader(http.StatusCreated)
 		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
 		for reply := range replies {
 			json.NewEncoder(w).Encode(reply)
 			if f, ok := w.(http.Flusher); ok {
@@ -135,8 +102,84 @@ func Run(port int, repl *replicator.Replicator) {
 
 	})
 
-	err := http.ListenAndServe(":"+strconv.Itoa(port), mux)
+	err := http.ListenAndServe(":"+strconv.Itoa(port), m)
 	if err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
 	}
+}
+
+func parseRequest(w http.ResponseWriter, r *http.Request) (id, command string, config model.ResourceConfig, sites []string, ok bool) {
+
+	err := r.ParseMultipartForm(1024 * 1024)
+	if err != nil {
+		log.Printf("Error parsing multipart form: %v\n", err)
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	configFiles, ok := r.MultipartForm.File["config.json"]
+	if !ok || len(configFiles) != 1 {
+		log.Println("Missing config.json file")
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	configFile, err := configFiles[0].Open()
+	if err != nil {
+		log.Printf("Error with config.json file: %v\n", err)
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	defer configFile.Close()
+
+	err = json.NewDecoder(configFile).Decode(&config)
+	if err != nil {
+		log.Printf("Error with config.json file: %v\n", err)
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	id = config.Id
+	if id == "" {
+		log.Println("Missing id")
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	// The site where the user wants the resource to exist
+	sitesString, ok := r.MultipartForm.Value["sites"]
+	if !ok {
+		log.Println("Missing sites")
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	sites = make([]string, 0)
+	for _, group := range sitesString {
+		for _, val := range strings.Split(group, "&") {
+			sites = append(sites, strings.TrimSpace(val))
+		}
+	}
+
+	if len(sites) > 0 {
+		forMe := false
+		for _, desiredSite := range sites {
+			if desiredSite == env.Myfqdn {
+				forMe = true
+			}
+		}
+		if !forMe {
+			http.Error(w, "Site is not in locations", http.StatusBadRequest)
+			return
+		}
+	}
+
+	commands, ok := r.MultipartForm.Value["command"]
+	if !ok || len(commands) != 1 {
+		log.Println("Missing command")
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	command = strings.TrimSpace(commands[0])
+
+	ok = true
+	return
 }
