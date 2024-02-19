@@ -53,13 +53,16 @@ func (e *ExecCmd) Run(ctx *kong.Context) error {
 	}
 
 	var b bytes.Buffer
+	seenFiles := make(map[string]struct{})
 	mw := multipart.NewWriter(&b)
 	err := mw.WriteField("sites", e.Sites)
 	if err != nil {
 		log.Fatalf("Error with sites: %v\n", err)
 	}
 	writeFile(mw, "local-logic", e.LocalLogic)
+	seenFiles["local-logic"] = struct{}{}
 	writeFile(mw, "config.json", e.Config)
+	seenFiles["config.json"] = struct{}{}
 
 	// Command management
 	// We replace every named file that will be local (such as {/etc/hostname}) with a base file
@@ -67,7 +70,6 @@ func (e *ExecCmd) Run(ctx *kong.Context) error {
 	// We also add a suffix .i if the same name appears multiple times
 	replacements := make([][]string, 0)
 	matches := cmdWithFilesRE.FindAllStringSubmatch(e.Command, -1)
-	seenFiles := make(map[string]struct{})
 	for _, match := range matches {
 		path := match[1]
 		_, err := os.Stat(path)

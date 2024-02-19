@@ -119,7 +119,6 @@ func Run(port int, repl *replicator.Replicator) {
 }
 
 func parseRequest(w http.ResponseWriter, r *http.Request) (id, command string, config model.ResourceConfig, sites []string, files map[string][]byte, ok bool) {
-	ok = false
 	err := r.ParseMultipartForm(1024 * 1024)
 	if err != nil {
 		log.Printf("Error parsing multipart form: %v\n", err)
@@ -127,11 +126,17 @@ func parseRequest(w http.ResponseWriter, r *http.Request) (id, command string, c
 		return
 	}
 
-	configFiles, ok := r.MultipartForm.File["config.json"]
-	if !ok || len(configFiles) != 1 {
+	configFiles, okk := r.MultipartForm.File["config.json"]
+	if !okk {
 		log.Println("Missing config.json file")
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
+	}
+	if len(configFiles) != 1 {
+		log.Println("Invalid number of  config.json file")
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+
 	}
 	configFile, err := configFiles[0].Open()
 	if err != nil {
@@ -155,8 +160,8 @@ func parseRequest(w http.ResponseWriter, r *http.Request) (id, command string, c
 	}
 
 	// The site where the user wants the resource to exist
-	sitesString, ok := r.MultipartForm.Value["sites"]
-	if !ok {
+	sitesString, okk := r.MultipartForm.Value["sites"]
+	if !okk {
 		log.Println("Missing sites")
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
@@ -182,8 +187,8 @@ func parseRequest(w http.ResponseWriter, r *http.Request) (id, command string, c
 		}
 	}
 
-	commands, ok := r.MultipartForm.Value["command"]
-	if !ok || len(commands) != 1 {
+	commands, okk := r.MultipartForm.Value["command"]
+	if !okk || len(commands) != 1 {
 		log.Println("Missing command")
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
