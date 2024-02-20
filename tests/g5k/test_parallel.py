@@ -78,12 +78,15 @@ with en.actions(roles=roles_for_hosts) as p:
 
 # Build useful variables that will be reused
 import random, string
-locations_header = {'X-Cheops-Location': ', '.join(hosts[:3])}
 id = ''.join(random.choice(string.ascii_lowercase) for i in range(10))
+sites = '&'.join(hosts[:3])
 
 # Apply a first command, as an "init"
 import requests
-r1 = requests.post(f"http://{hosts[0]}:8079/{id}", data='mkdir -p /tmp/foo; ls /tmp/foo', headers=locations_header)
+r1 = requests.post(f"http://{hosts[0]}:8079/{id}", files={
+    'command': (None, 'mkdir -p /tmp/foo; ls /tmp/foo'),
+    'sites': (None, sites)
+})
 assert r1.status_code == 200
 synchronization.wait(hosts)
 
@@ -114,10 +117,16 @@ with en.actions(roles=roles_for_hosts) as p:
 import time
 time.sleep(3)
 
-r = requests.post(f"http://{hosts[0]}:8079/{id}", data='echo left > /tmp/foo/content', headers=locations_header)
+r = requests.post(f"http://{hosts[0]}:8079/{id}", files={
+    'command': (None, 'echo left > /tmp/foo/content'),
+    'sites': (None, sites)
+})
 assert r.status_code == 200
 
-r = requests.post(f"http://{hosts[1]}:8079/{id}", data='echo right > /tmp/foo/content', headers=locations_header)
+r = requests.post(f"http://{hosts[1]}:8079/{id}", files={
+    'command': (None, 'echo right > /tmp/foo/content'),
+    'sites': (None, sites)
+})
 assert r.status_code == 200
 
 with en.actions(roles=roles_for_hosts) as p:

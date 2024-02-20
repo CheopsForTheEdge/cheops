@@ -70,16 +70,20 @@ with en.actions(roles=roles[:3]) as p:
 
 # Build useful variables that will be reused
 import random, string
-locations_header_1 = {'X-Cheops-Location': ', '.join([h for h in hosts[:3]])}
-locations_header_2 = {'X-Cheops-Location': ', '.join([h for h in hosts[1:]])}
 id1 = ''.join(random.choice(string.ascii_lowercase) for i in range(10))
 id2 = ''.join(random.choice(string.ascii_lowercase) for i in range(10))
 
 # Apply 2 different commands on 2 different ids
 import requests
-r1 = requests.post(f"http://{hosts[0]}:8079/{id1}", data='mkdir -p /tmp/foo; echo left > /tmp/foo/left', headers=locations_header_1)
+r1 = requests.post(f"http://{hosts[0]}:8079/{id1}", files={
+    'command': (None, 'mkdir -p /tmp/foo; echo left > /tmp/foo/left'),
+    'sites': (None, '&'.join([h for h in hosts[:3]]))
+})
 assert r1.status_code == 200
-r2 = requests.post(f"http://{hosts[1]}:8079/{id2}", data='mkdir -p /tmp/foo; echo right > /tmp/foo/right', headers=locations_header_2)
+r2 = requests.post(f"http://{hosts[1]}:8079/{id2}", files={
+    'command': (None, 'mkdir -p /tmp/foo; echo right > /tmp/foo/right'),
+    'sites': (None, '&'.join([h for h in hosts[1:]]))
+})
 assert r2.status_code == 200
 
 synchronization.wait(hosts)
@@ -94,8 +98,8 @@ for host in hosts[:3]:
     resource = r.json()
     assert resource['Locations'] == hosts[:3]
     assert len(resource['Units']) == 1
-    assert 'left' in resource['Units'][0]['Body']
-    assert 'right' not in resource['Units'][0]['Body']
+    assert 'left' in resource['Units'][0]['Command']['Command']
+    assert 'right' not in resource['Units'][0]['Command']['Command']
 
     query = {
         "selector": {
@@ -119,8 +123,8 @@ for host in hosts[1:]:
     resource = r.json()
     assert resource['Locations'] == hosts[1:]
     assert len(resource['Units']) == 1
-    assert 'right' in resource['Units'][0]['Body']
-    assert 'left' not in resource['Units'][0]['Body']
+    assert 'right' in resource['Units'][0]['Command']['Command']
+    assert 'left' not in resource['Units'][0]['Command']['Command']
 
     query = {
         "selector": {

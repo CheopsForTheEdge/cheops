@@ -68,14 +68,16 @@ with en.actions(roles=roles[:3]) as p:
     )
 
 
-# Build useful variables that will be reused
 import random, string
-locations_header_1 = {'X-Cheops-Location': ', '.join([h for h in hosts[:3]])}
 id = ''.join(random.choice(string.ascii_lowercase) for i in range(10))
 
 # Create resource
 import requests
-r = requests.post(f"http://{hosts[0]}:8079/{id}", data='mkdir -p /tmp/foo; echo init > /tmp/foo/content', headers=locations_header_1)
+import json
+r = requests.post(f"http://{hosts[0]}:8079/{id}", files={
+    'command': (None, 'mkdir -p /tmp/foo; echo init > /tmp/foo/content'),
+    'sites': (None, '&'.join([h for h in hosts[:3]]))
+})
 assert r.status_code == 200
 
 synchronization.wait(hosts)
@@ -104,8 +106,10 @@ for host in hosts[:3]:
         assert doc['Locations'] == hosts[:3]
 
 # Set the Locations to the second set
-locations_header_2 = {'X-Cheops-Location': ', '.join([h for h in hosts[1:]])}
-r = requests.post(f"http://{hosts[1]}:8079/{id}", data='', headers=locations_header_2)
+r = requests.post(f"http://{hosts[1]}:8079/{id}", files=({
+    'command': (None, ''),
+    'sites': (None, '&'.join([h for h in hosts[1:]]))
+}))
 assert r.status_code == 200
 
 synchronization.wait(hosts)
