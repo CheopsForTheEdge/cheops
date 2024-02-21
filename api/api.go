@@ -65,6 +65,19 @@ func Run(port int, repl *replicator.Replicator) {
 			return
 		}
 
+		if len(sites) > 0 {
+			forMe := false
+			for _, desiredSite := range sites {
+				if desiredSite == env.Myfqdn {
+					forMe = true
+				}
+			}
+			if !forMe {
+				http.Error(w, "Site is not in locations", http.StatusBadRequest)
+				return
+			}
+		}
+
 		randBytes, err := io.ReadAll(&io.LimitedReader{R: rand.Reader, N: 64})
 		if err != nil {
 			http.Error(w, "internal error", http.StatusInternalServerError)
@@ -173,19 +186,6 @@ func parseRequest(w http.ResponseWriter, r *http.Request) (id, command string, c
 		}
 	}
 
-	if len(sites) > 0 {
-		forMe := false
-		for _, desiredSite := range sites {
-			if desiredSite == env.Myfqdn {
-				forMe = true
-			}
-		}
-		if !forMe {
-			http.Error(w, "Site is not in locations", http.StatusBadRequest)
-			return
-		}
-	}
-
 	commands, okk := r.MultipartForm.Value["command"]
 	if !okk || len(commands) != 1 {
 		log.Println("Missing command")
@@ -202,7 +202,7 @@ func parseRequest(w http.ResponseWriter, r *http.Request) (id, command string, c
 
 	files = make(map[string][]byte)
 	for name, requestFiles := range r.MultipartForm.File {
-		if name == "config.json" || name == "local-logic" {
+		if name == "config.json" {
 			continue
 		}
 		if len(requestFiles) != 1 {
