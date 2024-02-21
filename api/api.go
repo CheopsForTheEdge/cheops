@@ -135,12 +135,6 @@ func parseRequest(w http.ResponseWriter, r *http.Request) (id, command string, c
 		return
 	}
 	command = strings.TrimSpace(commands[0])
-	if command == "" {
-		log.Println("Missing command")
-		http.Error(w, "bad request", http.StatusBadRequest)
-		return
-
-	}
 
 	files = make(map[string][]byte)
 	for name, requestFiles := range r.MultipartForm.File {
