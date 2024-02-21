@@ -93,42 +93,17 @@ func Run(port int, repl *replicator.Replicator) {
 }
 
 func parseRequest(w http.ResponseWriter, r *http.Request) (id, command string, config model.ResourceConfig, sites []string, files map[string][]byte, ok bool) {
+	vars := mux.Vars(r)
+	id = vars["id"]
+	if id == "" {
+		log.Println("Missing id")
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
 	err := r.ParseMultipartForm(1024 * 1024)
 	if err != nil {
 		log.Printf("Error parsing multipart form: %v\n", err)
-		http.Error(w, "bad request", http.StatusBadRequest)
-		return
-	}
-
-	configFiles, okk := r.MultipartForm.File["config.json"]
-	if !okk {
-		log.Println("Missing config.json file")
-		http.Error(w, "bad request", http.StatusBadRequest)
-		return
-	}
-	if len(configFiles) != 1 {
-		log.Println("Invalid number of  config.json file")
-		http.Error(w, "bad request", http.StatusBadRequest)
-		return
-
-	}
-	configFile, err := configFiles[0].Open()
-	if err != nil {
-		log.Printf("Error with config.json file: %v\n", err)
-		http.Error(w, "bad request", http.StatusBadRequest)
-		return
-	}
-	defer configFile.Close()
-
-	err = json.NewDecoder(configFile).Decode(&config)
-	if err != nil {
-		log.Printf("Error with config.json file: %v\n", err)
-		http.Error(w, "bad request", http.StatusBadRequest)
-		return
-	}
-	id = config.Id
-	if id == "" {
-		log.Println("Missing id")
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
@@ -164,9 +139,6 @@ func parseRequest(w http.ResponseWriter, r *http.Request) (id, command string, c
 
 	files = make(map[string][]byte)
 	for name, requestFiles := range r.MultipartForm.File {
-		if name == "config.json" {
-			continue
-		}
 		if len(requestFiles) != 1 {
 			log.Printf("Warning: not exactly one file for name=%s, got %d, taking 1st one only\n", name, len(files))
 		}

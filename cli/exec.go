@@ -36,7 +36,7 @@ type ExecCmd struct {
 	Command    string `help:"Command to run" required:"" short:""`
 	Sites      string `help:"sites to deploy to" required:""`
 	LocalLogic string `help:"Local logic file"`
-	Config     string `help:"config file" required:""`
+	Config     string `help:"config file"`
 }
 
 func (e *ExecCmd) Run(ctx *kong.Context) error {
