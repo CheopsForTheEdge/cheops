@@ -26,9 +26,7 @@ import (
 	"strconv"
 	"strings"
 
-	"cheops.com/model"
 	"github.com/alecthomas/kong"
-	"golang.org/x/sync/errgroup"
 )
 
 var sitesRE = regexp.MustCompile("[^&,]+")
@@ -109,37 +107,13 @@ func (e *ExecCmd) Run(ctx *kong.Context) error {
 		log.Fatalf("Error with form: %v\n", err)
 	}
 
-	// Determine if it is nosync or not
-	// This will change the endpoint and the sites to run to
-	f, err := os.Open(e.Config)
-	if err != nil {
-		log.Fatalf("Error opening config: %v\n", err)
+	host := sitesRE.FindString(e.Sites)
+	if host == "" {
+		return fmt.Errorf("No host to send request to")
 	}
-	defer f.Close()
-	var config model.ResourceConfig
-	err = json.NewDecoder(f).Decode(&config)
-	if err != nil {
-		log.Fatalf("Error opening config: %v\n", err)
-	}
-	if config.Mode == model.ModeNosync {
-		hosts := sitesRE.FindAllString(e.Sites, -1)
-		var g errgroup.Group
-		for _, host := range hosts {
-			host := host // necessary for goroutines
-			g.Go(func() error {
-				url := fmt.Sprintf("http://%s:8079/direct", host)
-				return doRequest(url, mw.Boundary(), b)
-			})
-		}
-		return g.Wait()
-	} else {
-		host := sitesRE.FindString(e.Sites)
-		if host == "" {
-			return fmt.Errorf("No host to send request to")
-		}
-		url := fmt.Sprintf("http://%s:8079", host)
-		return doRequest(url, mw.Boundary(), b)
-	}
+	url := fmt.Sprintf("http://%s:8079", host)
+	return doRequest(url, mw.Boundary(), b)
+
 }
 
 func doRequest(url, boundary string, body bytes.Buffer) error {

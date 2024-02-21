@@ -21,44 +21,6 @@ import (
 
 func Run(port int, repl *replicator.Replicator) {
 	m := mux.NewRouter()
-	m.HandleFunc("/direct", func(w http.ResponseWriter, r *http.Request) {
-		id, command, _, _, files, ok := parseRequest(w, r)
-		if !ok {
-			return
-		}
-		commands := []backends.ShellCommand{{
-			Command: string(command),
-			Files:   files,
-		}}
-		replies, err := backends.Handle(r.Context(), commands)
-		status := "OK"
-		if err != nil {
-			status = "KO"
-		}
-
-		if len(replies) != 1 {
-			log.Printf("Error running command id=%v command=[%s]: invalid number of replies, got %d\n", id, command, len(replies))
-			http.Error(w, "internal error", http.StatusInternalServerError)
-			return
-
-		}
-
-		w.WriteHeader(http.StatusCreated)
-		w.Header().Set("Content-Type", "application/json")
-
-		type reply struct {
-			Site   string
-			Status string
-		}
-		json.NewEncoder(w).Encode(reply{
-			Site:   env.Myfqdn,
-			Status: status,
-		})
-		if f, ok := w.(http.Flusher); ok {
-			f.Flush()
-		}
-	})
-
 	m.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		id, command, _, sites, files, ok := parseRequest(w, r)
 		if !ok {
