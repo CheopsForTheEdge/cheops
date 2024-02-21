@@ -118,6 +118,18 @@ Cheops is designed in a P2P manner considering each resource as a black box:
    +-----------------+                               +-----------------+
 ```
 
+# Chephren
+
+Chephren is a project to build a nice web ui on top of Cheops. It is available here:
+
+    https://gitlab.imt-atlantique.fr/chephren/
+
+To use it, clone the chephren repo, run the build (`npm run build`) and copy the dist folder into the chephren-ui folder.
+
+A version is already there and will be updated as development advances
+
+-
+
 
 # Architecture
 
@@ -127,53 +139,17 @@ In more details:
 
 ```
 .
-├── api                # API package
-│   └── api.go         # Defines the router and routes
-├── broker
-│   ├── broker_receive.go
-│   ├── dep.json
-│   ├── deployment.json
-│   └── go.mod
-├── client
-│   ├── deployment.json
-│   └── server.go
-├── endpoint           # Endpoint package
-│   ├── endpoint.go    # Manage different endpoints (services, related to the application)
-│   └── site.go        # Manage different sites (cheops to cheops)
-├── replication        # Replication package
-│   └── replication.go # Replicants and replicas management
-├── request            # Request package
-│   └── request.go     # Get the request and transfer it to the driver
-├── glue
-│   ├── k8s            # Driver for Kubernetes
-│   │   ├── fetch.go   # Interpreter for the request
-│   │   └── go.mod
-│   └── openstack      # Driver for OpenStack
-│       ├── fetch.go   #
-│       └── go.mod     #
+├── api                	# Defines the routes for handling requests
+├── replicator        	# Replicator package responsible for syncing
+├── backends        	# Backends package responsible for executing requests
+├── model        		# The data model
+├── chephren			# Defines the routes for the ui
+├── chephren-ui			# The ui files
+├── cli        			# All the command-line interface
 ├── infos
 │   ├── Poster_Compas_2022.pdf
 │   └── Slides_OpenInfra_Summit_2022.pdf
-├── operation
-│   ├── operation.go
-│   └── replication.go
-├── request
-│   ├── request.go
-│   └── scope.go
-├── tests                 # Where are the tests
-│   ├── .gitignore        # Gitignore for the tests
-│   ├── README.md         # README for the tests
-│   ├── requirements.txt  # Requirements file for the tests (cf README)
-│   ├── testingAPI.yaml   # API tests
-│   ├── serviceA          # Mock service to test Cheops
-│   └── serviceB          # Mock service to test Cheops
-├── tutorials
-├── utils                 # Where are the tests
-│   ├── config.go
-│   ├── database.go
-│   ├── launch_db.sh
-│   └── utils.go
-├── .gitignore             # Specify which file to ignore in git versioning
+├── tests/g5k             		# infrastructure for testing on g5k, see tests/g5k/README.md
 ├── config.yml
 ├── dockerfile
 ├── go.mod
@@ -187,24 +163,15 @@ In more details:
 
 ## Functioning
 
-TODO: update
+When a request is made to an application through the CLI, cheops captures it
+and all the required resources and sends it to at least one of the involved
+nodes. Cheops manages the distribution of requests, either through CouchDB when
+requests need to be memorized and played later for eventual consistency, or
+directly by sending the requests to the involved nodes from the client.
 
-When a creation request is made to an application, [envoy] captures it and
-transfers
-it to Cheops. Cheops uses its list of drivers to check which one to use. The
-request is read by the driver, and the scope is extracted and sent to the
-module in charge of location interpretation.
-
-A replicant is created with a metaID and added to the database (for now, a
-KV store).
-In parallel, the request is separated in as many local requests as necessary
-and sent to the Cheops of involved sites, with the replicant to add in their
-database.
-
-Every Cheops involved sends the request back to the right service locally
-and adds the replicant to its database. When receiving the response, they
-add the local ID to the replicant and transfer the information to all
-involved Cheops again.
+Once requests are properly synchronized on all involved nodes, Cheops manages
+them to be in the same order. Depending on the type of requests they will be
+played either in the same order, or commutatively.
 
 ## How to contribute
 
