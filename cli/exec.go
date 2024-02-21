@@ -20,6 +20,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -35,6 +36,7 @@ var cmdWithFilesRE = regexp.MustCompile("{([^}]+)}")
 type ExecCmd struct {
 	Command    string `help:"Command to run" required:"" short:""`
 	Sites      string `help:"sites to deploy to" required:""`
+	Id         string `help:"id of the resource" required:""`
 	LocalLogic string `help:"Local logic file"`
 	Config     string `help:"config file"`
 }
@@ -50,17 +52,12 @@ func (e *ExecCmd) Run(ctx *kong.Context) error {
 		log.Fatalf("Error with sites: %v\n", err)
 	}
 
-	// Write config files
-	fi, err := os.Stat(e.Config)
-	if err != nil {
-		return fmt.Errorf("Invalid config file %s: %v\n", e.Config, err)
+	// Write resource files
+	_, err = os.Stat(e.Config)
+	if err == nil {
+		writeFile(mw, "config.json", e.Config)
+		seenFiles["local-logic"] = struct{}{}
 	}
-	if !fi.Mode().IsRegular() {
-		return fmt.Errorf("Invalid config %s: file mode is %v\n", e.Config, fi.Mode())
-	}
-	writeFile(mw, "config.json", e.Config)
-	seenFiles["config.json"] = struct{}{}
-
 	_, err = os.Stat(e.LocalLogic)
 	if err == nil {
 		writeFile(mw, "local-logic", e.LocalLogic)
@@ -111,8 +108,12 @@ func (e *ExecCmd) Run(ctx *kong.Context) error {
 	if host == "" {
 		return fmt.Errorf("No host to send request to")
 	}
-	url := fmt.Sprintf("http://%s:8079", host)
-	return doRequest(url, mw.Boundary(), b)
+	uu := fmt.Sprintf("http://%s:8079/%s", host, e.Id)
+	u, err := url.Parse(uu)
+	if err != nil {
+		log.Fatalf("Invalid parameters for host or id: %v\n", err)
+	}
+	return doRequest(u.String(), mw.Boundary(), b)
 
 }
 

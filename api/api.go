@@ -21,7 +21,7 @@ import (
 
 func Run(port int, repl *replicator.Replicator) {
 	m := mux.NewRouter()
-	m.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	m.HandleFunc("/{id}", func(w http.ResponseWriter, r *http.Request) {
 		id, command, _, sites, files, ok := parseRequest(w, r)
 		if !ok {
 			return
