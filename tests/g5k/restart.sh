@@ -33,9 +33,6 @@ else
 				echo "startup done"
 fi
 
-for bin in cli explorer
-do
-				cd $bin
-				/usr/lib/go-1.19/bin/go build -o /tmp/cheops/$bin/$bin
-				cd ..
-done
+cd cli
+/usr/lib/go-1.19/bin/go build -o /tmp/cheops/cli/cli
+cd ..
