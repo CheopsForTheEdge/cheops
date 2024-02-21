@@ -17,6 +17,8 @@ curl -s -X PUT http://admin:password@localhost:5984/_replicator > /dev/null
 
 echo "MYFQDN=$(uname -n)" > /tmp/cheops/runenv
 
+rsync -a --delete chephren-ui /tmp/cheops/
+
 for service in cheops chephren
 do
 				cp $service.service /lib/systemd/system
