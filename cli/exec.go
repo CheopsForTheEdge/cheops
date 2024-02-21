@@ -108,6 +108,9 @@ func (e *ExecCmd) Run(ctx *kong.Context) error {
 	if host == "" {
 		return fmt.Errorf("No host to send request to")
 	}
+	if e.Id != url.PathEscape(e.Id) {
+		return fmt.Errorf("id has url-unsafe characters, please choose something else")
+	}
 	uu := fmt.Sprintf("http://%s:8079/%s", host, e.Id)
 	u, err := url.Parse(uu)
 	if err != nil {

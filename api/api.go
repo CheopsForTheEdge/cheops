@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -97,6 +98,11 @@ func parseRequest(w http.ResponseWriter, r *http.Request) (id, command string, c
 	id = vars["id"]
 	if id == "" {
 		log.Println("Missing id")
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	if uid, err := url.PathUnescape(id); err != nil || uid != id {
+		log.Println("Unsafe id")
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
