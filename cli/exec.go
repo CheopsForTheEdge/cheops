@@ -136,6 +136,7 @@ func doRequest(url, boundary string, body bytes.Buffer) error {
 	type reply struct {
 		Site   string
 		Status string
+		Output string
 	}
 	sc := bufio.NewScanner(res.Body)
 	for sc.Scan() {
@@ -145,7 +146,7 @@ func doRequest(url, boundary string, body bytes.Buffer) error {
 			fmt.Println(err)
 			continue
 		}
-		fmt.Printf("%s %s\n", r.Status, r.Site)
+		fmt.Printf("%s %s\t%s\n", r.Status, r.Site, r.Output)
 	}
 	return sc.Err()
 
