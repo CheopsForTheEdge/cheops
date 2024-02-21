@@ -49,7 +49,7 @@ func (e *ExecCmd) Run(ctx *kong.Context) error {
 	// Write sites
 	err := mw.WriteField("sites", e.Sites)
 	if err != nil {
-		log.Fatalf("Error with sites: %v\n", err)
+		return fmt.Errorf("Error with sites: %v\n", err)
 	}
 
 	// Write resource files
@@ -96,12 +96,12 @@ func (e *ExecCmd) Run(ctx *kong.Context) error {
 	}
 	err = mw.WriteField("command", command)
 	if err != nil {
-		log.Fatalf("Error with command: %v\n", err)
+		return fmt.Errorf("Error with command: %v\n", err)
 	}
 
 	err = mw.Close()
 	if err != nil {
-		log.Fatalf("Error with form: %v\n", err)
+		return fmt.Errorf("Error with form: %v\n", err)
 	}
 
 	host := sitesRE.FindString(e.Sites)
@@ -111,7 +111,7 @@ func (e *ExecCmd) Run(ctx *kong.Context) error {
 	uu := fmt.Sprintf("http://%s:8079/%s", host, e.Id)
 	u, err := url.Parse(uu)
 	if err != nil {
-		log.Fatalf("Invalid parameters for host or id: %v\n", err)
+		return fmt.Errorf("Invalid parameters for host or id: %v\n", err)
 	}
 	return doRequest(u.String(), mw.Boundary(), b)
 
