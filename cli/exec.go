@@ -37,32 +37,37 @@ var cmdWithFilesRE = regexp.MustCompile("{([^}]+)}")
 type ExecCmd struct {
 	Command    string `help:"Command to run" required:"" short:""`
 	Sites      string `help:"sites to deploy to" required:""`
-	LocalLogic string `help:"Local logic file" required:""`
+	LocalLogic string `help:"Local logic file"`
 	Config     string `help:"config file" required:""`
 }
 
 func (e *ExecCmd) Run(ctx *kong.Context) error {
-	for _, file := range []string{e.Config, e.LocalLogic} {
-		fi, err := os.Stat(file)
-		if err != nil {
-			return fmt.Errorf("Invalid config or local logic file %s: %v\n", file, err)
-		}
-		if !fi.Mode().IsRegular() {
-			return fmt.Errorf("Invalid config or local logic file %s: file mode is %v\n", file, fi.Mode())
-		}
-	}
-
 	var b bytes.Buffer
 	seenFiles := make(map[string]struct{})
 	mw := multipart.NewWriter(&b)
+
+	// Write sites
 	err := mw.WriteField("sites", e.Sites)
 	if err != nil {
 		log.Fatalf("Error with sites: %v\n", err)
 	}
-	writeFile(mw, "local-logic", e.LocalLogic)
-	seenFiles["local-logic"] = struct{}{}
+
+	// Write config files
+	fi, err := os.Stat(e.Config)
+	if err != nil {
+		return fmt.Errorf("Invalid config file %s: %v\n", e.Config, err)
+	}
+	if !fi.Mode().IsRegular() {
+		return fmt.Errorf("Invalid config %s: file mode is %v\n", e.Config, fi.Mode())
+	}
 	writeFile(mw, "config.json", e.Config)
 	seenFiles["config.json"] = struct{}{}
+
+	_, err = os.Stat(e.LocalLogic)
+	if err == nil {
+		writeFile(mw, "local-logic", e.LocalLogic)
+		seenFiles["local-logic"] = struct{}{}
+	}
 
 	// Command management
 	// We replace every named file that will be local (such as {/etc/hostname}) with a base file
