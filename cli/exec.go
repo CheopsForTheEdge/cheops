@@ -133,7 +133,7 @@ func doRequest(url, boundary string, body bytes.Buffer) error {
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusCreated {
+	if res.StatusCode != http.StatusOK {
 		return fmt.Errorf("Couldn't run request on %s: %v\n", url, res.Status)
 	}
 

@@ -76,7 +76,6 @@ func Run(port int, repl *replicator.Replicator) {
 			return
 		}
 
-		w.WriteHeader(http.StatusCreated)
 		w.Header().Set("Content-Type", "application/json")
 		for reply := range replies {
 			json.NewEncoder(w).Encode(reply)
