@@ -31,7 +31,7 @@
 
 alldocs=$(mktemp)
 
-for node in $(env | grep _NODE_ | cut -d '=' -f 2)
+for node in $(cat ~/.oarnodes)
 do
 				bookmark=""
 				f=$(mktemp)
@@ -54,7 +54,7 @@ dir=$(mktemp -d)
 content=$(mktemp)
 cat $alldocs | while read id
 do
-				for node in $(env | grep _NODE_ | cut -d '=' -f 2)
+				for node in $(cat ~/.oarnodes)
 				do
 								curl -s $node:5984/cheops/$id | jq '.' > $content
 								cat $content | jq '.error' | grep -q "not_found" && continue
