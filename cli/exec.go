@@ -30,7 +30,6 @@ import (
 	"github.com/alecthomas/kong"
 )
 
-var sitesRE = regexp.MustCompile("[^&,]+")
 var cmdWithFilesRE = regexp.MustCompile("{([^}]+)}")
 
 type ExecCmd struct {
@@ -104,10 +103,8 @@ func (e *ExecCmd) Run(ctx *kong.Context) error {
 		return fmt.Errorf("Error with form: %v\n", err)
 	}
 
-	host := sitesRE.FindString(e.Sites)
-	if host == "" {
-		return fmt.Errorf("No host to send request to")
-	}
+	hosts := strings.Split(e.Sites, "&")
+	host := strings.TrimSpace(hosts[0])
 	if e.Id != url.PathEscape(e.Id) {
 		return fmt.Errorf("id has url-unsafe characters, please choose something else")
 	}
