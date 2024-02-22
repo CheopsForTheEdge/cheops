@@ -223,6 +223,8 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 		request.Generation = uint64(len(d.Units) + 1)
 		d.Units = append(d.Units, request)
 		model.SortUnits(d.Units)
+
+		log.Printf("New request: resourceId=%v generation=%v requestId=%v\n", d.Id, request.Generation, request.RequestId)
 	}
 
 	// Send the newly formatted document

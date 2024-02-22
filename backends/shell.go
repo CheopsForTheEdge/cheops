@@ -52,11 +52,9 @@ func runWithStdin(ctx context.Context, cmd ShellCommand) (output string, err err
 	for _, match := range matches {
 		input = strings.Replace(input, match[0], match[1], 1)
 	}
-	log.Printf("Removed patterns from [%s] result: [%s]\n", cmd.Command, input)
 
 	execCommand := exec.CommandContext(ctx, "sh")
 	execCommand.Dir = dir
-	log.Printf("Running sh on %v\n", input)
 
 	stdin, err := execCommand.StdinPipe()
 	if err != nil {
