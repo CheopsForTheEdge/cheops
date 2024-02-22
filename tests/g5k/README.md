@@ -14,6 +14,7 @@ After that any test can be run, through make, or individually. See the header of
 ├── dump_garbage.sh			# displays deleted resources
 ├── dump_replications.sh	# displays replication jobs (couchdb)
 ├── dump_resources.sh		# displays known resources grouped by node if similar
+├── example_use.sh		# shows how to use the cli
 ├── env.sh					# creates ~/.oarnodes and ~/.oarnodes.json (for chephren) with list of nodes
 ├── install.py				# g5k script to create nodes
 ├── Makefile				# to easily run everything
