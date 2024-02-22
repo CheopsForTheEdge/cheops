@@ -20,6 +20,32 @@ import (
 	"github.com/gorilla/mux"
 )
 
+// Run starts an endpoint on '/{id}' on the given port that will do the Cheops magic.
+//
+// The body must be a multipart/form-data with the following parts:
+//
+//		Content-Disposition: form-data; name="command"
+//
+//			Mandatory: the command to run. If the command needs the
+//			content of a local file, this file must be wrapped with {} and included as a file
+//			(see later)
+//
+//		Content-Disposition: form-data; name="sites"
+//
+//			Mandatory: the sites, separated with a '&'
+//
+//		Content-Disposition: form-data; name="sites"; filename="config.json"
+//
+//			If present, the resource logic
+//
+//		Content-Disposition: form-data; name="sites"; filename="local-logic"
+//
+//			If present, the local logic
+//
+//		Content-Disposition: form-data; name="sites"; filename="XXX"
+//
+//			If present, a file that is needed for the command to run
+
 func Run(port int, repl *replicator.Replicator) {
 	m := mux.NewRouter()
 	m.HandleFunc("/{id}", func(w http.ResponseWriter, r *http.Request) {
