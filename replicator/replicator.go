@@ -351,6 +351,11 @@ func (r *Replicator) watchReplies(ctx context.Context, requestId string, replies
 }
 
 func (r *Replicator) run(ctx context.Context, d model.ResourceDocument) {
+	if len(d.Units) == 0 {
+		log.Printf("WARN: Resource %v has been inserted with no units\n", d.Id)
+		return
+	}
+
 	docs, err := r.getRepliesForId(d.Id)
 	if err != nil {
 		log.Printf("Couldn't get docs for id: %v\n", err)
@@ -367,6 +372,29 @@ func (r *Replicator) run(ctx context.Context, d model.ResourceDocument) {
 	if err != nil {
 		log.Printf("Couldn't run commands for %s: %v\n", d.Id, err)
 		return
+	}
+
+	// Consistency model tells us that there is nothing to do
+	// We still send a fake reply, with the content of the last unit, for the caller to know
+	if len(unitsToRun) == 0 {
+		var reply model.ReplyDocument
+		for _, doc := range docs {
+			if doc.RequestId == reply.RequestId {
+				reply = doc
+			}
+		}
+		err = r.postDocument(model.ReplyDocument{
+			Locations:  d.Locations,
+			Site:       env.Myfqdn,
+			RequestId:  reply.RequestId,
+			ResourceId: d.Id,
+			Status:     reply.Status,
+			Cmd:        reply.Cmd,
+			Type:       "REPLY",
+		})
+		if err != nil {
+			log.Println(err)
+		}
 	}
 
 	commands := make([]backends.ShellCommand, 0)

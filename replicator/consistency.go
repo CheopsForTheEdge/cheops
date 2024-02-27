@@ -27,7 +27,6 @@ func findUnitsToRun(d model.ResourceDocument, existingReplies map[string]struct{
 	case model.OperationsTypeCommutativeIdempotent:
 		fallthrough
 	case model.OperationsTypeCommutative:
-
 		// Run everything that wasn't already run, even if it's earlier in the log
 		// It's ok because operations are commutative
 		for _, unit := range d.Units {
@@ -37,25 +36,13 @@ func findUnitsToRun(d model.ResourceDocument, existingReplies map[string]struct{
 			}
 			unitsToRun = append(unitsToRun, unit)
 		}
+
 	case model.OperationsTypeIdempotent:
-
-		// Run everything starting from the first command that's hasn't been run,
-		// and everything after. It's ok because operations are
-		// idempotent
-		var add bool
-		for _, unit := range d.Units {
-			_, alreadyDone := existingReplies[unit.RequestId]
-
-			// If the unit has already been run but we add everything, add it
-			if alreadyDone && add {
-				unitsToRun = append(unitsToRun, unit)
-
-				// If the unit has not been run yet, we add it and set to add everything
-			} else if !alreadyDone {
-				unitsToRun = append(unitsToRun, unit)
-				add = true
-			}
-
+		// Run the last one, only if it wasn't already ran
+		last := d.Units[len(d.Units)-1]
+		_, alreadyRan := existingReplies[last.RequestId]
+		if !alreadyRan {
+			unitsToRun = append(unitsToRun, last)
 		}
 
 	case model.OperationsTypeNothing:
