@@ -1,5 +1,10 @@
 package model
 
+import (
+	"encoding/json"
+	"log"
+)
+
 type Mode string
 
 const (
@@ -26,4 +31,19 @@ const (
 type ResourceConfig struct {
 	Id             string `json:"id"`
 	OperationsType OT
+}
+
+func ValidateConfig(b []byte) bool {
+	var config ResourceConfig
+	err := json.Unmarshal(b, &config)
+	if err != nil {
+		log.Printf("Invalid config file: %v", err)
+		return false
+	}
+
+	if config.OperationsType == "" {
+		return false
+	}
+
+	return true
 }

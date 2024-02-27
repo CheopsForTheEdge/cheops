@@ -179,6 +179,13 @@ func parseRequest(w http.ResponseWriter, r *http.Request) (id, command string, c
 			log.Printf("Couldn't open %s: %v\n", name, err)
 			continue
 		}
+
+		if name == "config.json" {
+			if !model.ValidateConfig(content) {
+				log.Printf("config.json file is invalid\n")
+				continue
+			}
+		}
 		files[name] = content
 	}
 
