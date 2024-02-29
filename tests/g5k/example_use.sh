@@ -9,10 +9,11 @@ host4=$(head -4 $hosts | tail -n 1)
 LOCATIONS_1="$host1 & $host2 & $host3"
 LOCATIONS_2="$host1 & $host2 & $host4"
 
-echo $LOCATIONS_1
+config=$(mktemp)
+echo "{\"OperationsType\": \"A\"}" > $config
 
-../../cli/cli exec --id left --sites "$LOCATIONS_1" --command 'mkdir -p /tmp/foo; touch /tmp/foo/left'
+../../cli/cli exec --id left --sites "$LOCATIONS_1" --command 'mkdir -p /tmp/foo; touch /tmp/foo/left' --config $config
 
 read -p "Continue ? "
 
-../../cli/cli exec --id right --sites "$LOCATIONS_2" --command 'mkdir -p /tmp/foo; touch /tmp/foo/right'
+../../cli/cli exec --id right --sites "$LOCATIONS_2" --command 'mkdir -p /tmp/foo; touch /tmp/foo/right' --config $config

@@ -85,7 +85,8 @@ sites = '&'.join(hosts[:3])
 import requests
 r1 = requests.post(f"http://{hosts[0]}:8079/{id}", files={
     'command': (None, 'mkdir -p /tmp/foo; ls /tmp/foo'),
-    'sites': (None, sites)
+    'sites': (None, sites),
+    'config.json': json.dumps({"OperationsType": "A"})
 })
 assert r1.status_code == 200
 synchronization.wait(hosts)
@@ -119,13 +120,15 @@ time.sleep(3)
 
 r = requests.post(f"http://{hosts[0]}:8079/{id}", files={
     'command': (None, 'echo left > /tmp/foo/content'),
-    'sites': (None, sites)
+    'sites': (None, sites),
+    'config.json': json.dumps({"OperationsType": "A"})
 })
 assert r.status_code == 200
 
 r = requests.post(f"http://{hosts[1]}:8079/{id}", files={
     'command': (None, 'echo right > /tmp/foo/content'),
-    'sites': (None, sites)
+    'sites': (None, sites),
+    'config.json': json.dumps({"OperationsType": "A"})
 })
 assert r.status_code == 200
 

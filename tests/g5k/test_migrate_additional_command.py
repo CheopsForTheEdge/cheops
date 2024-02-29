@@ -76,7 +76,8 @@ id = ''.join(random.choice(string.ascii_lowercase) for i in range(10))
 import requests
 r = requests.post(f"http://{hosts[0]}:8079/{id}", files={
     'command': (None, 'mkdir -p /tmp/foo; echo init > /tmp/foo/content'),
-    'sites': (None, '&'.join([h for h in hosts[:3]]))
+    'sites': (None, '&'.join([h for h in hosts[:3]])),
+    'config.json': json.dumps({"OperationsType": "A"})
 })
 assert r.status_code == 200
 
@@ -108,7 +109,8 @@ for host in hosts[:3]:
 # Set the Locations to the second set
 r = requests.post(f"http://{hosts[1]}:8079/{id}", files={
     'command': (None, 'echo migrated > /tmp/foo/content'),
-    'sites': (None, '&'.join([h for h in hosts[1:]]))
+    'sites': (None, '&'.join([h for h in hosts[1:]])),
+    'config.json': json.dumps({"OperationsType": "A"})
 })
 assert r.status_code == 200
 

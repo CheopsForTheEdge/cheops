@@ -77,12 +77,14 @@ id2 = ''.join(random.choice(string.ascii_lowercase) for i in range(10))
 import requests
 r1 = requests.post(f"http://{hosts[0]}:8079/{id1}", files={
     'command': (None, 'mkdir -p /tmp/foo; echo left > /tmp/foo/left'),
-    'sites': (None, '&'.join([h for h in hosts[:3]]))
+    'sites': (None, '&'.join([h for h in hosts[:3]])),
+    'config.json': json.dumps({"OperationsType": "A"})
 })
 assert r1.status_code == 200
 r2 = requests.post(f"http://{hosts[1]}:8079/{id2}", files={
     'command': (None, 'mkdir -p /tmp/foo; echo right > /tmp/foo/right'),
-    'sites': (None, '&'.join([h for h in hosts[1:]]))
+    'sites': (None, '&'.join([h for h in hosts[1:]])),
+    'config.json': json.dumps({"OperationsType": "A"})
 })
 assert r2.status_code == 200
 
