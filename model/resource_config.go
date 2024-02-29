@@ -29,7 +29,6 @@ const (
 )
 
 type ResourceConfig struct {
-	Id             string `json:"id"`
 	OperationsType OT
 }
 
