@@ -114,58 +114,59 @@ with en.actions(roles=roles["cheops"], gather_facts=True) as p:
     )
 
     # kubernetes
-    p.copy(
-        dest="/etc/modules-load.d/k8s.conf",
-        content="br_netfilter"
-    )
-    p.copy(
-        dest="/etc/sysctl.d/k8s.conf",
-        content="""
-        net.bridge.bridge-nf-call-ip6tables = 1
-        net.bridge.bridge-nf-call-iptables = 1
-        """
-    )
-    p.shell(
-        cmd="sysctl --system"
-    )
-    p.apt_key(
-        url="https://packages.cloud.google.com/apt/doc/apt-key.gpg"
-    )
-    p.apt_repository(
-        repo="deb https://apt.kubernetes.io/ kubernetes-xenial main",
-        update_cache=True
-    )
-    p.apt(
-        pkg=["kubelet=1.21.12-00", "kubeadm=1.21.12-00", "kubectl=1.21.12-00", "mount"]
-    )
-    p.command(
-        cmd="apt-mark hold kubelet kubeadm kubectl"
-    )
-    p.command(
-        cmd="swapoff -a"
-    )
-    p.shell(
-        cmd="kubeadm init --pod-network-cidr=10.244.0.0/16"
-    )    
-    p.file(
-        path="{{ ansible_user_dir }}/.kube",
-        state="directory"
-    )
-    p.copy(
-        src="/etc/kubernetes/admin.conf",
-        remote_src=True,
-        dest="{{ ansible_user_dir }}/.kube/config"
-    )
-    p.copy(
-        src="{{ ansible_user_dir }}/.kube/config",
-        remote_src=True,
-        dest="{{ ansible_user_dir }}/.kube/config.proxified"
-    )
-    p.lineinfile(
-        regexp=".*server:.*",
-        line="    server: http://127.0.0.1:8079",
-        path="{{ ansible_user_dir }}/.kube/config.proxified"
-    )
+    if False:
+        p.copy(
+            dest="/etc/modules-load.d/k8s.conf",
+            content="br_netfilter"
+        )
+        p.copy(
+            dest="/etc/sysctl.d/k8s.conf",
+            content="""
+            net.bridge.bridge-nf-call-ip6tables = 1
+            net.bridge.bridge-nf-call-iptables = 1
+            """
+        )
+        p.shell(
+            cmd="sysctl --system"
+        )
+        p.apt_key(
+            url="https://packages.cloud.google.com/apt/doc/apt-key.gpg"
+        )
+        p.apt_repository(
+            repo="deb https://apt.kubernetes.io/ kubernetes-xenial main",
+            update_cache=True
+        )
+        p.apt(
+            pkg=["kubelet=1.21.12-00", "kubeadm=1.21.12-00", "kubectl=1.21.12-00", "mount"]
+        )
+        p.command(
+            cmd="apt-mark hold kubelet kubeadm kubectl"
+        )
+        p.command(
+            cmd="swapoff -a"
+        )
+        p.shell(
+            cmd="kubeadm init --pod-network-cidr=10.244.0.0/16"
+        )    
+        p.file(
+            path="{{ ansible_user_dir }}/.kube",
+            state="directory"
+        )
+        p.copy(
+            src="/etc/kubernetes/admin.conf",
+            remote_src=True,
+            dest="{{ ansible_user_dir }}/.kube/config"
+        )
+        p.copy(
+            src="{{ ansible_user_dir }}/.kube/config",
+            remote_src=True,
+            dest="{{ ansible_user_dir }}/.kube/config.proxified"
+        )
+        p.lineinfile(
+            regexp=".*server:.*",
+            line="    server: http://127.0.0.1:8079",
+            path="{{ ansible_user_dir }}/.kube/config.proxified"
+        )
 
 with en.actions(roles=roles["cheops"], gather_facts=False) as p:
     p.apt(
