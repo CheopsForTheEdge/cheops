@@ -8,8 +8,8 @@ import (
 )
 
 func TestHandleSimple(t *testing.T) {
-	bodies := []string{"echo -n foo"}
-	replies, err := Handle(context.Background(), bodies)
+	commands := []ShellCommand{{Command: "echo -n foo"}}
+	replies, err := Handle(context.Background(), commands)
 	if err != nil {
 		t.Fatalf("Error when executing cmd: %v\n", err)
 	}
@@ -28,7 +28,7 @@ func TestHandleRedirect(t *testing.T) {
 		os.RemoveAll("/tmp/cheopstest")
 	}()
 
-	bodies := []string{"mkdir /tmp/cheopstest", "echo something > /tmp/cheopstest/file"}
+	bodies := []ShellCommand{{Command: "mkdir /tmp/cheopstest"}, {Command: "echo something > /tmp/cheopstest/file"}}
 	replies, err := Handle(context.Background(), bodies)
 	if err != nil {
 		t.Fatalf("Error when executing cmd: %v\noutputs: %v", err, replies)

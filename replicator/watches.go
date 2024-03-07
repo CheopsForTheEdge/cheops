@@ -85,52 +85,9 @@ func (w *watches) startWatching(ctx context.Context) {
 					continue
 				}
 
-				// The _changes feed can also output conflicts for every document change, so
-				// in theory there could be some optimization here by telling it to do so
-				// and directly working with the results. However, 2 problems:
-				// - we don't know which revision is the winner. It's an array and it seems to be
-				//   the first one, but the documentation says the order is not stable
-				// - the code must be idempotent, ie we must be able to see the same "changes" multiple
-				//   times. If we saw a conflict, solved it, and then saw it again, we'd try to
-				//   update the same winning revision, but it would be another conflict because
-				//   in the meantime the winning revision has changed.
-				//
-				// So we have to be inefficient and call this every time.
-				url := fmt.Sprintf("http://localhost:5984/cheops/%s?conflicts=true", change.Id)
-				docWithConflictsResp, err := http.Get(url)
-				if err != nil {
-					log.Printf("Couldn't get doc with conflicts: %v\n", err)
-					continue
+				for _, f := range w.watchers {
+					f(change.Doc)
 				}
-				defer docWithConflictsResp.Body.Close()
-
-				var docWithConflicts model.ResourceDocument
-				err = json.NewDecoder(docWithConflictsResp.Body).Decode(&docWithConflicts)
-				if err != nil {
-					log.Printf("unmarshall error: %v\n", err)
-					continue
-				}
-
-				if len(docWithConflicts.Conflicts) == 0 {
-					// resource has no conflicts, or it's a ReplyDocument
-					for _, f := range w.watchers {
-						f(change.Doc)
-					}
-				} else {
-					log.Printf("Seeing conflicts for %v, solving\n", change.Id)
-
-					docWithoutConflicts, err := model.ResolveConflicts(docWithConflicts)
-					if err != nil {
-						log.Printf("Couldn't resolve conflicts for %v: %v\n", docWithoutConflicts.Id, err)
-						continue
-					}
-					w.postResolution(docWithoutConflicts, docWithConflicts.Conflicts)
-
-					// We don't need to call the onNewDoc function here:
-					// the previous update will be retriggered, and next time
-					// there won't be conflicts so then it will trigger the call
-				}
-
 				since = change.Seq
 			}
 

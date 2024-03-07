@@ -1,4 +1,4 @@
-Watch -r goimports -w . '&&' gofmt -w . '&&' go test '&&' go build
+Watch -r goimports -w . '&&' gofmt -w . '&&' go test ./... '&&' go build
 
 # cli
 ./cli exec --command='mkdir foo && cat {/etc/hostname} > foo/hostname' --sites='localhost&other' --id=resource

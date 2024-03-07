@@ -34,22 +34,26 @@ import (
 //
 //			Mandatory: the sites, separated with a '&'
 //
-//		Content-Disposition: form-data; name="sites"; filename="config.json"
+//		Content-Disposition: form-data; name="type"
+//
+//			Mandatory: the consistency class of the operation
+//
+//		Content-Disposition: form-data; name="config.json"; filename="config.json"
 //
 //			If present, the resource logic
 //
-//		Content-Disposition: form-data; name="sites"; filename="local-logic"
+//		Content-Disposition: form-data; name="local-logic"; filename="local-logic"
 //
 //			If present, the local logic
 //
-//		Content-Disposition: form-data; name="sites"; filename="XXX"
+//		Content-Disposition: form-data; name="XXX"; filename="XXX"
 //
 //			If present, a file that is needed for the command to run
 
 func Run(port int, repl *replicator.Replicator) {
 	m := mux.NewRouter()
 	m.HandleFunc("/{id}", func(w http.ResponseWriter, r *http.Request) {
-		id, command, _, sites, files, ok := parseRequest(w, r)
+		id, command, typ, _, sites, files, ok := parseRequest(w, r)
 		if !ok {
 			return
 		}
@@ -77,8 +81,9 @@ func Run(port int, repl *replicator.Replicator) {
 			Command: command,
 			Files:   files,
 		}
-		req := model.CrdtUnit{
+		req := model.Operation{
 			Command:   cmd,
+			Type:      model.OperationType(typ),
 			RequestId: base32.StdEncoding.EncodeToString(randBytes),
 			Time:      time.Now(),
 		}
@@ -118,7 +123,7 @@ func Run(port int, repl *replicator.Replicator) {
 	}
 }
 
-func parseRequest(w http.ResponseWriter, r *http.Request) (id, command string, config model.ResourceConfig, sites []string, files map[string][]byte, ok bool) {
+func parseRequest(w http.ResponseWriter, r *http.Request) (id, command, typ string, config model.ResourceConfig, sites []string, files map[string][]byte, ok bool) {
 	vars := mux.Vars(r)
 	id = vars["id"]
 	if id == "" {
@@ -162,6 +167,14 @@ func parseRequest(w http.ResponseWriter, r *http.Request) (id, command string, c
 	}
 	command = strings.TrimSpace(commands[0])
 
+	types, okk := r.MultipartForm.Value["type"]
+	if !okk || len(commands) != 1 {
+		log.Println("Missing type")
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	typ = strings.TrimSpace(types[0])
+
 	files = make(map[string][]byte)
 	for name, requestFiles := range r.MultipartForm.File {
 		if len(requestFiles) != 1 {
@@ -180,12 +193,6 @@ func parseRequest(w http.ResponseWriter, r *http.Request) (id, command string, c
 			continue
 		}
 
-		if name == "config.json" {
-			if !model.ValidateConfig(content) {
-				log.Printf("config.json file is invalid\n")
-				continue
-			}
-		}
 		files[name] = content
 	}
 

@@ -76,8 +76,8 @@ func Run(port int, repl *replicator.Replicator) {
 			rr := resourceSummaryReply{
 				Id:            resource.Id,
 				Name:          resource.Id,
-				LastUpdate:    resource.Units[len(resource.Units)-1].Time,
-				CommandsCount: len(resource.Units),
+				LastUpdate:    resource.Operations[len(resource.Operations)-1].Time,
+				CommandsCount: len(resource.Operations),
 			}
 			resp = append(resp, rr)
 		}
@@ -106,7 +106,7 @@ func Run(port int, repl *replicator.Replicator) {
 		}
 
 		commands := make([]commandReply, 0)
-		for _, unit := range d.Units {
+		for _, unit := range d.Operations {
 			commands = append(commands, commandReply{
 				Command: unit.Command.Command,
 				Date:    unit.Time,
@@ -115,7 +115,7 @@ func Run(port int, repl *replicator.Replicator) {
 		resp := resourceReply{
 			Id:         d.Id,
 			Name:       d.Id,
-			LastUpdate: d.Units[len(d.Units)-1].Time,
+			LastUpdate: d.Operations[len(d.Operations)-1].Time,
 			Commands:   commands,
 		}
 

@@ -1,7 +1,7 @@
 // exec.go allows executing a command on a given resource and given locations
 //
 // Usage:
-// $ cli --command "kubectl create deployment {deployment.yml}" --sites "S1&S2" --local-logic ll.cue --config config.json
+// $ cli --id=my-deployment --command "kubectl create deployment {deployment.yml}" --type 3 --sites "S1&S2" --local-logic ll.cue --config config.json
 //
 // In the command, any file wrapped with {} will be sent in the request (so that it can be used remotely).
 // The local-logic and config file must exist; they will also be sent.
@@ -34,6 +34,7 @@ var cmdWithFilesRE = regexp.MustCompile("{([^}]+)}")
 
 type ExecCmd struct {
 	Command    string `help:"Command to run" required:"" short:""`
+	Type       int    `help:"The consistency class of the command (1, 2, 3 or 4)" required:""`
 	Sites      string `help:"sites to deploy to" required:""`
 	Id         string `help:"id of the resource" required:""`
 	LocalLogic string `help:"Local logic file"`
@@ -41,16 +42,25 @@ type ExecCmd struct {
 }
 
 func (e *ExecCmd) Run(ctx *kong.Context) error {
+
 	var b bytes.Buffer
-	seenFiles := make(map[string]struct{})
 	mw := multipart.NewWriter(&b)
 
-	// Write sites
-	err := mw.WriteField("sites", e.Sites)
+	if e.Type != 1 && e.Type != 2 && e.Type != 3 && e.Type != 4 {
+		return fmt.Errorf("Invalid operation type: it must be one of\n- 1 (operation is commutative and idempotent)\n- 2 (op is commutative and non-idempotent)\n- 3 (op is non-commutative and idempotent)\n- 4 (op is non-commutative non-idempotent)")
+	}
+	err := mw.WriteField("type", strconv.Itoa(e.Type))
 	if err != nil {
 		return fmt.Errorf("Error with sites: %v\n", err)
 	}
 
+	// Write sites
+	err = mw.WriteField("sites", e.Sites)
+	if err != nil {
+		return fmt.Errorf("Error with sites: %v\n", err)
+	}
+
+	seenFiles := make(map[string]struct{})
 	// Write resource files
 	_, err = os.Stat(e.Config)
 	if err == nil {

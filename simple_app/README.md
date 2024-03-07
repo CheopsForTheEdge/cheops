@@ -3,7 +3,7 @@
 Simple App is a simple CRUD application making resources available. The goal is to be able to act on these resources through multiple means. Each resource is of a defined type, each type has specific operations.
 
 All operations are done with a POST at /{id}?type=XXX&operation=XXX&value=XXX
-All resources can be fetched with a GET at /{id}
+All resources can be fetched with a GET at /{id}?type=XXX
 
 ## Data types
 

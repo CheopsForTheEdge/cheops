@@ -1,3 +1,8 @@
+// package replicator is responsible for managing the replication of operations
+// such that they are run as desired everywhere they are supposed to.
+//
+// To understand the ideas, please see CONSISTENCY.md at the root of the project
+
 package replicator
 
 import (
@@ -127,7 +132,7 @@ func (r *Replicator) ensureIndex() {
 // If the resource doesn't already exist, an ErrInvalidRequest is returned
 //
 // The output is a chan of each individual reply as they arrive. After a timeout or all replies are sent, the chan is closed
-func (r *Replicator) Do(ctx context.Context, sites []string, id string, request model.CrdtUnit) (replies chan model.ReplyDocument, err error) {
+func (r *Replicator) Do(ctx context.Context, sites []string, id string, request model.Operation) (replies chan model.ReplyDocument, err error) {
 
 	repliesChan := make(chan model.ReplyDocument)
 	done := func() {
@@ -173,10 +178,11 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 		}
 
 		d = model.ResourceDocument{
-			Id:        id,
-			Locations: sites,
-			Units:     make([]model.CrdtUnit, 0),
-			Type:      "RESOURCE",
+			Id:         id,
+			Locations:  sites,
+			Operations: make([]model.Operation, 0),
+			Type:       "RESOURCE",
+			Site:       env.Myfqdn,
 		}
 	} else {
 		err = json.NewDecoder(doc.Body).Decode(&d)
@@ -218,13 +224,10 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 		}
 	}
 
-	// Add our unit if needed
+	// Add our operation if needed
 	if len(request.Command.Command) > 0 {
-		request.Generation = uint64(len(d.Units) + 1)
-		d.Units = append(d.Units, request)
-		model.SortUnits(d.Units)
-
-		log.Printf("New request: resourceId=%v generation=%v requestId=%v\n", d.Id, request.Generation, request.RequestId)
+		d.Operations = append(d.Operations, request)
+		log.Printf("New request: resourceId=%v requestId=%v\n", d.Id, request.RequestId)
 	}
 
 	// Send the newly formatted document
@@ -351,59 +354,49 @@ func (r *Replicator) watchReplies(ctx context.Context, requestId string, replies
 }
 
 func (r *Replicator) run(ctx context.Context, d model.ResourceDocument) {
-	if len(d.Units) == 0 {
-		log.Printf("WARN: Resource %v has been inserted with no units\n", d.Id)
+	if len(d.Operations) == 0 {
+		log.Printf("WARN: Resource %v has been inserted with no operations\n", d.Id)
 		return
 	}
 
-	docs, err := r.getRepliesForId(d.Id)
+	allDocs, err := r.getAllDocsFor(d.Id)
 	if err != nil {
 		log.Printf("Couldn't get docs for id: %v\n", err)
 		return
 	}
 
-	// index by requestid
-	existingReplies := make(map[string]struct{})
-	for _, doc := range docs {
-		existingReplies[doc.RequestId] = struct{}{}
+	resourceDocuments := make([]model.ResourceDocument, 0)
+	replies := make([]model.ReplyDocument, 0)
+	for _, doc := range allDocs {
+		var reply model.ReplyDocument
+		err := json.Unmarshal(doc, &reply)
+		if err == nil && reply.Type == "REPLY" {
+			replies = append(replies, reply)
+		} else {
+			var resource model.ResourceDocument
+			err = json.Unmarshal(doc, &resource)
+			if err == nil && reply.Type == "RESOURCE" {
+				resourceDocuments = append(resourceDocuments, resource)
+			} else {
+				log.Printf("Invalid doc: %s\n", doc)
+				return
+			}
+		}
 	}
 
-	unitsToRun, err := findUnitsToRun(d, existingReplies)
-	if err != nil {
-		log.Printf("Couldn't run commands for %s: %v\n", d.Id, err)
+	operationsToRun := findOperationsToRun(env.Myfqdn, resourceDocuments, replies)
+	log.Printf("Running resourceid=%s numoperations=%d\n", d.ResourceId, len(operationsToRun))
+	if len(operationsToRun) == 0 {
 		return
 	}
 
-	// Consistency model tells us that there is nothing to do
-	// We still send a fake reply, with the content of the last unit, for the caller to know
-	if len(unitsToRun) == 0 {
-		var reply model.ReplyDocument
-		for _, doc := range docs {
-			if doc.RequestId == reply.RequestId {
-				reply = doc
-			}
-		}
-		err = r.postDocument(model.ReplyDocument{
-			Locations:  d.Locations,
-			Site:       env.Myfqdn,
-			RequestId:  reply.RequestId,
-			ResourceId: d.Id,
-			Status:     reply.Status,
-			Cmd:        reply.Cmd,
-			Type:       "REPLY",
-		})
-		if err != nil {
-			log.Println(err)
-		}
-	}
-
 	commands := make([]backends.ShellCommand, 0)
-	for _, unit := range unitsToRun {
-		commands = append(commands, unit.Command)
-		log.Printf("will apply [%s]\n", unit.Command.Command)
+	for _, operation := range operationsToRun {
+		commands = append(commands, operation.Command)
+		log.Printf("will apply [%s]\n", operation.Command.Command)
 	}
 
-	replies, err := backends.Handle(ctx, commands)
+	executionReplies, err := backends.Handle(ctx, commands)
 
 	status := "OK"
 	if err != nil {
@@ -411,18 +404,18 @@ func (r *Replicator) run(ctx context.Context, d model.ResourceDocument) {
 	}
 
 	// Post reply for replication
-	for i, unit := range unitsToRun {
-		log.Printf("Ran %s %s\n", unit.RequestId, env.Myfqdn)
+	for i, operation := range operationsToRun {
+		log.Printf("Ran %s %s\n", operation.RequestId, env.Myfqdn)
 
 		cmd := model.Cmd{
 			Input:  commands[i].Command,
-			Output: replies[i],
+			Output: executionReplies[i],
 		}
 
 		err = r.postDocument(model.ReplyDocument{
 			Locations:  d.Locations,
 			Site:       env.Myfqdn,
-			RequestId:  unit.RequestId,
+			RequestId:  operation.RequestId,
 			ResourceId: d.Id,
 			Status:     status,
 			Cmd:        cmd,
@@ -434,31 +427,14 @@ func (r *Replicator) run(ctx context.Context, d model.ResourceDocument) {
 	}
 }
 
-func (r *Replicator) getRepliesForId(resourceId string) ([]model.ReplyDocument, error) {
-	selector := fmt.Sprintf(`{"Type": "REPLY", "ResourceId": "%s", "Site": "%s"}`, resourceId, env.Myfqdn)
+func (r *Replicator) getAllDocsFor(resourceId string) ([]json.RawMessage, error) {
 
-	docs, err := r.getDocsForSelector(selector)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]model.ReplyDocument, 0)
-	for _, doc := range docs {
-		var rep model.ReplyDocument
-		err := json.Unmarshal(doc, &rep)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, rep)
-	}
-	return out, nil
-}
-
-func (r *Replicator) getDocsForSelector(selector string) ([]json.RawMessage, error) {
+	query := fmt.Sprintf(`{{"$or": [{"Type": "RESOURCE"}, {"Type": "REPLY"}]}, "ResourceId": "%s"}`, resourceId)
 	docs := make([]json.RawMessage, 0)
 	var bookmark string
 
 	for {
-		selector := fmt.Sprintf(`{"bookmark": "%s", "selector": %s}`, bookmark, selector)
+		selector := fmt.Sprintf(`{"bookmark": "%s", "selector": %s}`, bookmark, query)
 
 		current, err := http.Post("http://localhost:5984/cheops/_find", "application/json", strings.NewReader(selector))
 		if err != nil {
