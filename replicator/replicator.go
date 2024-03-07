@@ -70,8 +70,12 @@ func (r *Replicator) ensureCouch() {
 			Body: `
 {
   "views": {
-    "resources-by-location": {
-      "map": "function (doc) {\n  if(doc.Type != 'RESOURCE') return;\n  for (const location of doc.Locations) {\n    emit(location, null);\n  }\n}",
+    "all-by-resourceid": {
+      "map": "function (doc) {\n  if(doc.Type != 'RESOURCE' && doc.Type != 'REPLY') return;\n  emit(doc.ResourceId, null);\n}",
+      "reduce": "_count"
+    },
+    "resource-by-site": {
+      "map": "function (doc) {\n  if(doc.Type != 'RESOURCE') return;\n  emit([doc.ResourceId, doc.Site], null);\n}",
       "reduce": "_count"
     },
     "by-resource": {
@@ -361,13 +365,11 @@ func (r *Replicator) run(ctx context.Context, d model.ResourceDocument) {
 }
 
 func (r *Replicator) getAllDocsFor(resourceId string) ([]json.RawMessage, error) {
-	query := fmt.Sprintf(`{{"$or": [{"Type": "RESOURCE"}, {"Type": "REPLY"}]}, "ResourceId": "%s"}`, resourceId)
-	return r.getDocsForSelector(query)
+	return r.getDocsForView("all-by-resourceid", resourceId)
 }
 
 func (r *Replicator) getLocalResourceFor(resourceId string) (model.ResourceDocument, error) {
-	query := fmt.Sprintf(`{"Type": "RESOURCE", "ResourceId": "%s"}`, resourceId)
-	docs, err := r.getDocsForSelector(query)
+	docs, err := r.getDocsForView("resource-by-site", resourceId, env.Myfqdn)
 	if len(docs) == 0 {
 		return model.ResourceDocument{}, err
 	} else {
@@ -377,40 +379,51 @@ func (r *Replicator) getLocalResourceFor(resourceId string) (model.ResourceDocum
 	}
 }
 
-func (r *Replicator) getDocsForSelector(query string) ([]json.RawMessage, error) {
-	docs := make([]json.RawMessage, 0)
-	var bookmark string
-
-	for {
-		selector := fmt.Sprintf(`{"bookmark": "%s", "selector": %s}`, bookmark, query)
-
-		current, err := http.Post("http://localhost:5984/cheops/_find", "application/json", strings.NewReader(selector))
-		if err != nil {
-			return nil, err
+func (r *Replicator) getDocsForView(viewname string, keyArgs ...string) ([]json.RawMessage, error) {
+	var query interface{}
+	if len(keyArgs) == 1 {
+		query = struct {
+			Key string `json:"key"`
+		}{
+			Key: keyArgs[0],
 		}
-		if current.StatusCode != 200 {
-			return nil, fmt.Errorf("Post %s: %s", current.Request.URL.String(), current.Status)
-		}
-
-		var cr struct {
-			Bookmark string            `json:"bookmark"`
-			Docs     []json.RawMessage `json:"docs"`
-		}
-
-		err = json.NewDecoder(current.Body).Decode(&cr)
-		current.Body.Close()
-		if err != nil {
-			return nil, err
-		}
-
-		bookmark = cr.Bookmark
-		docs = append(docs, cr.Docs...)
-
-		if len(cr.Docs) == 0 {
-			break
+	} else {
+		query = struct {
+			Key []string `json:"key"`
+		}{
+			Key: keyArgs,
 		}
 	}
+	b, err := json.Marshal(query)
+	if err != nil {
+		return nil, err
+	}
 
+	url := fmt.Sprintf("http://localhost:5984/cheops/_design/cheops/_view/%s?reduce=false&include_docs=true", viewname)
+	res, err := http.Post(url, "application/json", bytes.NewReader(b))
+	if err != nil {
+		return nil, err
+	}
+	if res.StatusCode != 200 {
+		return nil, fmt.Errorf("Post %s: %s", res.Request.URL.String(), res.Status)
+	}
+
+	var cr struct {
+		Rows []struct {
+			Doc json.RawMessage `json:"doc"`
+		} `json:"rows"`
+	}
+
+	err = json.NewDecoder(res.Body).Decode(&cr)
+	res.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	docs := make([]json.RawMessage, 0)
+	for _, row := range cr.Rows {
+		docs = append(docs, row.Doc)
+	}
 	return docs, nil
 }
 
