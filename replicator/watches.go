@@ -2,7 +2,6 @@ package replicator
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -10,8 +9,6 @@ import (
 	"net/http"
 	"strings"
 	"time"
-
-	"cheops.com/model"
 )
 
 type onNewDocFunc func(j json.RawMessage)
@@ -100,55 +97,4 @@ func (w *watches) startWatching(ctx context.Context) {
 
 		}
 	}()
-}
-
-func (w *watches) postResolution(docWithoutConflicts model.ResourceDocument, conflicts []string) {
-	type bulkDocsRequest struct {
-		Docs []model.ResourceDocument `json:"docs"`
-	}
-
-	req := bulkDocsRequest{
-		Docs: []model.ResourceDocument{docWithoutConflicts},
-	}
-	for _, conflict := range conflicts {
-		req.Docs = append(req.Docs, model.ResourceDocument{
-			Id:      docWithoutConflicts.Id,
-			Rev:     conflict,
-			Deleted: true,
-		})
-	}
-
-	buf, err := json.Marshal(req)
-	if err != nil {
-		log.Printf("Marshalling error: %v\n", err)
-	}
-	resp, err := http.Post("http://localhost:5984/cheops/_bulk_docs", "application/json", bytes.NewReader(buf))
-	if err != nil {
-		log.Printf("Couldn't POST _bulk_docs for %v: %v\n", string(buf), err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusCreated {
-		log.Printf("Couldn't send _bulk_docs request %#v to couchdb: %s", string(buf), resp.Status)
-	}
-
-	type BulkDocsEachReply struct {
-		Ok     bool   `json:"ok"`
-		Id     string `json:"id"`
-		Rev    string `json:"rev"`
-		Error  string `json:"error"`
-		Reason string `json:"reason"`
-	}
-
-	var bder []BulkDocsEachReply
-	err = json.NewDecoder(resp.Body).Decode(&bder)
-	if err != nil {
-		log.Printf("Couldn't decode Bulk Docks reply: %v", err)
-	}
-
-	for _, reply := range bder {
-		if !reply.Ok {
-			log.Printf("Couldn't post _bulk_docs for %v:%v: %v -- %v\n", reply.Id, reply.Rev, reply.Error, reply.Reason)
-		}
-	}
 }

@@ -160,21 +160,9 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 	defer doc.Body.Close()
 
 	var d model.ResourceDocument
-
-	// Filled in case of migration
-	var deletedSites []string
-	var newSites []string
-	var currentRev string
-
 	if doc.StatusCode == http.StatusNotFound {
 		if len(request.Command.Command) == 0 {
 			return nil, ErrInvalidRequest("will not create a document with an empty body")
-		}
-
-		if len(sites) == 0 {
-			// We are asked to create a document but with no sites: this is invalid, the caller needs to specify
-			// where the resource is supposed to be
-			return nil, ErrDoesNotExist
 		}
 
 		d = model.ResourceDocument{
@@ -189,46 +177,11 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 		if err != nil {
 			return replies, err
 		}
-
-		if len(sites) > 0 {
-			deletedSites = make([]string, 0)
-			for _, old := range d.Locations {
-				remains := false
-				for _, new := range sites {
-					if old == new {
-						remains = true
-						break
-					}
-				}
-				if !remains {
-					deletedSites = append(deletedSites, old)
-				}
-			}
-
-			for _, new := range sites {
-				remains := false
-				for _, old := range d.Locations {
-					if old == new {
-						remains = true
-						break
-					}
-				}
-				if !remains {
-					newSites = append(newSites, new)
-				}
-			}
-
-			d.Locations = sites
-
-			currentRev = d.Rev
-		}
 	}
 
 	// Add our operation if needed
-	if len(request.Command.Command) > 0 {
-		d.Operations = append(d.Operations, request)
-		log.Printf("New request: resourceId=%v requestId=%v\n", d.Id, request.RequestId)
-	}
+	d.Operations = append(d.Operations, request)
+	log.Printf("New request: resourceId=%v requestId=%v\n", d.Id, request.RequestId)
 
 	// Send the newly formatted document
 	// We of course assume that the revision hasn't changed since the last Get, so this might fail.
@@ -252,22 +205,7 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 		return nil, fmt.Errorf("Couldn't send request %#v to couchdb: %s", string(buf), resp.Status)
 	}
 
-	// Send information to delete
-	for _, oldSite := range deletedSites {
-		r.postDocument(model.DeleteDocument{
-			ResourceId:  id,
-			ResourceRev: currentRev,
-			Locations:   []string{oldSite},
-			Type:        "DELETE",
-		})
-	}
-
-	var expected int
-	if len(request.Command.Command) > 0 {
-		expected = len(d.Locations)
-	} else {
-		expected = len(newSites)
-	}
+	expected := len(d.Locations)
 
 	ret := make(chan model.ReplyDocument)
 

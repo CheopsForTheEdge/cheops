@@ -58,17 +58,21 @@ func Run(port int, repl *replicator.Replicator) {
 			return
 		}
 
-		if len(sites) > 0 {
-			forMe := false
-			for _, desiredSite := range sites {
-				if desiredSite == env.Myfqdn {
-					forMe = true
-				}
+		if len(sites) == 0 {
+			log.Printf("Request doesn't have any sites")
+			http.Error(w, "bad request", http.StatusInternalServerError)
+			return
+		}
+
+		forMe := false
+		for _, desiredSite := range sites {
+			if desiredSite == env.Myfqdn {
+				forMe = true
 			}
-			if !forMe {
-				http.Error(w, "Site is not in locations", http.StatusBadRequest)
-				return
-			}
+		}
+		if !forMe {
+			http.Error(w, "Site is not in locations", http.StatusBadRequest)
+			return
 		}
 
 		randBytes, err := io.ReadAll(&io.LimitedReader{R: rand.Reader, N: 64})
