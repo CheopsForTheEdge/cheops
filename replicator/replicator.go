@@ -152,36 +152,31 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 	}
 
 	// Get current revision
-	url := fmt.Sprintf("http://localhost:5984/cheops/%s", id)
-	doc, err := http.Get(url)
+	doc, err := r.getLocalResourceFor(id)
 	if err != nil {
 		return replies, err
 	}
-	defer doc.Body.Close()
 
 	var d model.ResourceDocument
-	if doc.StatusCode == http.StatusNotFound {
+	if doc.ResourceId == "" {
 		if len(request.Command.Command) == 0 {
 			return nil, ErrInvalidRequest("will not create a document with an empty body")
 		}
 
 		d = model.ResourceDocument{
-			Id:         id,
 			Locations:  sites,
 			Operations: make([]model.Operation, 0),
 			Type:       "RESOURCE",
 			Site:       env.Myfqdn,
+			ResourceId: id,
 		}
 	} else {
-		err = json.NewDecoder(doc.Body).Decode(&d)
-		if err != nil {
-			return replies, err
-		}
+		d = doc
 	}
 
 	// Add our operation if needed
 	d.Operations = append(d.Operations, request)
-	log.Printf("New request: resourceId=%v requestId=%v\n", d.Id, request.RequestId)
+	log.Printf("New request: resourceId=%v requestId=%v\n", d.ResourceId, request.RequestId)
 
 	// Send the newly formatted document
 	// We of course assume that the revision hasn't changed since the last Get, so this might fail.
@@ -190,7 +185,7 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 	if err != nil {
 		return nil, err
 	}
-	httpReq, err := http.NewRequest("PUT", fmt.Sprintf("http://localhost:5984/cheops/%s", d.Id), bytes.NewReader(buf))
+	httpReq, err := http.NewRequest("POST", "http://localhost:5984/cheops", bytes.NewReader(buf))
 	if err != nil {
 		return nil, err
 	}
@@ -293,11 +288,11 @@ func (r *Replicator) watchReplies(ctx context.Context, requestId string, replies
 
 func (r *Replicator) run(ctx context.Context, d model.ResourceDocument) {
 	if len(d.Operations) == 0 {
-		log.Printf("WARN: Resource %v has been inserted with no operations\n", d.Id)
+		log.Printf("WARN: Resource %v has been inserted with no operations\n", d.ResourceId)
 		return
 	}
 
-	allDocs, err := r.getAllDocsFor(d.Id)
+	allDocs, err := r.getAllDocsFor(d.ResourceId)
 	if err != nil {
 		log.Printf("Couldn't get docs for id: %v\n", err)
 		return
@@ -354,7 +349,7 @@ func (r *Replicator) run(ctx context.Context, d model.ResourceDocument) {
 			Locations:  d.Locations,
 			Site:       env.Myfqdn,
 			RequestId:  operation.RequestId,
-			ResourceId: d.Id,
+			ResourceId: d.ResourceId,
 			Status:     status,
 			Cmd:        cmd,
 			Type:       "REPLY",
@@ -366,8 +361,23 @@ func (r *Replicator) run(ctx context.Context, d model.ResourceDocument) {
 }
 
 func (r *Replicator) getAllDocsFor(resourceId string) ([]json.RawMessage, error) {
-
 	query := fmt.Sprintf(`{{"$or": [{"Type": "RESOURCE"}, {"Type": "REPLY"}]}, "ResourceId": "%s"}`, resourceId)
+	return r.getDocsForSelector(query)
+}
+
+func (r *Replicator) getLocalResourceFor(resourceId string) (model.ResourceDocument, error) {
+	query := fmt.Sprintf(`{"Type": "RESOURCE", "ResourceId": "%s"}`, resourceId)
+	docs, err := r.getDocsForSelector(query)
+	if len(docs) == 0 {
+		return model.ResourceDocument{}, err
+	} else {
+		var doc model.ResourceDocument
+		err := json.Unmarshal(docs[0], &doc)
+		return doc, err
+	}
+}
+
+func (r *Replicator) getDocsForSelector(query string) ([]json.RawMessage, error) {
 	docs := make([]json.RawMessage, 0)
 	var bookmark string
 

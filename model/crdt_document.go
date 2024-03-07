@@ -16,6 +16,7 @@ type ResourceDocument struct {
 	// Desired locations
 	Locations []string
 
+	ResourceId string
 	Site       string
 	Operations []Operation
 

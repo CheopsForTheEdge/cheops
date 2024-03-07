@@ -9,6 +9,8 @@ import (
 	"cheops.com/model"
 )
 
+// Not working yet
+/*
 func (r *Replicator) Get(id string) (model.ResourceDocument, error) {
 	u := fmt.Sprintf("http://localhost:5984/cheops/%s", id)
 	resp, err := http.Get(u)
@@ -24,6 +26,7 @@ func (r *Replicator) Get(id string) (model.ResourceDocument, error) {
 	}
 	return d, nil
 }
+*/
 
 func (r *Replicator) postDocument(v interface{}) error {
 	buf, err := json.Marshal(v)
