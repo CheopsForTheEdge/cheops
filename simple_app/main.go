@@ -1,9 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"os"
+	"strconv"
 
 	"github.com/gorilla/mux"
 )
@@ -51,6 +54,18 @@ func main() {
 		}
 	})
 
-	log.Println("Listening on :8080")
-	http.ListenAndServe(":8080", m)
+	port := 8080
+	if len(os.Args) > 1 {
+		p, err := strconv.Atoi(os.Args[1])
+		if err != nil {
+			log.Println("Bad number for port, defaulting to 8080")
+			p = 8080
+		}
+		port = p
+	}
+	log.Printf("Listening on :%d\n", port)
+	err := http.ListenAndServe(fmt.Sprintf(":%d", port), m)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
