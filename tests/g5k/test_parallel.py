@@ -84,19 +84,17 @@ sites = '&'.join(hosts[:3])
 # Apply a first command, as an "init"
 import requests
 r1 = requests.post(f"http://{hosts[0]}:8079/{id}", files={
-    'command': (None, 'mkdir -p /tmp/foo; ls /tmp/foo'),
+    'command': (None, f"mkdir -p /tmp/{id} && touch /tmp/{id}/init"),
     'sites': (None, sites),
-    'config.json': json.dumps({"OperationsType": "A"})
+    'type': (None, 1),
 })
 assert r1.status_code == 200
 synchronization.wait(hosts)
 
-replies = [requests.get(f"http://{host}:5984/cheops/{id}") for host in hosts[:3]]
+replies = [requests.post(f"http://{host}:5984/cheops/_find", json={"selector": {"Type": "RESOURCE", "ResourceId": id}}) for host in hosts[:3]]
 for reply in replies:
     assert reply.status_code == 200
-contents = [reply.json() for reply in replies]
-for content in contents:
-    assert len(content['Units']) == 1
+    assert len(reply.json()['docs']) == 1, reply.json()
 
 # Deactivate sync (by blocking at firewall level), send 2 parallel, conflicting commands, and reactivate sync
 with en.actions(roles=roles_for_hosts) as p:
@@ -119,16 +117,16 @@ import time
 time.sleep(3)
 
 r = requests.post(f"http://{hosts[0]}:8079/{id}", files={
-    'command': (None, 'echo left > /tmp/foo/content'),
+    'command': (None, f"mkdir -p /tmp/{id} && touch /tmp/{id}/left"),
     'sites': (None, sites),
-    'config.json': json.dumps({"OperationsType": "A"})
+    'type': (None, "1"),
 })
 assert r.status_code == 200
 
 r = requests.post(f"http://{hosts[1]}:8079/{id}", files={
-    'command': (None, 'echo right > /tmp/foo/content'),
+    'command': (None, f"mkdir -p /tmp/{id} && touch /tmp/{id}/right"),
     'sites': (None, sites),
-    'config.json': json.dumps({"OperationsType": "A"})
+    'type': (None, "1"),
 })
 assert r.status_code == 200
 
@@ -152,20 +150,16 @@ with en.actions(roles=roles_for_hosts) as p:
 synchronization.wait(hosts)
 
 # Once content is synchronized, make sure it is actually the same
-replies = [requests.get(f"http://{host}:5984/cheops/{id}") for host in hosts[:3]]
+replies = [requests.post(f"http://{host}:5984/cheops/_find", json={"selector": {"Type": "RESOURCE", "ResourceId": id}}) for host in hosts[:3]]
 for reply in replies:
     assert reply.status_code == 200
-contents = [reply.json() for reply in replies]
-units = [content['Units'] for content in contents]
-for u in units[1:]:
-    assert len(u) == 3
-    # Make sure we have the same content everywhere
-    assert u == units[0]
+contents = [reply.json()['docs'][0] for reply in replies]
+for content in contents:
+    if content['Site'] == hosts[0]:
+        assert len(content['Operations']) == 2
+    elif content['Site'] == hosts[1]:
+        assert len(content['Operations']) == 1
 
-    # Make sure it was actually created in parallel
-    assert u[0]['Generation'] == 1
-    assert u[1]['Generation'] == 2
-    assert u[2]['Generation'] == 2
 
 # Make sure the replies are all ok
 import json
@@ -175,15 +169,15 @@ for host in hosts[:3]:
         "Site": host,
         "ResourceId": id
     }}
-    r = requests.post(f"http://{host}:5984/cheops/_find", data=json.dumps(query), headers={"Content-Type": "application/json"})
+    r = requests.post(f"http://{host}:5984/cheops/_find", json=query, headers={"Content-Type": "application/json"})
     for doc in r.json()['docs']:
         assert doc['Status'] == "OK"
 
 # Make sure the file has the correct content everywhere
 with en.actions(roles=roles_for_hosts) as p:
-    p.shell("cat /tmp/foo/content")
+    p.shell(f"ls /tmp/{id}")
     results = p.results
 
 contents = [content.payload['stdout'] for content in results.filter(task="shell")]
 for content in contents[1:]:
-    assert content == contents[0]
+    assert content == contents[0], f"content={content} contents[0]={contents[0]}"

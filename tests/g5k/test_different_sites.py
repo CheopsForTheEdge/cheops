@@ -78,68 +78,75 @@ import requests
 r1 = requests.post(f"http://{hosts[0]}:8079/{id1}", files={
     'command': (None, 'mkdir -p /tmp/foo; echo left > /tmp/foo/left'),
     'sites': (None, '&'.join([h for h in hosts[:3]])),
-    'config.json': json.dumps({"OperationsType": "A"})
+    'type': (None, "1"),
 })
 assert r1.status_code == 200
 r2 = requests.post(f"http://{hosts[1]}:8079/{id2}", files={
     'command': (None, 'mkdir -p /tmp/foo; echo right > /tmp/foo/right'),
     'sites': (None, '&'.join([h for h in hosts[1:]])),
-    'config.json': json.dumps({"OperationsType": "A"})
+    'type': (None, "1"),
 })
 assert r2.status_code == 200
 
 synchronization.wait(hosts)
 
 # Check everything is there
-import json
-
 # For first resource
 for host in hosts[:3]:
-    r = requests.get(f"http://{host}:5984/cheops/{id1}")
+    query = {
+        "selector": {
+            "Type": "RESOURCE",
+            "ResourceId": id1
+    }}
+    r = requests.post(f"http://{host}:5984/cheops/_find", headers={'Content-type': 'application/json'}, json=query)
     assert r.status_code == 200
-    resource = r.json()
-    assert resource['Locations'] == hosts[:3]
-    assert len(resource['Units']) == 1
-    assert 'left' in resource['Units'][0]['Command']['Command']
-    assert 'right' not in resource['Units'][0]['Command']['Command']
+    docs = r.json()['docs']
+    assert len(docs) == 1
+    doc = docs[0]
+    assert len(doc['Operations']) == 1
+    assert doc['Locations'] == hosts[:3]
+    assert 'left' in doc['Operations'][0]['Command']['Command']
+    assert 'right' not in doc['Operations'][0]['Command']['Command']
 
     query = {
         "selector": {
             "Type": "REPLY",
             "ResourceId": id1
     }}
-    r = requests.post(f"http://{host}:5984/cheops/_find", headers={'Content-type': 'application/json'}, data=json.dumps(query))
+    r = requests.post(f"http://{host}:5984/cheops/_find", headers={'Content-type': 'application/json'}, json=query)
     assert r.status_code == 200
 
     docs = r.json()['docs']
     assert len(docs) == 3
     for doc in docs:
         assert doc['Locations'] == hosts[:3]
-        assert 'left' in doc['Input']
-        assert 'right' not in doc['Input']
 
 # For second resource
 for host in hosts[1:]:
-    r = requests.get(f"http://{host}:5984/cheops/{id2}")
+    query = {
+        "selector": {
+            "Type": "RESOURCE",
+            "ResourceId": id2
+    }}
+    r = requests.post(f"http://{host}:5984/cheops/_find", headers={'Content-type': 'application/json'}, json=query)
     assert r.status_code == 200
-    resource = r.json()
-    assert resource['Locations'] == hosts[1:]
-    assert len(resource['Units']) == 1
-    assert 'right' in resource['Units'][0]['Command']['Command']
-    assert 'left' not in resource['Units'][0]['Command']['Command']
+    docs = r.json()['docs']
+    assert len(docs) == 1
+    doc = docs[0]
+    assert len(doc['Operations']) == 1
+    assert doc['Locations'] == hosts[1:]
+    assert 'right' in doc['Operations'][0]['Command']['Command']
+    assert 'left' not in doc['Operations'][0]['Command']['Command']
 
     query = {
         "selector": {
             "Type": "REPLY",
             "ResourceId": id2
     }}
-    r = requests.post(f"http://{host}:5984/cheops/_find", headers={'Content-type': 'application/json'}, data=json.dumps(query))
+    r = requests.post(f"http://{host}:5984/cheops/_find", headers={'Content-type': 'application/json'}, json=query)
     assert r.status_code == 200
 
     docs = r.json()['docs']
     assert len(docs) == 3
     for doc in docs:
         assert doc['Locations'] == hosts[1:]
-        assert 'right' in doc['Input']
-        assert 'left' not in doc['Input']
-
