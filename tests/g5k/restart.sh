@@ -19,7 +19,11 @@ echo "MYFQDN=$(uname -n)" > /tmp/cheops/runenv
 
 rsync -a --delete chephren-ui /tmp/cheops/
 
-for service in cheops chephren
+cd simple_app
+/usr/lib/go-1.19/bin/go build -o /tmp/cheops/simple_app
+cd ..
+
+for service in cheops chephren simple_app
 do
 				cp $service.service /lib/systemd/system
 				systemctl daemon-reload

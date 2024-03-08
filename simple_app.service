@@ -1,0 +1,10 @@
+[Unit]
+Description=simple_app
+After=network-online.target
+
+[Service]
+Restart=on-failure
+ExecStart=/tmp/cheops/simple_app
+
+[Install]
+WantedBy=multi-user.target
