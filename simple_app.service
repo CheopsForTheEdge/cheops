@@ -4,7 +4,7 @@ After=network-online.target
 
 [Service]
 Restart=on-failure
-ExecStart=/tmp/cheops/simple_app
+ExecStart=/tmp/cheops/simple_app 9090
 
 [Install]
 WantedBy=multi-user.target
