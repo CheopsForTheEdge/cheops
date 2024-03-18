@@ -35,7 +35,7 @@ var cmdWithFilesRE = regexp.MustCompile("{([^}]+)}")
 type ExecCmd struct {
 	Command    string `help:"Command to run" required:"" short:""`
 	Type       int    `help:"The consistency class of the command (1, 2, 3 or 4)" required:""`
-	Sites      string `help:"sites to deploy to" required:""`
+	Sites      string `help:"sites to deploy to, separated by an &" required:""`
 	Id         string `help:"id of the resource" required:""`
 	LocalLogic string `help:"Local logic file"`
 	Config     string `help:"config file"`
