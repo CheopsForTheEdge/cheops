@@ -71,11 +71,7 @@ func (r *Replicator) ensureCouch() {
 {
   "views": {
     "all-by-resourceid": {
-      "map": "function (doc) {\n  if(doc.Type != 'RESOURCE' && doc.Type != 'REPLY') return;\n  emit(doc.ResourceId, null);\n}",
-      "reduce": "_count"
-    },
-    "resource-by-site": {
-      "map": "function (doc) {\n  if(doc.Type != 'RESOURCE') return;\n  emit([doc.ResourceId, doc.Site], null);\n}",
+      "map": "function (doc) {\n  if(doc.Type != 'RESOURCE' && doc.Type != 'REPLY') return;\n  emit([doc.ResourceId, doc.Type], null);\n}",
       "reduce": "_count"
     },
     "by-resource": {
@@ -156,36 +152,53 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 	}
 
 	// Get current revision
-	doc, err := r.getLocalResourceFor(id)
+	docs, err := r.getResourceDocsFor(id)
 	if err != nil {
 		return replies, err
 	}
+	var localDoc model.ResourceDocument
+	for _, doc := range docs {
+		if doc.Site == env.Myfqdn {
+			localDoc = doc
+			break
+		}
+	}
 
-	var d model.ResourceDocument
-	if doc.ResourceId == "" {
+	if localDoc.ResourceId == "" {
 		if len(request.Command.Command) == 0 {
 			return nil, ErrInvalidRequest("will not create a document with an empty body")
 		}
 
-		d = model.ResourceDocument{
+		localDoc = model.ResourceDocument{
 			Locations:  sites,
 			Operations: make([]model.Operation, 0),
 			Type:       "RESOURCE",
 			Site:       env.Myfqdn,
 			ResourceId: id,
 		}
-	} else {
-		d = doc
 	}
 
 	// Add our operation if needed
-	d.Operations = append(d.Operations, request)
-	log.Printf("New request: resourceId=%v requestId=%v\n", d.ResourceId, request.RequestId)
+	request.KnownState = make(map[string]int)
+	for _, location := range sites {
+		height := 0
+		for _, document := range docs {
+			if document.Site == location {
+				height = len(document.Operations)
+			}
+		}
+		if location == env.Myfqdn {
+			height = height + 1
+		}
+		request.KnownState[location] = height
+	}
+	localDoc.Operations = append(localDoc.Operations, request)
+	log.Printf("New request: resourceId=%v requestId=%v\n", localDoc.ResourceId, request.RequestId)
 
 	// Send the newly formatted document
 	// We of course assume that the revision hasn't changed since the last Get, so this might fail.
 	// In this case the user has to retry
-	buf, err := json.Marshal(d)
+	buf, err := json.Marshal(localDoc)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +217,7 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 		return nil, fmt.Errorf("Couldn't send request %#v to couchdb: %s", string(buf), resp.Status)
 	}
 
-	expected := len(d.Locations)
+	expected := len(localDoc.Locations)
 
 	ret := make(chan model.ReplyDocument)
 
@@ -322,7 +335,6 @@ func (r *Replicator) run(ctx context.Context, d model.ResourceDocument) {
 	}
 
 	operationsToRun := findOperationsToRun(env.Myfqdn, resourceDocuments, replies)
-	log.Printf("Running resourceid=%s numoperations=%d\n", d.ResourceId, len(operationsToRun))
 	if len(operationsToRun) == 0 {
 		return
 	}
@@ -364,37 +376,43 @@ func (r *Replicator) run(ctx context.Context, d model.ResourceDocument) {
 	}
 }
 
+func (r *Replicator) getResourceDocsFor(resourceId string) ([]model.ResourceDocument, error) {
+	docs, err := r.getDocsForView("all-by-resourceid", resourceId, "RESOURCE")
+	resourceDocuments := make([]model.ResourceDocument, 0)
+	for _, d := range docs {
+		var doc model.ResourceDocument
+		err := json.Unmarshal(d, &doc)
+		if err == nil && doc.Type == "RESOURCE" {
+			resourceDocuments = append(resourceDocuments, doc)
+		}
+	}
+
+	return resourceDocuments, err
+}
+
 func (r *Replicator) getAllDocsFor(resourceId string) ([]json.RawMessage, error) {
 	return r.getDocsForView("all-by-resourceid", resourceId)
 }
 
-func (r *Replicator) getLocalResourceFor(resourceId string) (model.ResourceDocument, error) {
-	docs, err := r.getDocsForView("resource-by-site", resourceId, env.Myfqdn)
-	if len(docs) == 0 {
-		return model.ResourceDocument{}, err
-	} else {
-		var doc model.ResourceDocument
-		err := json.Unmarshal(docs[0], &doc)
-		return doc, err
-	}
-}
-
 func (r *Replicator) getDocsForView(viewname string, keyArgs ...string) ([]json.RawMessage, error) {
-	var query interface{}
-	if len(keyArgs) == 1 {
-		query = struct {
-			Key string `json:"key"`
-		}{
-			Key: keyArgs[0],
-		}
-	} else {
-		query = struct {
-			Key []string `json:"key"`
-		}{
-			Key: keyArgs,
-		}
+	endkey := make([]string, len(keyArgs))
+	copy(endkey, keyArgs)
+	endkey = append(endkey, "0")
+
+	type query struct {
+		StartKey []string `json:"start_key"`
+		EndKey   []string `json:"end_key"`
 	}
-	b, err := json.Marshal(query)
+
+	q := struct {
+		Query query `json:"query"`
+	}{
+		Query: query{
+			StartKey: keyArgs,
+			EndKey:   endkey,
+		},
+	}
+	b, err := json.Marshal(q)
 	if err != nil {
 		return nil, err
 	}

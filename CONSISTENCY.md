@@ -25,7 +25,7 @@ Type 3 is typically "replacement" operations: "set the value to 7".
 
 ## Logs
 
-In Cheops each location maintains a log of operations it itself created. This means that when a user sends a new command, it always sends it to a specific site which records it in its log and manages to eventually send it to all involved nodes. By sending, we mean that the log is replicated on all sites; all sites know all lists of all operations from each node, as separate entities:
+In Cheops each location maintains a log of operations it itself created. This means that when a user sends a new command, it always sends it to a specific site which records it in its log and manages to eventually send it to all involved nodes. Along with the operation, the state as known by the site is recorded to manage concurrent operations. By sending, we mean that the log is replicated on all sites; all sites know all lists of all operations from each node, as separate entities:
 
 ```
 S1 ----A-----B----C---
@@ -33,30 +33,20 @@ S2 --D----E-----------
 S3 -----------------F
 ```
 
-In this example, all 3 sites know the exact list of operations that exist on other sites. Recall that this is the view from a given site; for another site, the view might be different because some operations haven't been replicated yet.
+In this example, all 3 sites know the exact list of operations that exist on other sites. The known state of each site for each operation is the index of the last known operation of other sites. For example here, when D was inserted, the state of S1 and S3 was 0. Recall that this is the view from a given site; for another site, the view might be different because some operations haven't been replicated yet.
 
-## Execution of operations
+## Insertion of operations
 
-When an operation is played on a given site, Cheops will create a reply specific to that site and that operation. That reply contains data specific to the execution but not relevant to the consistency model. It will then be replicated to all sites. This means that if there are 3 sites, an operation A will eventually create 3 replies: one from S1, one from S2 and one from S3. Each is created on the respective site and synchronized to the others. Let's call them A1, A2, A3. Eventually one will find the trio on S1, on S2 and on S3.
+When an operation is added on a given site, Cheops will push it at the end of its log along with the list of known states.
 
-## Dead or Alive
-
-Operations can be linked with the replies for it:
-
-- Dead: an operation is dead on a site if all replies from all sites have been synchronized to the site, or if on the same site another later operation is dead
-- Alive: an operation is alive on a site if not all replies have been synchronized to the site, and if on the same site all operations after it are alive
-
-For example, taking the previous example of A1, A2, A3: if the 3 replies are replicated on S1, then A will be dead on S1. If S2 has only received A1 and A2, then A is still alive on S2 (but eventually will receive A3, so will eventually be dead, or an operation happening after on S2 will be dead).
-
-Another way of looking at these definition is to imagine a monotonically progressing cursor on each site: as the cursor progresses, the operations before are dead, the one after are alive.
+Let's take the previous example, and assume all 3 nodes are converged: the known state in general will be {S1: 3, S2: 2, S3: 1}. If S2 adds a new operation G, it will record it along with the following: {S1: 3, S3: 1}. If S3 adds 2 new operations H and I at the same site at the same time, it will record it along with the following: {S1: 3, S2: 2}, for the 2 operations
 
 ## Converging on a consistent state
 
-As the "cursor" advances, some operations become dead and new ones are alive. Alive operations accumulate and need to be executed in a way that converges on all sites. Here's how it's done.
+As can be seen from the previous example, adding concurrent operations is something that can happen at any time and needs to be dealt with. Here's how we do it.
 
-Type 3 operations are non-commutative and idempotent. This means that the order matters, but once applied they can be applied any number of times; these are "replacement" or "reset" operations. It is easy to intuit that whatever happens before them doesn't really matter: it will be replaced by them. It makes sense then that the last operation of type 3 marks another kind of threshold, because all operations of type 2 after it start from the state of the type 3 operation. If we take this set (a type 3, then zero or more type 2 only) and replicate it everywhere the state will be the same.
+Whenever a site receives an update of operations (either locally or remotely), all the logs are compared to the last locally known state. In the last example, from the point of view of S3, G is new; from the point of view of S1, G, H and I are new (note: H and I will always arrive in order, but maybe not at the same time; G might also arrive at a later time. Eventually). We take the new operations and all the operations that started after the know states indicated along with them: from S1 point of view, the last local operation (C) indicated that the last know state is {S2: 2, S3: 1}. The new operation are then G, H and I.
 
-What we do in Cheops is take the last operation of type 3 of all sites: there will be at most one per site. We compare all of them with a deterministic sorting function (one that doesn't depend on the node, the index of the operation, but only on the operations themselves) and take one of them (always the highest): this is the "winning" set of operations that is thus to be executed everywhere. This ensures a convergent state that makes sense. As usual, once this is done, those operations are marked as dead and the cycle goes on
+Type 3 operations are non-commutative and idempotent. This means that the order matters, but once applied they can be applied any number of times; these are "replacement" or "reset" operations. It is easy to intuit that whatever happens before them doesn't really matter: it will be replaced by them. It makes sense then that the last operation of type 3 marks another kind of threshold, because all operations of type 2 after it start from the state of the type 3 operation.
 
-(As a special case if there are no type 3 at all, it means everything is a type 2: since those are commutative, we apply all that haven't been already applied everywhere)
-
+Thanks to this property it is enough to take the last type 3 operation of the previous set and consider them and the following operation (which will always be type 2). If there are no 3 operations for a site, then it's all 2 and we consider them all. We look if the type 3 operations are in conflict, meaning that one is not the ancestor of the other; if there is a conflict we pick one winner based on a deterministic order. Otherwise we take the last one semantically. Once applied, we apply all operations that are causally later, from any site: they will be all type 2 so can be applied in any order, even if they conflict.

@@ -7,124 +7,140 @@ import (
 )
 
 // findOperationsToRun outputs the operations to run for a resource
-// based on the consistency model and the operations that have
-// already been ran.
+// based on the consistency model and the known states
 //
 // site is the site to run operations on
 //
 // documents is the list of documents for the resource, one by site
 //
-// replies is all the replies for all operations for this resource
-//
 // See CONSISTENCY.md at the top of the project to understand what is happening here
 func findOperationsToRun(site string, documents []model.ResourceDocument, replies []model.ReplyDocument) []model.Operation {
-	// First step: for each site, find the last operation of type 3 that is alive
-	// and put it with the following type 2 operations in a bag
-	// Second step: find the winning type 3 operation
-	// Third step: apply the winning type 3 operation and the following type 2
-	//				operations on all sites except the one that wins
-	//
-	// Second step bis: if there are no type 3 operations, it's all type 2:
-	// play it all
-
-	// Index replies to easily find dead and already ran operations
-	// requestId -> site
-	repliesByOperationAndSite := make(map[string]map[string]struct{})
-	for _, reply := range replies {
-		if _, ok := repliesByOperationAndSite[reply.RequestId]; !ok {
-			repliesByOperationAndSite[reply.RequestId] = make(map[string]struct{})
-		}
-		repliesByOperationAndSite[reply.RequestId][reply.Site] = struct{}{}
+	if len(documents) == 0 {
+		return nil
 	}
 
-	deadOperations := make(map[string]struct{})
-	for requestId, replies := range repliesByOperationAndSite {
-	findOp:
-		for _, document := range documents {
-			for _, operation := range document.Operations {
-				if operation.RequestId == requestId {
-					if len(replies) == len(document.Locations) {
-						deadOperations[requestId] = struct{}{}
-						break findOp
-					}
-				}
-			}
-		}
-	}
+	// Step 1: on each site, find the best operation of type 3 that is
+	//         causally concurrent or after the last local operation
+	// Step 2: pick all the operations causally after the winner
 
-	// Gather "one type 3 and the rest of type 2" for each document
-	suits := make([][]model.Operation, 0)
-	hasTypeC := false
+	var localLast model.Operation
 	for _, document := range documents {
-		suitStart := -1
+		if document.Site == site {
+			localLast = document.Operations[len(document.Operations)-1]
+		}
+	}
+	if localLast.RequestId == "" {
+		// No document for local site, make a fake operation that is before
+		// everything else
+		localLast.KnownState = make(map[string]int)
+		for _, location := range documents[0].Locations {
+			localLast.KnownState[string(location)] = -1
+		}
+	}
+
+	firstToRun := localLast
+	for _, document := range documents {
+
+	document:
 		for i := range document.Operations {
 			idx := len(document.Operations) - 1 - i
-			operation := document.Operations[idx]
-			if _, dead := deadOperations[operation.RequestId]; dead {
-				break
-			}
-			suitStart = idx
-			if operation.Type == model.OperationTypeIdempotent {
-				hasTypeC = true
-				break
-			}
-		}
-		if suitStart == -1 {
-			suits = append(suits, []model.Operation{})
-		} else {
-			suit := document.Operations[suitStart:]
-			suits = append(suits, suit)
-		}
-	}
 
-	// If there is no type 3, return the rest
-	if !hasTypeC {
-		ret := make([]model.Operation, 0)
-		for _, suit := range suits {
-			for _, operation := range suit {
-				if _, alreadyRanAny := repliesByOperationAndSite[operation.RequestId]; alreadyRanAny {
-
-					if _, alreadyRan := repliesByOperationAndSite[operation.RequestId][site]; alreadyRan {
-						continue
-					}
+			op := document.Operations[idx]
+			if op.Type == model.OperationTypeIdempotent {
+				if isAfter(op, firstToRun) {
+					firstToRun = op
+					break document
+				} else if firstToRun.Type != model.OperationTypeIdempotent {
+					// True iff firstToRun is localLast
+					firstToRun = op
+					break document
+				} else if isConcurrent(op, firstToRun) && strings.Compare(op.RequestId, firstToRun.RequestId) > 0 {
+					firstToRun = op
+					break document
 				}
-				ret = append(ret, operation)
-			}
-		}
-
-		return ret
-	}
-
-	// If there is a type C, check the first operation if it is a type C, get the highest by comparing
-	// requestid: that's the winner
-	idx := -1
-	var max string
-	for i, suit := range suits {
-		if len(suit) == 0 {
-			continue
-		}
-		if suit[0].Type == model.OperationTypeIdempotent {
-			if strings.Compare(suit[0].RequestId, max) > 0 {
-				max = suit[0].RequestId
-				idx = i
 			}
 		}
 	}
 
-	for i, doc := range documents {
-		if doc.Site != site {
-			continue
+	alreadyRan := func(op model.Operation) bool {
+		for _, reply := range replies {
+			if reply.RequestId == op.RequestId && reply.Site == site {
+				return true
+			}
 		}
+		return false
+	}
 
-		if i == idx {
-			return []model.Operation{}
+	// Now gather all operations to run
+	// It will only be type 2, so no need to care about the order
+	operationsToRun := make([]model.Operation, 0)
+	if !alreadyRan(firstToRun) && firstToRun.RequestId != "" {
+		operationsToRun = append(operationsToRun, firstToRun)
+	}
+
+	for _, document := range documents {
+		for i := range document.Operations {
+			idx := len(document.Operations) - 1 - i
+			op := document.Operations[idx]
+			if op.Type == model.OperationTypeIdempotent {
+				break
+			}
+			if firstToRun.Type == model.OperationTypeIdempotent {
+				// Type 3 first, take every type 2 that is causally after
+				if isAfter(op, firstToRun) && !alreadyRan(op) {
+					operationsToRun = append(operationsToRun, op)
+				}
+			} else if firstToRun.Type != model.OperationTypeIdempotent {
+				// Type 2 first, take every type 2 that is concurrent or after
+				if (isAfter(op, firstToRun) || isConcurrent(op, firstToRun)) && !alreadyRan(op) {
+					operationsToRun = append(operationsToRun, op)
+				}
+			}
+		}
+	}
+
+	return operationsToRun
+}
+
+// isAfter returns true if a is strictly after b, false if it is concurrent or before.
+// An operation a is after operation b if all known state of a is
+// higher than the known state of b
+func isAfter(a, b model.Operation) bool {
+	atLeastOneAfter := false
+	atLeastOneBefore := false
+	for site := range a.KnownState {
+		if a.KnownState[site] > b.KnownState[site] {
+			atLeastOneAfter = true
+		} else if a.KnownState[site] < b.KnownState[site] {
+			atLeastOneBefore = true
+		}
+	}
+
+	return atLeastOneAfter && !atLeastOneBefore
+}
+
+// isConcurrent returns true if a and b are concurrent, false otherwise.
+// An operation a is concurrent to operation b if it happened after or at the same
+// time on one site, and before or at the same time on another.
+func isConcurrent(a, b model.Operation) bool {
+	atLeastOneAfter := false
+	atLeastOneBefore := false
+	atLeastOneEqual := false
+	for site := range a.KnownState {
+		if a.KnownState[site] < b.KnownState[site] {
+			atLeastOneBefore = true
+		} else if a.KnownState[site] == b.KnownState[site] {
+			atLeastOneEqual = true
 		} else {
-			// As an optimization, if the beginning of the winning suit matches the end of the document
-			// and the matching operations have already been played, then we can only run the rest.
-			// Let's make it simple for now and just blindly run everything, it's still correct
-			return suits[idx]
+			atLeastOneAfter = true
 		}
 	}
 
-	return nil
+	if atLeastOneAfter && atLeastOneBefore ||
+		atLeastOneBefore && atLeastOneEqual ||
+		atLeastOneAfter && atLeastOneEqual {
+		return true
+	}
+
+	return false
 }
