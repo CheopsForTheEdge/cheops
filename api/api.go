@@ -127,7 +127,7 @@ func Run(port int, repl *replicator.Replicator) {
 	}
 }
 
-func parseRequest(w http.ResponseWriter, r *http.Request) (id, command, typ string, config model.ResourceConfig, sites []string, files map[string][]byte, ok bool) {
+func parseRequest(w http.ResponseWriter, r *http.Request) (id, command string, typ model.OperationType, config model.ResourceConfig, sites []string, files map[string][]byte, ok bool) {
 	vars := mux.Vars(r)
 	id = vars["id"]
 	if id == "" {
@@ -172,12 +172,17 @@ func parseRequest(w http.ResponseWriter, r *http.Request) (id, command, typ stri
 	command = strings.TrimSpace(commands[0])
 
 	types, okk := r.MultipartForm.Value["type"]
-	if !okk || len(commands) != 1 {
+	if !okk || len(types) != 1 {
 		log.Println("Missing type")
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	typ = strings.TrimSpace(types[0])
+	typ, err = model.OperationTypeFrom(strings.TrimSpace(types[0]))
+	if err != nil {
+		log.Println("Invalid type")
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
 
 	files = make(map[string][]byte)
 	for name, requestFiles := range r.MultipartForm.File {

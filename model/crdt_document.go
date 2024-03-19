@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"time"
 
 	"cheops.com/backends"
@@ -59,18 +60,30 @@ type Cmd struct {
 type OperationType string
 
 const (
-	// Idempotent and Commutative (Type 1)
-	OperationTypeCommutativeIdempotent OperationType = "A"
+	// Idempotent and Commutative (Type A)
+	OperationTypeCommutativeIdempotent OperationType = "1"
 
-	// Commutative only (Type 2)
-	OperationTypeCommutative OperationType = "B"
+	// Commutative only (Type B)
+	OperationTypeCommutative OperationType = "2"
 
-	// Idempotent only (Type 3)
-	OperationTypeIdempotent OperationType = "C"
+	// Idempotent only (Type C)
+	OperationTypeIdempotent OperationType = "3"
 
-	// Not commutative, not idempotent (Type 4)
-	OperationTypeNothing OperationType = "D"
+	// Not commutative, not idempotent (Type D)
+	OperationTypeNothing OperationType = "4"
 )
+
+func OperationTypeFrom(input string) (OperationType, error) {
+	op := OperationType(input)
+	if op != OperationTypeCommutativeIdempotent &&
+		op != OperationTypeCommutative &&
+		op != OperationTypeIdempotent &&
+		op != OperationTypeNothing {
+		return "", fmt.Errorf("Unknown operation type")
+	}
+
+	return OperationType(input), nil
+}
 
 type Operation struct {
 	Type      OperationType
