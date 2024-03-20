@@ -37,12 +37,16 @@ func runWithStdin(ctx context.Context, cmd ShellCommand) (output string, err err
 	}
 	defer os.RemoveAll(dir)
 
+	// filename -> tmp full path
+	replacements := make(map[string]string)
 	for filename, file := range cmd.Files {
-		err := ioutil.WriteFile(path.Join(dir, filename), file, 0644)
+		fullpath := path.Join(dir, filename)
+		err := ioutil.WriteFile(fullpath, file, 0644)
 		if err != nil {
 			log.Printf("Couldn't write working file %s: %v\n", file, err)
 			return "", fmt.Errorf("internal error")
 		}
+		replacements[filename] = fullpath
 	}
 
 	// replace all patterns
@@ -50,7 +54,7 @@ func runWithStdin(ctx context.Context, cmd ShellCommand) (output string, err err
 	input := cmd.Command
 	matches := cmdWithFilesRE.FindAllStringSubmatch(cmd.Command, -1)
 	for _, match := range matches {
-		input = strings.Replace(input, match[0], match[1], 1)
+		input = strings.Replace(input, match[0], replacements[match[1]], 1)
 	}
 
 	execCommand := exec.CommandContext(ctx, "sh")
@@ -78,7 +82,7 @@ func runWithStdin(ctx context.Context, cmd ShellCommand) (output string, err err
 	}
 
 	if execCommand.ProcessState != nil && !execCommand.ProcessState.Success() {
-	  err = fmt.Errorf("failed")
+		err = fmt.Errorf("failed")
 	}
 
 	return string(out), err
