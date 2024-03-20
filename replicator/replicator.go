@@ -217,8 +217,11 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 		return nil, fmt.Errorf("Couldn't send request %#v to couchdb: %s", string(buf), resp.Status)
 	}
 
-	expected := len(localDoc.Locations)
-
+	// location -> struct{}{}
+	expected := make(map[string]struct{})
+	for _, location := range localDoc.Locations {
+		expected[location] = struct{}{}
+	}
 	ret := make(chan model.ReplyDocument)
 
 	go func() {
@@ -227,7 +230,7 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 			close(ret)
 		}()
 
-		for i := 0; i < expected; i++ {
+		for i := 0; i < len(expected); i++ {
 			select {
 			case <-ctx.Done():
 				if err := ctx.Err(); err != nil {
@@ -235,12 +238,23 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 					return
 				}
 			case reply := <-repliesChan:
+				delete(expected, reply.Site)
 				ret <- reply
 			case <-time.After(20 * time.Second):
 				// timeout
-				//
-				// Because there are multiple cases, let's leave it like that,
-				// some goroutines will wait for nothing, that's alright
+				for remaining := range expected {
+					ret <- model.ReplyDocument{
+						Locations:  localDoc.Locations,
+						Site:       remaining,
+						RequestId:  request.RequestId,
+						ResourceId: localDoc.ResourceId,
+						Status:     "TIMEOUT",
+						Cmd: model.Cmd{
+							Input: request.Command.Command,
+						},
+						Type: "REPLY",
+					}
+				}
 				return
 			}
 		}
