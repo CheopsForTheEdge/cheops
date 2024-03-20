@@ -70,7 +70,7 @@ func runWithStdin(ctx context.Context, cmd ShellCommand) (output string, err err
 	out, err := execCommand.CombinedOutput()
 	if err != nil {
 		log.Printf("Couldn't run [%s]: %v\n", input, err)
-		return "", fmt.Errorf("internal error")
+		err = fmt.Errorf("internal error")
 	}
 	scanner := bufio.NewScanner(bytes.NewBuffer(out))
 	for scanner.Scan() {
@@ -78,10 +78,10 @@ func runWithStdin(ctx context.Context, cmd ShellCommand) (output string, err err
 	}
 
 	if execCommand.ProcessState != nil && !execCommand.ProcessState.Success() {
-		return "", fmt.Errorf("failed")
+	  err = fmt.Errorf("failed")
 	}
 
-	return string(out), nil
+	return string(out), err
 }
 
 func Handle(ctx context.Context, commands []ShellCommand) (replies []string, err error) {
