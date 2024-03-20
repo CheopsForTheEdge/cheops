@@ -123,11 +123,11 @@ func (e *ExecCmd) Run(ctx *kong.Context) error {
 	if err != nil {
 		return fmt.Errorf("Invalid parameters for host or id: %v\n", err)
 	}
-	return doRequest(u.String(), mw.Boundary(), b)
+	return doRequest(u.String(), mw.Boundary(), b, len(hosts))
 
 }
 
-func doRequest(url, boundary string, body bytes.Buffer) error {
+func doRequest(url, boundary string, body bytes.Buffer, numSites int) error {
 	req, err := http.NewRequest("POST", url, &body)
 	if err != nil {
 		return fmt.Errorf("Error building request for %s: %v\n", url, err)
@@ -150,6 +150,7 @@ func doRequest(url, boundary string, body bytes.Buffer) error {
 		Output string
 	}
 	sc := bufio.NewScanner(res.Body)
+	counter := 0
 	for sc.Scan() {
 		var r reply
 		err := json.Unmarshal(sc.Bytes(), &r)
@@ -157,7 +158,8 @@ func doRequest(url, boundary string, body bytes.Buffer) error {
 			fmt.Println(err)
 			continue
 		}
-		fmt.Printf("%s %s\t%s\n", r.Status, r.Site, r.Output)
+		counter++
+		fmt.Printf("[%d/%d] %s %s\t%s\n", counter, numSites, r.Status, r.Site, r.Output)
 	}
 	return sc.Err()
 
