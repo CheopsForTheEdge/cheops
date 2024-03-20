@@ -342,7 +342,7 @@ func (r *Replicator) run(ctx context.Context, d model.ResourceDocument) {
 	commands := make([]backends.ShellCommand, 0)
 	for _, operation := range operationsToRun {
 		commands = append(commands, operation.Command)
-		log.Printf("will apply [%s]\n", operation.Command.Command)
+		log.Printf("will run %s\n", operation.RequestId)
 	}
 
 	executionReplies, err := backends.Handle(ctx, commands)
@@ -354,7 +354,7 @@ func (r *Replicator) run(ctx context.Context, d model.ResourceDocument) {
 
 	// Post reply for replication
 	for i, operation := range operationsToRun {
-		log.Printf("Ran %s %s\n", operation.RequestId, env.Myfqdn)
+		log.Printf("Ran %s\n", operation.RequestId)
 
 		cmd := model.Cmd{
 			Input:  commands[i].Command,
