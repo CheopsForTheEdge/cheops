@@ -17,9 +17,12 @@ if hostname == "fnantes":
 elif hostname == "fgrenoble":
     site = "grenoble"
     cluster = "dahu"
+elif hostname == "flille":
+    site = "lille"
+    cluster = "chiclet"
 else:
-    site = "nantes"
-    cluster = "econome"
+    print("unknown frontend")
+    os.exit(1)
 
 import enoslib as en
 
