@@ -42,3 +42,5 @@ fi
 cd cli
 /usr/lib/go-1.19/bin/go build -o /tmp/cheops/cli/cli
 cd ..
+
+kubectl delete all --all

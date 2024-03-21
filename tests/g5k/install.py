@@ -49,6 +49,8 @@ roles, networks = provider.init()
 en.sync_info(roles, networks)
 
 with en.actions(roles=roles["cheops"], gather_facts=True) as p:
+
+    #Couch
     p.apt_key(url="https://couchdb.apache.org/repo/keys.asc")
     p.apt_repository(repo="deb https://apache.jfrog.io/artifactory/couchdb-deb/ {{ ansible_distribution_release }} main")
     p.shell(cmd="""
@@ -80,98 +82,13 @@ with en.actions(roles=roles["cheops"], gather_facts=True) as p:
             state="restarted"
     )
 
-with en.actions(roles=roles["cheops"], gather_facts=True) as p:
+    # base and go
     p.apt(
         update_cache=True,
-        pkg=["apt-transport-https", "ca-certificates", "curl", "gnupg", "lsb-release"]
+        pkg=["apt-transport-https", "ca-certificates", "curl", "gnupg", "lsb-release", "golang-1.19"]
     )
 
-    # docker
-    p.apt_key(
-        url="https://download.docker.com/linux/debian/gpg"
-    )
-    p.apt_repository(
-        repo="deb https://download.docker.com/linux/debian {{ ansible_distribution_release }} stable",
-        update_cache=True
-    )    
-    p.apt(
-        pkg=["docker-ce", "docker-ce-cli", "containerd.io"]
-    )
-    p.copy(
-        dest="/etc/docker/daemon.json",
-        content="""
-        {
-          "exec-opts": ["native.cgroupdriver=systemd"],
-          "log-driver": "json-file",
-          "log-opts": {
-          "max-size": "100m"
-          },
-          "storage-driver": "overlay2"
-        }
-        """
-    )
-    p.systemd(
-        daemon_reload=True,
-        name="docker",
-        state="started"
-    )
-
-    # kubernetes
-    if False:
-        p.copy(
-            dest="/etc/modules-load.d/k8s.conf",
-            content="br_netfilter"
-        )
-        p.copy(
-            dest="/etc/sysctl.d/k8s.conf",
-            content="""
-            net.bridge.bridge-nf-call-ip6tables = 1
-            net.bridge.bridge-nf-call-iptables = 1
-            """
-        )
-        p.shell(
-            cmd="sysctl --system"
-        )
-        p.apt_key(
-            url="https://packages.cloud.google.com/apt/doc/apt-key.gpg"
-        )
-        p.apt_repository(
-            repo="deb https://apt.kubernetes.io/ kubernetes-xenial main",
-            update_cache=True
-        )
-        p.apt(
-            pkg=["kubelet=1.21.12-00", "kubeadm=1.21.12-00", "kubectl=1.21.12-00", "mount"]
-        )
-        p.command(
-            cmd="apt-mark hold kubelet kubeadm kubectl"
-        )
-        p.command(
-            cmd="swapoff -a"
-        )
-        p.shell(
-            cmd="kubeadm init --pod-network-cidr=10.244.0.0/16"
-        )    
-        p.file(
-            path="{{ ansible_user_dir }}/.kube",
-            state="directory"
-        )
-        p.copy(
-            src="/etc/kubernetes/admin.conf",
-            remote_src=True,
-            dest="{{ ansible_user_dir }}/.kube/config"
-        )
-        p.copy(
-            src="{{ ansible_user_dir }}/.kube/config",
-            remote_src=True,
-            dest="{{ ansible_user_dir }}/.kube/config.proxified"
-        )
-        p.lineinfile(
-            regexp=".*server:.*",
-            line="    server: http://127.0.0.1:8079",
-            path="{{ ansible_user_dir }}/.kube/config.proxified"
-        )
-
-with en.actions(roles=roles["cheops"], gather_facts=False) as p:
-    p.apt(
-        pkg="golang-1.19"
-    )
+# k3s
+for role in roles["cheops"]:
+    k3s = en.K3s(master=[role], agent=[])
+    k3s.deploy()
