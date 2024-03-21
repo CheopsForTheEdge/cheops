@@ -145,9 +145,10 @@ func doRequest(url, boundary string, body bytes.Buffer, numSites int) error {
 	}
 
 	type reply struct {
-		Site   string
-		Status string
-		Output string
+		Site      string
+		Status    string
+		Output    string
+		RequestId string
 	}
 	sc := bufio.NewScanner(res.Body)
 	counter := 0
@@ -159,7 +160,7 @@ func doRequest(url, boundary string, body bytes.Buffer, numSites int) error {
 			continue
 		}
 		counter++
-		fmt.Printf("[%d/%d] %s %s\t%s\n", counter, numSites, r.Status, r.Site, r.Output)
+		fmt.Printf("[%d/%d] %s %s %s\t%s\n", counter, numSites, r.Status, r.RequestId, r.Site, r.Output)
 	}
 	return sc.Err()
 
