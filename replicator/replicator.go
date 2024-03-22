@@ -376,13 +376,14 @@ func (r *Replicator) run(ctx context.Context, d model.ResourceDocument) {
 		}
 
 		err = r.postDocument(model.ReplyDocument{
-			Locations:  d.Locations,
-			Site:       env.Myfqdn,
-			RequestId:  operation.RequestId,
-			ResourceId: d.ResourceId,
-			Status:     status,
-			Cmd:        cmd,
-			Type:       "REPLY",
+			Locations:     d.Locations,
+			Site:          env.Myfqdn,
+			RequestId:     operation.RequestId,
+			ResourceId:    d.ResourceId,
+			Status:        status,
+			Cmd:           cmd,
+			Type:          "REPLY",
+			ExecutionTime: time.Now(),
 		})
 		if err != nil {
 			log.Println(err)

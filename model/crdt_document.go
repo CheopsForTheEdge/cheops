@@ -34,6 +34,7 @@ type ReplyDocument struct {
 	// "OK" or "KO"
 	Status string
 	Cmd
+	ExecutionTime time.Time
 
 	// Always REPLY
 	Type string
