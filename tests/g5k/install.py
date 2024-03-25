@@ -51,36 +51,115 @@ en.sync_info(roles, networks)
 with en.actions(roles=roles["cheops"], gather_facts=True) as p:
 
     #Couch
-    p.apt_key(url="https://couchdb.apache.org/repo/keys.asc")
-    p.apt_repository(repo="deb https://apache.jfrog.io/artifactory/couchdb-deb/ {{ ansible_distribution_release }} main")
-    p.shell(cmd="""
-    COUCHDB_PASSWORD=password
-    echo "couchdb couchdb/mode select standalone
-    couchdb couchdb/mode seen true
-    couchdb couchdb/bindaddress string 127.0.0.1
-    couchdb couchdb/bindaddress seen true
-    couchdb couchdb/cookie string elmo
-    couchdb couchdb/cookie seen true
-    couchdb couchdb/adminpass password ${COUCHDB_PASSWORD}
-    couchdb couchdb/adminpass seen true
-    couchdb couchdb/adminpass_again password ${COUCHDB_PASSWORD}
-    couchdb couchdb/adminpass_again seen true" | debconf-set-selections
-    """)
-    p.apt(pkg="couchdb")
+    p.apt_key(url="https://binaries2.erlang-solutions.com/GPG-KEY-pmanager.asc")
+    p.apt_repository(repo="deb https://binaries2.erlang-solutions.com/debian {{ansible_distribution_release}}-esl-erlang-25 contrib")
+    p.apt(update_cache=True, pkg="esl-erlang", state="absent")
+    p.apt(update_cache=True, pkg="esl-erlang")
+
+    p.apt(pkg=["build-essential", "pkg-config", "libicu-dev", "libmozjs-78-dev"])
+
+    p.file(
+        path="/tmp/couchdb",
+        state="directory"
+    )
+    p.uri(
+        url="https://dlcdn.apache.org/couchdb/source/3.3.3/apache-couchdb-3.3.3.tar.gz",
+        dest="/tmp/couchdb",
+    )
+
+    p.file(
+        path="/tmp/couchdb/apache-couchdb-3.3.3",
+        state="directory"
+    )
+    p.unarchive(
+        remote_src=True,
+        src="/tmp/couchdb/apache-couchdb-3.3.3.tar.gz",
+        dest="/tmp/couchdb"
+    )
+    p.shell(
+        cmd="""
+        ./configure --disable-docs --spidermonkey-version 78
+        make release
+        """,
+        chdir="/tmp/couchdb/apache-couchdb-3.3.3"
+    )
+
+    if False:
+        p.apt_key(url="https://couchdb.apache.org/repo/keys.asc")
+        p.apt_repository(repo="deb https://apache.jfrog.io/artifactory/couchdb-deb/ {{ ansible_distribution_release }} main")
+        p.shell(cmd="""
+        COUCHDB_PASSWORD=password
+        echo "couchdb couchdb/mode select standalone
+        couchdb couchdb/mode seen true
+        couchdb couchdb/bindaddress string 127.0.0.1
+        couchdb couchdb/bindaddress seen true
+        couchdb couchdb/cookie string elmo
+        couchdb couchdb/cookie seen true
+        couchdb couchdb/adminpass password ${COUCHDB_PASSWORD}
+        couchdb couchdb/adminpass seen true
+        couchdb couchdb/adminpass_again password ${COUCHDB_PASSWORD}
+        couchdb couchdb/adminpass_again seen true" | debconf-set-selections
+        """)
+        p.apt(pkg="couchdb")
+
+    p.group(
+        name="couchdb"
+    )
+    p.user(
+        name="couchdb",
+        shell="/bin/true",
+        home="/opt/couchdb",
+        group="couchdb",
+    )
+    p.copy(
+        remote_src=True,
+        src="/tmp/couchdb/apache-couchdb-3.3.3/rel/couchdb/",
+        dest="/opt/couchdb"
+    )
+    p.file(
+        path="/opt/couchdb",
+        owner="couchdb",
+        recurse=True
+    )
+
     p.lineinfile(
-            path="/opt/couchdb/etc/local.ini",
-            line="single_node=true",
-            insertafter="\[couchdb\]"
+        path="/opt/couchdb/etc/local.ini",
+        line="single_node=true",
+        insertafter="\[couchdb\]"
     )    
     p.lineinfile(
-            path="/opt/couchdb/etc/local.ini",
-            line="bind_address = :: ",
-            insertafter="\[chttpd\]"
+        path="/opt/couchdb/etc/local.ini",
+        line="bind_address = :: ",
+        insertafter="\[chttpd\]"
+    )
+    p.lineinfile(
+        path="/opt/couchdb/etc/local.ini",
+        line="admin = password",
+        insertafter="\[admins\]"
+    )
+
+    p.copy(
+        dest="/lib/systemd/system/couchdb.service",
+        content="""
+            [Unit]
+            Description=couchdb
+            After=network-online.target
+
+            [Service]
+            Restart=on-failure
+            ExecStart=/opt/couchdb/bin/couchdb
+            User=couchdb
+
+            [Install]
+            WantedBy=multi-user.target
+        """,
     )
     p.systemd(
-            name="couchdb",
-            state="restarted"
+        name="couchdb",
+        state="started"
     )
+
+
 
     # base and go
     p.apt(
