@@ -78,6 +78,10 @@ func (r *Replicator) ensureCouch() {
       "map": "function (doc) {\n  if(doc.Type != 'RESOURCE') return;\n  emit(null, null);\n}",
       "reduce": "_count"
 
+    },
+    "last-reply": {
+      "map": "function (doc) {\n  if (doc.Type != 'REPLY') return;\n  emit([doc.ResourceId, doc.Site], {Time: doc.ExecutionTime, RequestId: doc.RequestId});\n}",
+      "reduce": "function (keys, values, rereduce) {\n  let sorted = values.sort((a, b) => {\n    return a.Time.localeCompare(b.Time)\n  })\n  return sorted[sorted.length - 1]\n}"
     }
   },
   "language": "javascript"

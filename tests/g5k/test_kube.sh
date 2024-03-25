@@ -52,6 +52,8 @@ read -p "Continue ? "
 ssh $host3 sudo nft delete chain ip filter couchdb_in
 ssh $host3 sudo nft delete chain ip filter couchdb_out
 
+echo "Waiting for operations to synchronize and run"
+
 python synchronization.py
-echo "Operations are synchronized, waiting a bit before checking status"
+
 ./run_everywhere.sh "sudo kubectl get deployment deployment-$lowerid"
