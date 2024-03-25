@@ -27,11 +27,15 @@ def wait(hosts):
                     a[id] = {}
                 requestid = row['value']['RequestId']
                 if requestid not in a[id]:
-                    a[id][requestid] = 0
-                a[id][requestid] += 1
+                    a[id][requestid] = row['value']['Sites']
+                site = row['key'][1]
+                unsync = [s for s in a[id][requestid] if s != site]
+                a[id][requestid] = unsync
+
             for byid in a.values():
-                if len(byid) != 1:
-                    return False
+                for byrequestid in byid.values():
+                    if len(byrequestid) != 0:
+                        return False
 
         return True
 
