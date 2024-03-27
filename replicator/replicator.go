@@ -234,7 +234,7 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 			close(ret)
 		}()
 
-		for i := 0; i < len(expected); i++ {
+		for len(expected) >0 {
 			select {
 			case <-ctx.Done():
 				if err := ctx.Err(); err != nil {
@@ -242,8 +242,8 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 					return
 				}
 			case reply := <-repliesChan:
-				delete(expected, reply.Site)
 				ret <- reply
+				delete(expected, reply.Site)
 			case <-time.After(20 * time.Second):
 				// timeout
 				for remaining := range expected {
