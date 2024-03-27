@@ -44,8 +44,9 @@ ssh $host3 'sudo nft add chain ip filter couchdb_out "{type filter hook output p
 ssh $host3 sudo nft add rule ip filter couchdb_out ip daddr 127.0.0.1 accept
 ssh $host3 sudo nft add rule ip filter couchdb_out tcp dport 5984 drop
 
-../../cli/cli exec --id $id --sites "$LOCATIONS_1" --command "sudo kubectl apply -f {$v1}" --type 3
-../../cli/cli exec --id $id --sites "$LOCATIONS_2" --command "sudo kubectl apply -f {$v2}" --type 3
+echo "Run those"
+echo "../../cli/cli exec --id $id --sites '$LOCATIONS_1' --command 'sudo kubectl apply -f {$v1}' --type 3"
+echo "../../cli/cli exec --id $id --sites '$LOCATIONS_2' --command 'sudo kubectl apply -f {$v2}' --type 3"
 
 read -p "Continue ? "
 
