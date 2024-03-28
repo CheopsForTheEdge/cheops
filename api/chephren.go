@@ -1,4 +1,4 @@
-package chephren
+package api
 
 import (
 	"encoding/json"
@@ -15,7 +15,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func Run(port int, repl *replicator.Replicator) {
+func RunChephren(port int, repl *replicator.Replicator) {
 
 	router := mux.NewRouter().SkipClean(true)
 	corsMiddleware := func(next http.Handler) http.Handler {
