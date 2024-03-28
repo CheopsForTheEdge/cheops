@@ -89,7 +89,6 @@ r1 = requests.post(f"http://{hosts[0]}:8079/{id}", files={
     'type': (None, 1),
 })
 assert r1.status_code == 200
-synchronization.wait(hosts)
 
 replies = [requests.post(f"http://{host}:5984/cheops/_find", json={"selector": {"Type": "RESOURCE", "ResourceId": id}}) for host in hosts[:3]]
 for reply in replies:
