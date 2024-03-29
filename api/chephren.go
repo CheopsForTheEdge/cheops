@@ -84,46 +84,44 @@ func RunChephren(port int, repl *replicator.Replicator) {
 		json.NewEncoder(w).Encode(resp)
 	}).Methods("GET")
 
-	// Not working yet
-	/*
-		apiRouter.HandleFunc("/resource/{id}", func(w http.ResponseWriter, r *http.Request) {
-			vars := mux.Vars(r)
-			id := vars["id"]
-			d, err := repl.Get(id)
-			if err != nil {
-				log.Printf("Error with getResource %s: %v\n", id, err)
-				http.Error(w, "Internal error with getResource", http.StatusInternalServerError)
-				return
-			}
+	apiRouter.HandleFunc("/resource/{id}", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+		repliesMap, err := repl.GetOrderedReplies(id)
+		if err != nil {
+			log.Printf("Error with getResources: %v\n", err)
+			http.Error(w, "Internal error with getResources", http.StatusInternalServerError)
+			return
+		}
+		replies := repliesMap[id]
 
-			type commandReply struct {
-				Command string    `json:"command"`
-				Date    time.Time `json:"date"`
-			}
-			type resourceReply struct {
-				Id         string         `json:"id"`
-				Name       string         `json:"name"`
-				LastUpdate time.Time      `json:"lastUpdate"`
-				Commands   []commandReply `json:"commands"`
-			}
+		type commandReply struct {
+			Command string    `json:"command"`
+			Date    time.Time `json:"date"`
+		}
+		type resourceReply struct {
+			Id         string         `json:"id"`
+			Name       string         `json:"name"`
+			LastUpdate time.Time      `json:"lastUpdate"`
+			Commands   []commandReply `json:"commands"`
+		}
 
-			commands := make([]commandReply, 0)
-			for _, unit := range d.Operations {
-				commands = append(commands, commandReply{
-					Command: unit.Command.Command,
-					Date:    unit.Time,
-				})
-			}
-			resp := resourceReply{
-				Id:         d.Id,
-				Name:       d.Id,
-				LastUpdate: d.Operations[len(d.Operations)-1].Time,
-				Commands:   commands,
-			}
+		commands := make([]commandReply, 0)
+		for _, reply := range replies {
+			commands = append(commands, commandReply{
+				Command: reply.Cmd.Input,
+				Date:    reply.ExecutionTime,
+			})
+		}
+		resp := resourceReply{
+			Id:         id,
+			Name:       id,
+			LastUpdate: replies[len(replies)-1].ExecutionTime,
+			Commands:   commands,
+		}
 
-			json.NewEncoder(w).Encode(resp)
-		}).Methods("GET")
-	*/
+		json.NewEncoder(w).Encode(resp)
+	}).Methods("GET")
 
 	err := http.ListenAndServe(":"+strconv.Itoa(port), router)
 	if err != nil && err != http.ErrServerClosed {
