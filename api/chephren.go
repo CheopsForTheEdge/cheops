@@ -57,7 +57,7 @@ func RunChephren(port int, repl *replicator.Replicator) {
 	})
 
 	apiRouter.HandleFunc("/resources", func(w http.ResponseWriter, r *http.Request) {
-		replies, err := repl.GetOrderedReplies()
+		replies, err := repl.GetOrderedReplies("")
 		if err != nil {
 			log.Printf("Error with getResources: %v\n", err)
 			http.Error(w, "Internal error with getResources", http.StatusInternalServerError)

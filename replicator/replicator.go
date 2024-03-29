@@ -409,8 +409,14 @@ func (r *Replicator) getAllDocsFor(resourceId string) ([]json.RawMessage, error)
 }
 
 func (r *Replicator) getDocsForView(viewname string, keyArgs ...string) ([]json.RawMessage, error) {
-	endkey := make([]string, len(keyArgs))
-	copy(endkey, keyArgs)
+	startkey := make([]string, 0)
+	endkey := make([]string, 0)
+	for _, arg := range keyArgs {
+		if arg != "" {
+			startkey = append(startkey, arg)
+			endkey = append(endkey, arg)
+		}
+	}
 	endkey = append(endkey, "\uffff")
 
 	query := struct {

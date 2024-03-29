@@ -68,8 +68,9 @@ func (r *Replicator) CountResources() (int, error) {
 	return len(resp.Rows), err
 }
 
-func (r *Replicator) GetOrderedReplies() (map[string][]model.ReplyDocument, error) {
-	docs, err := r.getDocsForView("last-reply", env.Myfqdn)
+func (r *Replicator) GetOrderedReplies(id string) (map[string][]model.ReplyDocument, error) {
+	var docs []json.RawMessage
+	docs, err := r.getDocsForView("last-reply", env.Myfqdn, id)
 	if err != nil {
 		return nil, fmt.Errorf("Error running last-reply view: %v\n", err)
 	}
