@@ -74,11 +74,6 @@ func (r *Replicator) ensureCouch() {
       "map": "function (doc) {\n  if(doc.Type != 'RESOURCE' && doc.Type != 'REPLY') return;\n  emit([doc.ResourceId, doc.Type], null);\n}",
       "reduce": "_count"
     },
-    "by-resource": {
-      "map": "function (doc) {\n  if(doc.Type != 'RESOURCE') return;\n  emit(null, null);\n}",
-      "reduce": "_count"
-
-    },
     "last-reply": {
       "map": "function (doc) {\n  if (doc.Type != 'REPLY') return;\n  emit([doc.ResourceId, doc.Site], {Time: doc.ExecutionTime, RequestId: doc.RequestId, Sites: doc.Locations});\n}",
       "reduce": "function (keys, values, rereduce) {\n  let sorted = values.sort((a, b) => {\n    return a.Time.localeCompare(b.Time)\n  })\n  return sorted[sorted.length - 1]\n}"
@@ -234,7 +229,7 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 			close(ret)
 		}()
 
-		for len(expected) >0 {
+		for len(expected) > 0 {
 			select {
 			case <-ctx.Done():
 				if err := ctx.Err(); err != nil {
