@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"cheops.com/env"
 	"cheops.com/model"
 )
 
@@ -47,8 +48,8 @@ func (r *Replicator) postDocument(v interface{}) error {
 }
 
 // Count returns the number of resources known by this node
-func (r *Replicator) Count() (int, error) {
-	byResourceResp, err := http.Get("http://admin:password@localhost:5984/cheops/_design/cheops/_view/by-resource")
+func (r *Replicator) CountResources() (int, error) {
+	byResourceResp, err := http.Get("http://admin:password@localhost:5984/cheops/_design/cheops/_view/all-by-resourceid?group_level=1")
 	if err != nil {
 		return 0, fmt.Errorf("Error running by-resource view: %v\n", err)
 	}
@@ -59,49 +60,32 @@ func (r *Replicator) Count() (int, error) {
 	}
 
 	type byResource struct {
-		Rows []struct {
-			Value int `json:"value"`
-		} `json:"rows"`
+		Rows []struct{} `json:"rows"`
 	}
 
 	var resp byResource
 	err = json.NewDecoder(byResourceResp.Body).Decode(&resp)
-	if len(resp.Rows) == 0 {
-		return 0, nil
-	}
-	if len(resp.Rows) != 1 {
-		return 0, fmt.Errorf("Bad reply: %#v\n", resp)
-	}
-	return resp.Rows[0].Value, err
+	return len(resp.Rows), err
 }
 
-func (r *Replicator) GetResources() ([]model.ResourceDocument, error) {
-	byResourceResp, err := http.Get("http://admin:password@localhost:5984/cheops/_design/cheops/_view/by-resource?reduce=false&include_docs=true")
+func (r *Replicator) GetOrderedReplies() (map[string][]model.ReplyDocument, error) {
+	docs, err := r.getDocsForView("last-reply", env.Myfqdn)
 	if err != nil {
-		return nil, fmt.Errorf("Error running by-resource view: %v\n", err)
-	}
-	defer byResourceResp.Body.Close()
-
-	if byResourceResp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Error running by-resource view: status is %v\n", byResourceResp.Status)
+		return nil, fmt.Errorf("Error running last-reply view: %v\n", err)
 	}
 
-	type byResource struct {
-		Rows []struct {
-			Doc model.ResourceDocument `json:"doc"`
-		} `json:"rows"`
+	m := make(map[string][]model.ReplyDocument)
+	for _, doc := range docs {
+		var d model.ReplyDocument
+		err := json.Unmarshal(doc, &d)
+		if err != nil {
+			return nil, fmt.Errorf("Invalid resource document: %v\n", err)
+		}
+		if _, ok := m[d.ResourceId]; !ok {
+			m[d.ResourceId] = make([]model.ReplyDocument, 0)
+		}
+		m[d.ResourceId] = append(m[d.ResourceId], d)
 	}
 
-	var resp byResource
-	err = json.NewDecoder(byResourceResp.Body).Decode(&resp)
-	if err != nil {
-		return nil, fmt.Errorf("Error running by-resource view: %v\n", err)
-	}
-
-	resources := make([]model.ResourceDocument, 0)
-	for _, row := range resp.Rows {
-		resources = append(resources, row.Doc)
-	}
-	return resources, err
-
+	return m, nil
 }

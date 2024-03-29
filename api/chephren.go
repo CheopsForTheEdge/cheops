@@ -32,7 +32,7 @@ func RunChephren(port int, repl *replicator.Replicator) {
 
 	apiRouter := router.PathPrefix("//api").Subrouter()
 	apiRouter.HandleFunc("/node", func(w http.ResponseWriter, r *http.Request) {
-		count, err := repl.Count()
+		count, err := repl.CountResources()
 		if err != nil {
 			log.Printf("Error with count: %v\n", err)
 			http.Error(w, "Internal error with counting", http.StatusInternalServerError)
@@ -57,7 +57,7 @@ func RunChephren(port int, repl *replicator.Replicator) {
 	})
 
 	apiRouter.HandleFunc("/resources", func(w http.ResponseWriter, r *http.Request) {
-		resources, err := repl.GetResources()
+		replies, err := repl.GetOrderedReplies()
 		if err != nil {
 			log.Printf("Error with getResources: %v\n", err)
 			http.Error(w, "Internal error with getResources", http.StatusInternalServerError)
@@ -72,12 +72,12 @@ func RunChephren(port int, repl *replicator.Replicator) {
 		}
 
 		resp := make([]resourceSummaryReply, 0)
-		for _, resource := range resources {
+		for resourceId, replies := range replies {
 			rr := resourceSummaryReply{
-				Id:            resource.Id,
-				Name:          resource.Id,
-				LastUpdate:    resource.Operations[len(resource.Operations)-1].Time,
-				CommandsCount: len(resource.Operations),
+				Id:            resourceId,
+				Name:          resourceId,
+				LastUpdate:    replies[len(replies)-1].ExecutionTime,
+				CommandsCount: len(replies),
 			}
 			resp = append(resp, rr)
 		}

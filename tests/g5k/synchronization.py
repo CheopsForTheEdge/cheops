@@ -22,13 +22,13 @@ def wait(hosts):
             # For each resourceid, gather by id then by requestid, and count unique requestids
             a = {}
             for row in replies.json()['rows']:
-                id = row['key'][0]
+                id = row['key'][1]
                 if id not in a:
                     a[id] = {}
                 requestid = row['value']['RequestId']
                 if requestid not in a[id]:
                     a[id][requestid] = row['value']['Sites']
-                site = row['key'][1]
+                site = row['key'][0]
                 unsync = [s for s in a[id][requestid] if s != site]
                 a[id][requestid] = unsync
 
