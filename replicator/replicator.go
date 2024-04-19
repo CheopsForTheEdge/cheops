@@ -390,6 +390,11 @@ func (r *Replicator) run(ctx context.Context, d model.ResourceDocument) {
 	}
 }
 
+func (r *Replicator) RunDirect(ctx context.Context, command string) (string, error) {
+	out, err := backends.Handle(ctx, []backends.ShellCommand{{Command: command}})
+	return out[0], err
+}
+
 func (r *Replicator) getResourceDocsFor(resourceId string) ([]model.ResourceDocument, error) {
 	docs, err := r.getDocsForView("all-by-resourceid", resourceId, "RESOURCE")
 	resourceDocuments := make([]model.ResourceDocument, 0)
