@@ -75,13 +75,13 @@ id2 = ''.join(random.choice(string.ascii_lowercase) for i in range(10))
 
 # Apply 2 different commands on 2 different ids
 import requests
-r1 = requests.post(f"http://{hosts[0]}:8079/{id1}", files={
+r1 = requests.post(f"http://{hosts[0]}:8079/exec/{id1}", files={
     'command': (None, 'mkdir -p /tmp/foo; echo left > /tmp/foo/left'),
     'sites': (None, '&'.join([h for h in hosts[:3]])),
     'type': (None, "1"),
 })
 assert r1.status_code == 200
-r2 = requests.post(f"http://{hosts[1]}:8079/{id2}", files={
+r2 = requests.post(f"http://{hosts[1]}:8079/exec/{id2}", files={
     'command': (None, 'mkdir -p /tmp/foo; echo right > /tmp/foo/right'),
     'sites': (None, '&'.join([h for h in hosts[1:]])),
     'type': (None, "1"),

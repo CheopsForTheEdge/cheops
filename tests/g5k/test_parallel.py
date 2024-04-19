@@ -83,7 +83,7 @@ sites = '&'.join(hosts[:3])
 
 # Apply a first command, as an "init"
 import requests
-r1 = requests.post(f"http://{hosts[0]}:8079/{id}", files={
+r1 = requests.post(f"http://{hosts[0]}:8079/exec/{id}", files={
     'command': (None, f"mkdir -p /tmp/{id} && touch /tmp/{id}/init"),
     'sites': (None, sites),
     'type': (None, 1),
@@ -115,14 +115,14 @@ with en.actions(roles=roles_for_hosts) as p:
 import time
 time.sleep(3)
 
-r = requests.post(f"http://{hosts[0]}:8079/{id}", files={
+r = requests.post(f"http://{hosts[0]}:8079/exec/{id}", files={
     'command': (None, f"mkdir -p /tmp/{id} && touch /tmp/{id}/left"),
     'sites': (None, sites),
     'type': (None, "1"),
 })
 assert r.status_code == 200
 
-r = requests.post(f"http://{hosts[1]}:8079/{id}", files={
+r = requests.post(f"http://{hosts[1]}:8079/exec/{id}", files={
     'command': (None, f"mkdir -p /tmp/{id} && touch /tmp/{id}/right"),
     'sites': (None, sites),
     'type': (None, "1"),

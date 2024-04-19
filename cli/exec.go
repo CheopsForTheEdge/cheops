@@ -118,7 +118,7 @@ func (e *ExecCmd) Run(ctx *kong.Context) error {
 	if e.Id != url.PathEscape(e.Id) {
 		return fmt.Errorf("id has url-unsafe characters, please choose something else")
 	}
-	uu := fmt.Sprintf("http://%s:8079/%s", host, e.Id)
+	uu := fmt.Sprintf("http://%s:8079/exec/%s", host, e.Id)
 	u, err := url.Parse(uu)
 	if err != nil {
 		return fmt.Errorf("Invalid parameters for host or id: %v\n", err)
