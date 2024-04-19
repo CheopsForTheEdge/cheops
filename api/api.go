@@ -1,12 +1,16 @@
 package api
 
 import (
+	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/base32"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -18,6 +22,7 @@ import (
 	"cheops.com/model"
 	"cheops.com/replicator"
 	"github.com/gorilla/mux"
+	"golang.org/x/sync/errgroup"
 )
 
 // Run starts an endpoint on '/{id}' on the given port that will do the Cheops magic.
@@ -52,14 +57,143 @@ import (
 
 func Run(port int, repl *replicator.Replicator) {
 	m := mux.NewRouter()
-	m.HandleFunc("/{id}", func(w http.ResponseWriter, r *http.Request) {
-		id, command, typ, config, sites, files, ok := parseRequest(w, r)
+	m.HandleFunc("/show/{id}", func(w http.ResponseWriter, r *http.Request) {
+		id, command, _, _, sites, _, ok := parseRequest(w, r)
 		if !ok {
+			// Error was already sent to http caller
 			return
 		}
 
 		if len(sites) == 0 {
 			log.Printf("Request doesn't have any sites")
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+
+		type SiteResp struct {
+			Status string // OK, KO or TIMEOUT
+			Output string
+		}
+
+		// Site -> SiteResp
+		resp := make(map[string]SiteResp)
+
+		thirtySeconds, _ := time.ParseDuration("30s")
+		ctxWithTimeout, cancel := context.WithTimeout(r.Context(), thirtySeconds)
+		defer cancel()
+
+		g, ctx := errgroup.WithContext(ctxWithTimeout)
+
+		for _, site := range sites {
+			site := site
+			g.Go(func() error {
+
+				u := fmt.Sprintf("http://%s:8079/show_local/%s", site, id)
+
+				var b bytes.Buffer
+				mw := multipart.NewWriter(&b)
+				mw.WriteField("id", id)
+				mw.WriteField("command", command)
+				mw.Close()
+
+				req, err := http.NewRequestWithContext(ctx, "POST", u, &b)
+				if err != nil {
+					log.Printf("Error building request for show_local for %v: %v\n", site, err)
+					r := SiteResp{
+						Status: "KO",
+					}
+					resp[site] = r
+					return nil
+				}
+				req.Header.Set("Content-Length", strconv.Itoa(b.Len()))
+				req.Header.Set("Content-Type", fmt.Sprintf("multipart/form-data; boundary=%s", mw.Boundary()))
+				reply, err := http.DefaultClient.Do(req)
+				if err != nil || reply.StatusCode != http.StatusOK {
+					var reason string
+					if err != nil {
+						reason = err.Error()
+					} else {
+						reason = reply.Status
+					}
+					log.Printf("Error running show_local at %v: %v\n", site, reason)
+					r := SiteResp{
+						Status: "KO",
+					}
+					resp[site] = r
+					return nil
+				}
+
+				select {
+				case <-ctx.Done():
+					r := SiteResp{
+						Status: "TIMEOUT",
+					}
+					resp[site] = r
+					return nil
+				default:
+				}
+
+				defer reply.Body.Close()
+				var r SiteResp
+				err = json.NewDecoder(reply.Body).Decode(&r)
+				if err != nil {
+					log.Printf("Error json-decoding resp on %v: %v\n", site, err)
+					r = SiteResp{
+						Status: "KO",
+					}
+				}
+
+				resp[site] = r
+
+				return nil
+			})
+		}
+
+		g.Wait()
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+
+	})
+
+	m.HandleFunc("/show_local/{id}", func(w http.ResponseWriter, r *http.Request) {
+		id, command, _, _, _, _, ok := parseRequest(w, r)
+		if !ok {
+			return
+		}
+
+		command = strings.Replace(command, "__ID__", id, -1)
+		res, err := repl.RunDirect(r.Context(), command)
+		status := "OK"
+		if err != nil {
+			log.Printf("Error running command: %v\n", err)
+			status = "KO"
+		}
+
+		type SiteResp struct {
+			Status string // OK, KO or TIMEOUT
+			Output string
+		}
+		jsonRes := SiteResp{
+			Status: status,
+			Output: res,
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(jsonRes)
+
+	})
+
+	m.HandleFunc("/exec/{id}", func(w http.ResponseWriter, r *http.Request) {
+		id, command, typ, config, sites, files, ok := parseExecRequest(w, r)
+		if !ok {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+			return
+		}
+
+		if len(sites) == 0 {
+			log.Println("Request doesn't have any sites")
 			http.Error(w, "bad request", http.StatusInternalServerError)
 			return
 		}
@@ -127,6 +261,20 @@ func Run(port int, repl *replicator.Replicator) {
 	}
 }
 
+func parseExecRequest(w http.ResponseWriter, r *http.Request) (id, command string, typ model.OperationType, config model.ResourceConfig, sites []string, files map[string][]byte, ok bool) {
+	id, command, typ, config, sites, files, ok = parseRequest(w, r)
+	if typ == "" {
+		log.Println("Missing type")
+		http.Error(w, "bad request", http.StatusBadRequest)
+		ok = false
+	}
+	if len(sites) == 0 {
+		log.Println("Missing sites")
+		http.Error(w, "bad request", http.StatusBadRequest)
+	}
+	return
+}
+
 func parseRequest(w http.ResponseWriter, r *http.Request) (id, command string, typ model.OperationType, config model.ResourceConfig, sites []string, files map[string][]byte, ok bool) {
 	vars := mux.Vars(r)
 	id = vars["id"]
@@ -150,16 +298,12 @@ func parseRequest(w http.ResponseWriter, r *http.Request) (id, command string, t
 
 	// The site where the user wants the resource to exist
 	sitesString, okk := r.MultipartForm.Value["sites"]
-	if !okk {
-		log.Println("Missing sites")
-		http.Error(w, "bad request", http.StatusBadRequest)
-		return
-	}
-
-	sites = make([]string, 0)
-	for _, group := range sitesString {
-		for _, val := range strings.Split(group, "&") {
-			sites = append(sites, strings.TrimSpace(val))
+	if okk {
+		sites = make([]string, 0)
+		for _, group := range sitesString {
+			for _, val := range strings.Split(group, "&") {
+				sites = append(sites, strings.TrimSpace(val))
+			}
 		}
 	}
 

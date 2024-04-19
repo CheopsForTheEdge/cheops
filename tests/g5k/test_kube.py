@@ -114,7 +114,7 @@ spec:
 
 class TestKube(unittest.TestCase):
     def do(self, id, index, request):
-        r1 = requests.post(f"http://{hosts[index]}:8079/{id}", files=request)
+        r1 = requests.post(f"http://{hosts[index]}:8079/exec/{id}", files=request)
         self.assertEqual(200, r1.status_code, id)
 
     def wait_and_verify(self, id):

@@ -620,6 +620,11 @@ func findOperationsToRun(ops []model.Operation, replies []model.ReplyDocument) [
 	return ops[startCopy:]
 }
 
+func (r *Replicator) RunDirect(ctx context.Context, command string) (string, error) {
+	out, err := backends.Handle(ctx, []backends.ShellCommand{{Command: command}})
+	return out[0], err
+}
+
 // getResourceDocFor gets the document for the given resource
 // It will wait until conflicts are resolved. Conflict resolution is expected to happen
 // in another goroutine

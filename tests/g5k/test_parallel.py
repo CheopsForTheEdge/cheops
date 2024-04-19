@@ -69,7 +69,7 @@ firewall_block.deactivate(roles_for_hosts)
 
 class TestParallel(unittest.TestCase):
     def init(self, id, request):
-        r1 = requests.post(f"http://{hosts[0]}:8079/{id}", files=request)
+        r1 = requests.post(f"http://{hosts[0]}:8079/exec/{id}", files=request)
         self.assertEqual(200, r1.status_code, id)
 
         replies = [requests.get(f"http://{host}:5984/cheops/{id}") for host in hosts[:3]]
@@ -81,9 +81,9 @@ class TestParallel(unittest.TestCase):
         firewall_block.activate(roles_for_hosts)
 
     def do_left_and_right(self, id, request_left, request_right):
-        r = requests.post(f"http://{hosts[0]}:8079/{id}", files=request_left)
+        r = requests.post(f"http://{hosts[0]}:8079/exec/{id}", files=request_left)
         self.assertEqual(200, r.status_code)
-        r = requests.post(f"http://{hosts[1]}:8079/{id}", files=request_right)
+        r = requests.post(f"http://{hosts[1]}:8079/exec/{id}", files=request_right)
         self.assertEqual(200, r.status_code)
 
         firewall_block.deactivate(roles_for_hosts)
