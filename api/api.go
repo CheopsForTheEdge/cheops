@@ -58,17 +58,24 @@ import (
 func Run(port int, repl *replicator.Replicator) {
 	m := mux.NewRouter()
 	m.HandleFunc("/show/{id}", func(w http.ResponseWriter, r *http.Request) {
-		id, command, _, _, sites, _, ok := parseRequest(w, r)
+		id, command, _, _, _, _, ok := parseRequest(w, r)
 		if !ok {
 			// Error was already sent to http caller
 			return
 		}
 
-		if len(sites) == 0 {
-			log.Printf("Request doesn't have any sites")
-			http.Error(w, "bad request", http.StatusBadRequest)
+		sites, err := repl.SitesFor(id)
+		if err != nil {
+			log.Printf("Error retrieving sites for %v: %v\n", id, err)
+			if _, ok := err.(replicator.ErrorNotFound); ok {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+			} else {
+				http.Error(w, "internal error", http.StatusInternalServerError)
+			}
 			return
 		}
+
+		log.Printf("show id=%v sites=[%v] command=[%v]\n", id, sites, command)
 
 		type SiteResp struct {
 			Status string // OK, KO or TIMEOUT
