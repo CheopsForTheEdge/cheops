@@ -99,7 +99,6 @@ func Run(port int, repl *replicator.Replicator) {
 
 				var b bytes.Buffer
 				mw := multipart.NewWriter(&b)
-				mw.WriteField("id", id)
 				mw.WriteField("command", command)
 				mw.Close()
 
