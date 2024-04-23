@@ -1,134 +1,67 @@
-// show.go displays a given resource. A hint must be given with a site to know where to fetch the resource.
-// The resource will be fetched from all sites it is supposed to exist, and concatenate sites where the content is the same
+// show.go displays a local view of a given resource from all the sites
+// where it exists. The local view is from a site that is given in input.
+//
+// The given command will be executed on all sites and the output is returned.
+// The special string __ID__ can be used in the command and will be replaced by
+// the id that is given.
 //
 // Usage:
-// $ cli show --id <resource-id> --hint siteX
+// $ cli show --id <resource-id> --from siteX --command <command>
 //
 // Output:
 //
-// siteX
-// siteY
-//     {
-//        "_id": <resource-id>,
-//        [...]
-//     }
+// {
+//   "siteX": {
+//     "Status": "OK", // can be KO or TIMEOUT
+//     "Output": "..."
+//   },
+//   "siteY": {
+//     "Status": "KO",
+//     "Output": "..."
+//   }
+// }
 
 package main
 
 import (
-	"encoding/json"
+	"bytes"
+	"context"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
-	"strings"
+	"os"
+	"strconv"
 
-	"cheops.com/model"
 	"github.com/alecthomas/kong"
 )
 
 type ShowCmd struct {
-	Id   string `help:"Id of resource, must not be empty" required:""`
-	Hint string `help:"One location where the resource is"`
+	Id      string `help:"Id of resource, must not be empty" required:""`
+	From    string `help:"The site from which to query other sites" required:""`
+	Command string `help:"Command to run" required:"" short:""`
 }
 
 func (s *ShowCmd) Run(ctx *kong.Context) error {
-	byContent := make(map[string][]string)
-	fetchedHosts := make(map[string]struct{})
+	u := fmt.Sprintf("http://%s:8079/show/%s", s.From, s.Id)
 
-	content, hosts, err := getContentAndOtherHosts(s.Hint, s.Id)
+	var b bytes.Buffer
+	mw := multipart.NewWriter(&b)
+	mw.WriteField("command", s.Command)
+	mw.Close()
+
+	req, err := http.NewRequestWithContext(context.Background(), "POST", u, &b)
 	if err != nil {
 		return err
 	}
-
-	if byContent[content] == nil {
-		byContent[content] = make([]string, 0)
-	}
-	byContent[content] = append(byContent[content], s.Hint)
-	fetchedHosts[s.Hint] = struct{}{}
-
-	hostsToFetch := make([]string, 0)
-	for _, host := range hosts {
-		hostsToFetch = append(hostsToFetch, host)
-	}
-
-	for {
-		hasNewHosts := false
-		for _, host := range hostsToFetch {
-			hostsToFetch = hostsToFetch[1:]
-			if _, ok := fetchedHosts[host]; !ok {
-				hasNewHosts = true
-				content, hosts, err := getContentAndOtherHosts(host, s.Id)
-				if err != nil {
-					return err
-				}
-				if byContent[content] == nil {
-					byContent[content] = make([]string, 0)
-				}
-				byContent[content] = append(byContent[content], host)
-				fetchedHosts[host] = struct{}{}
-
-				for _, host := range hosts {
-					hostsToFetch = append(hostsToFetch, host)
-				}
-			}
-		}
-
-		if !hasNewHosts {
-			break
-		}
-	}
-
-	for content, hosts := range byContent {
-		for _, host := range hosts {
-			fmt.Println(host)
-		}
-		indented := strings.ReplaceAll(content, "\n", "\n\t")
-		indented = "\t" + indented
-		fmt.Println(indented)
-	}
-
-	return nil
-}
-
-func getContentAndOtherHosts(host, id string) (content string, allHosts []string, err error) {
-	selector := fmt.Sprintf(`{
-	"selector": {
-		"$or": [
-			{"ResourceId": "%s", "Type": "DELETE"},
-			{"_id": %s}
-		]
-	}
-}`, id, id)
-	url := fmt.Sprintf("http://%s:5984/cheops/_find", host)
-	res, err := http.Post(url, "application/json", strings.NewReader(selector))
+	req.Header.Set("Content-Length", strconv.Itoa(b.Len()))
+	req.Header.Set("Content-Type", fmt.Sprintf("multipart/form-data; boundary=%s", mw.Boundary()))
+	reply, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", nil, err
+		return err
 	}
-	defer res.Body.Close()
+	defer reply.Body.Close()
 
-	var r struct {
-		Docs []json.RawMessage `json:"docs"`
-	}
-	err = json.NewDecoder(res.Body).Decode(&r)
-	if err != nil {
-		return "", nil, err
-	}
-
-	var bytes []byte
-
-	for _, doc := range r.Docs {
-		var resource model.ResourceDocument
-		err = json.Unmarshal(doc, &resource)
-		if err == nil {
-			bytes, err = json.MarshalIndent(resource, "", "\t")
-			if err != nil {
-				return "", nil, err
-			}
-			allHosts = resource.Locations
-		} else {
-			return "", nil, err
-		}
-	}
-
-	return string(bytes), allHosts, nil
-
+	_, err = io.Copy(os.Stdout, reply.Body)
+	return err
 }
