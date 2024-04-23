@@ -548,3 +548,23 @@ type Replications struct {
 type Replication struct {
 	Target string `json:"target"`
 }
+
+type ErrorNotFound struct {
+	ResourceId string
+}
+
+func (e ErrorNotFound) Error() string {
+	return fmt.Sprintf("resource %v doesn't exist", e.ResourceId)
+}
+
+func (r *Replicator) SitesFor(resourceId string) (sites []string, err error) {
+	docs, err := r.getResourceDocsFor(resourceId)
+	if err != nil {
+		return nil, err
+	}
+	if len(docs) == 0 {
+		return nil, ErrorNotFound{ResourceId: resourceId}
+	}
+
+	return docs[0].Locations, nil
+}
