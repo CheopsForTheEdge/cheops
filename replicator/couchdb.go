@@ -68,24 +68,20 @@ func (r *Replicator) CountResources() (int, error) {
 	return len(resp.Rows), err
 }
 
-func (r *Replicator) GetOrderedReplies(id string) (map[string][]model.ReplyDocument, error) {
-	var docs []json.RawMessage
+func (r *Replicator) GetOrderedReplies(id string) (map[string][]model.Reply, error) {
 	docs, err := r.getDocsForView("last-reply", env.Myfqdn, id)
 	if err != nil {
 		return nil, fmt.Errorf("Error running last-reply view: %v\n", err)
 	}
 
-	m := make(map[string][]model.ReplyDocument)
+	m := make(map[string][]model.Reply)
 	for _, doc := range docs {
-		var d model.ReplyDocument
-		err := json.Unmarshal(doc, &d)
-		if err != nil {
-			return nil, fmt.Errorf("Invalid resource document: %v\n", err)
+		var reply model.Reply
+		json.Unmarshal(doc.Payload, &reply)
+		if _, ok := m[reply.ResourceId]; !ok {
+			m[reply.ResourceId] = make([]model.Reply, 0)
 		}
-		if _, ok := m[d.ResourceId]; !ok {
-			m[d.ResourceId] = make([]model.ReplyDocument, 0)
-		}
-		m[d.ResourceId] = append(m[d.ResourceId], d)
+		m[reply.ResourceId] = append(m[reply.ResourceId], reply)
 	}
 
 	return m, nil

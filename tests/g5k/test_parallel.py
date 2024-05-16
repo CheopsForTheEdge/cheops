@@ -90,7 +90,7 @@ r1 = requests.post(f"http://{hosts[0]}:8079/exec/{id}", files={
 })
 assert r1.status_code == 200
 
-replies = [requests.post(f"http://{host}:5984/cheops/_find", json={"selector": {"Type": "RESOURCE", "ResourceId": id}}) for host in hosts[:3]]
+replies = [requests.post(f"http://{host}:5984/cheops/_find", json={"selector": {"Type": "OPERATION", "TargetId": id}}) for host in hosts[:3]]
 for reply in replies:
     assert reply.status_code == 200
     assert len(reply.json()['docs']) == 1, reply.json()
@@ -148,25 +148,15 @@ with en.actions(roles=roles_for_hosts) as p:
 # After sync is re-enabled, wait for changes to be synchronized
 synchronization.wait(hosts)
 
-# Once content is synchronized, make sure it is actually the same
-replies = [requests.post(f"http://{host}:5984/cheops/_find", json={"selector": {"Type": "RESOURCE", "ResourceId": id}}) for host in hosts[:3]]
-for reply in replies:
-    assert reply.status_code == 200
-contents = [reply.json()['docs'][0] for reply in replies]
-for content in contents:
-    if content['Site'] == hosts[0]:
-        assert len(content['Operations']) == 2
-    elif content['Site'] == hosts[1]:
-        assert len(content['Operations']) == 1
-
-
 # Make sure the replies are all ok
 import json
 for host in hosts[:3]:
     query = {"selector": {
         "Type": "REPLY",
         "Site": host,
-        "ResourceId": id
+        "Payload": {
+            "ResourceId": id
+        }
     }}
     r = requests.post(f"http://{host}:5984/cheops/_find", json=query, headers={"Content-Type": "application/json"})
     for doc in r.json()['docs']:

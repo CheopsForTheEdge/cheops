@@ -95,23 +95,22 @@ synchronization.wait(hosts)
 for host in hosts[:3]:
     query = {
         "selector": {
-            "Type": "RESOURCE",
-            "ResourceId": id1
+            "Type": "OPERATION",
+            "TargetId": id1
     }}
     r = requests.post(f"http://{host}:5984/cheops/_find", headers={'Content-type': 'application/json'}, json=query)
     assert r.status_code == 200
     docs = r.json()['docs']
     assert len(docs) == 1
     doc = docs[0]
-    assert len(doc['Operations']) == 1
     assert doc['Locations'] == hosts[:3]
-    assert 'left' in doc['Operations'][0]['Command']['Command']
-    assert 'right' not in doc['Operations'][0]['Command']['Command']
+    assert 'left' in doc['Payload']['Command']['Command']
+    assert 'right' not in doc['Payload']['Command']['Command']
 
     query = {
         "selector": {
             "Type": "REPLY",
-            "ResourceId": id1
+            "TargetId": doc['Payload']['RequestId']
     }}
     r = requests.post(f"http://{host}:5984/cheops/_find", headers={'Content-type': 'application/json'}, json=query)
     assert r.status_code == 200
@@ -125,23 +124,22 @@ for host in hosts[:3]:
 for host in hosts[1:]:
     query = {
         "selector": {
-            "Type": "RESOURCE",
-            "ResourceId": id2
+            "Type": "OPERATION",
+            "TargetId": id2
     }}
     r = requests.post(f"http://{host}:5984/cheops/_find", headers={'Content-type': 'application/json'}, json=query)
     assert r.status_code == 200
     docs = r.json()['docs']
     assert len(docs) == 1
     doc = docs[0]
-    assert len(doc['Operations']) == 1
     assert doc['Locations'] == hosts[1:]
-    assert 'right' in doc['Operations'][0]['Command']['Command']
-    assert 'left' not in doc['Operations'][0]['Command']['Command']
+    assert 'right' in doc['Payload']['Command']['Command']
+    assert 'left' not in doc['Payload']['Command']['Command']
 
     query = {
         "selector": {
             "Type": "REPLY",
-            "ResourceId": id2
+            "TargetId": doc['Payload']['RequestId']
     }}
     r = requests.post(f"http://{host}:5984/cheops/_find", headers={'Content-type': 'application/json'}, json=query)
     assert r.status_code == 200

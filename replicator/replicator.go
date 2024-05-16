@@ -13,11 +13,10 @@ import (
 	"log"
 	"net/http"
 	"strings"
-	"time"
 
-	"cheops.com/backends"
 	"cheops.com/env"
 	"cheops.com/model"
+	"github.com/goombaio/dag"
 )
 
 var (
@@ -70,12 +69,20 @@ func (r *Replicator) ensureCouch() {
 			Body: `
 {
   "views": {
+    "sites-for": {
+      "map": "function (doc) {\n  if(doc.Type != 'OPERATION') return;\n  emit(doc.Payload.ResourceId, doc.Locations);\n}",
+      "reduce": "function (keys, values, rereduce) {\n  return values[0];\n}"
+    },
     "all-by-resourceid": {
-      "map": "function (doc) {\n  if(doc.Type != 'RESOURCE' && doc.Type != 'REPLY') return;\n  emit([doc.ResourceId, doc.Type], null);\n}",
+      "map": "function (doc) {\n  if(doc.Type != 'OPERATION' && doc.Type != 'REPLY') return;\n  emit([doc.Payload.ResourceId, doc.Type], null);\n}",
+      "reduce": "_count"
+    },
+    "all-by-targetid": {
+      "map": "function (doc) {emit(doc.TargetId, null);\n}",
       "reduce": "_count"
     },
     "last-reply": {
-      "map": "function (doc) {\n  if (doc.Type != 'REPLY') return;\n  emit([doc.Site, doc.ResourceId], {Time: doc.ExecutionTime, RequestId: doc.RequestId, Sites: doc.Locations});\n}",
+      "map": "function (doc) {\n  if (doc.Type != 'REPLY') return;\n  emit([doc.Payload.Site, doc.TargetId], {Time: doc.Payload.ExecutionTime, RequestId: doc.TargetId, Sites: doc.Locations});\n}",
       "reduce": "function (keys, values, rereduce) {\n  let sorted = values.sort((a, b) => {\n    return a.Time.localeCompare(b.Time)\n  })\n  return sorted[sorted.length - 1]\n}"
     }
   },
@@ -123,297 +130,7 @@ func (r *Replicator) ensureIndex() {
 	}
 }
 
-// Do handles the request such that it is properly replicated and propagated.
-// If the resource doesn't exist, it will be created if the list of sites is not nil or empty; if there are no sites, an ErrDoesNotExist is returned.
-// If the resource already exists and the list of sites is not nil or empty, it will be updated with the desired sites.
-//
-// If the request has an empty body, it means sites are expected to change. In that case we don't wait for replies from other sites.
-// If the resource doesn't already exist, an ErrInvalidRequest is returned
-//
-// The output is a chan of each individual reply as they arrive. After a timeout or all replies are sent, the chan is closed
-func (r *Replicator) Do(ctx context.Context, sites []string, id string, request model.Operation) (replies chan model.ReplyDocument, err error) {
-
-	repliesChan := make(chan model.ReplyDocument)
-	done := func() {
-		close(repliesChan)
-	}
-
-	if len(request.Command.Command) > 0 {
-		// Prepare replies gathering before running the request
-		// It's all asynchronous
-		var repliesCtx context.Context
-		repliesCtx, cancel := context.WithCancel(ctx)
-		done = func() {
-			cancel()
-			close(repliesChan)
-		}
-		r.watchReplies(repliesCtx, request.RequestId, repliesChan)
-	}
-
-	// Get current revision
-	docs, err := r.getResourceDocsFor(id)
-	if err != nil {
-		return replies, err
-	}
-	var localDoc model.ResourceDocument
-	for _, doc := range docs {
-		if doc.Site == env.Myfqdn {
-			localDoc = doc
-			break
-		}
-	}
-
-	if localDoc.ResourceId == "" {
-		if len(request.Command.Command) == 0 {
-			return nil, ErrInvalidRequest("will not create a document with an empty body")
-		}
-
-		localDoc = model.ResourceDocument{
-			Locations:  sites,
-			Operations: make([]model.Operation, 0),
-			Type:       "RESOURCE",
-			Site:       env.Myfqdn,
-			ResourceId: id,
-		}
-	}
-
-	// Add our operation if needed
-	request.KnownState = make(map[string]int)
-	for _, location := range sites {
-		height := 0
-		for _, document := range docs {
-			if document.Site == location {
-				height = len(document.Operations)
-			}
-		}
-		if location == env.Myfqdn {
-			height = height + 1
-		}
-		request.KnownState[location] = height
-	}
-	localDoc.Operations = append(localDoc.Operations, request)
-	log.Printf("New request: resourceId=%v requestId=%v\n", localDoc.ResourceId, request.RequestId)
-
-	// Send the newly formatted document
-	// We of course assume that the revision hasn't changed since the last Get, so this might fail.
-	// In this case the user has to retry
-	buf, err := json.Marshal(localDoc)
-	if err != nil {
-		return nil, err
-	}
-	httpReq, err := http.NewRequest("POST", "http://localhost:5984/cheops", bytes.NewReader(buf))
-	if err != nil {
-		return nil, err
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	resp, err := http.DefaultClient.Do(httpReq)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusAccepted {
-		return nil, fmt.Errorf("Couldn't send request %#v to couchdb: %s", string(buf), resp.Status)
-	}
-
-	// location -> struct{}{}
-	expected := make(map[string]struct{})
-	for _, location := range localDoc.Locations {
-		expected[location] = struct{}{}
-	}
-	ret := make(chan model.ReplyDocument)
-
-	go func() {
-		defer func() {
-			done()
-			close(ret)
-		}()
-
-		for len(expected) > 0 {
-			select {
-			case <-ctx.Done():
-				if err := ctx.Err(); err != nil {
-					log.Printf("Error with runing %s: %s\n", request.RequestId, err)
-					return
-				}
-			case reply := <-repliesChan:
-				ret <- reply
-				delete(expected, reply.Site)
-			case <-time.After(20 * time.Second):
-				// timeout
-				for remaining := range expected {
-					ret <- model.ReplyDocument{
-						Locations:  localDoc.Locations,
-						Site:       remaining,
-						RequestId:  request.RequestId,
-						ResourceId: localDoc.ResourceId,
-						Status:     "TIMEOUT",
-						Cmd: model.Cmd{
-							Input: request.Command.Command,
-						},
-						Type: "REPLY",
-					}
-				}
-				return
-			}
-		}
-	}()
-
-	return ret, nil
-}
-
-func (r *Replicator) watchRequests() {
-	r.w.watch(func(j json.RawMessage) {
-		var d model.ResourceDocument
-		err := json.Unmarshal(j, &d)
-		if err != nil {
-			log.Printf("Couldn't decode %s", err)
-			return
-		}
-
-		if d.Type != "RESOURCE" {
-			return
-		}
-
-		forMe := false
-		for _, location := range d.Locations {
-			if location == env.Myfqdn {
-				forMe = true
-			}
-		}
-		if !forMe {
-			return
-		}
-
-		r.run(context.Background(), d)
-	})
-}
-
-func (r *Replicator) watchReplies(ctx context.Context, requestId string, repliesChan chan model.ReplyDocument) {
-	r.w.watch(func(j json.RawMessage) {
-		var d model.ReplyDocument
-		err := json.Unmarshal(j, &d)
-		if err != nil {
-			log.Printf("Couldn't decode: %s", err)
-			return
-		}
-
-		if d.Type != "REPLY" {
-			return
-		}
-
-		if d.RequestId != requestId {
-			return
-		}
-
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			repliesChan <- d
-		}
-	})
-
-}
-
-func (r *Replicator) run(ctx context.Context, d model.ResourceDocument) {
-	if len(d.Operations) == 0 {
-		log.Printf("WARN: Resource %v has been inserted with no operations\n", d.ResourceId)
-		return
-	}
-
-	allDocs, err := r.getAllDocsFor(d.ResourceId)
-	if err != nil {
-		log.Printf("Couldn't get docs for id: %v\n", err)
-		return
-	}
-
-	resourceDocuments := make([]model.ResourceDocument, 0)
-	replies := make([]model.ReplyDocument, 0)
-	for _, doc := range allDocs {
-		var reply model.ReplyDocument
-		err := json.Unmarshal(doc, &reply)
-		if err == nil && reply.Type == "REPLY" {
-			replies = append(replies, reply)
-		} else {
-			var resource model.ResourceDocument
-			err = json.Unmarshal(doc, &resource)
-			if err == nil && reply.Type == "RESOURCE" {
-				resourceDocuments = append(resourceDocuments, resource)
-			} else {
-				log.Printf("Invalid doc: %s\n", doc)
-				return
-			}
-		}
-	}
-
-	operationsToRun := findOperationsToRun(env.Myfqdn, resourceDocuments, replies)
-	if len(operationsToRun) == 0 {
-		return
-	}
-
-	commands := make([]backends.ShellCommand, 0)
-	for _, operation := range operationsToRun {
-		commands = append(commands, operation.Command)
-		log.Printf("will run %s\n", operation.RequestId)
-	}
-
-	executionReplies, err := backends.Handle(ctx, commands)
-
-	status := "OK"
-	if err != nil {
-		status = "KO"
-	}
-
-	// Post reply for replication
-	for i, operation := range operationsToRun {
-		log.Printf("Ran %s\n", operation.RequestId)
-
-		cmd := model.Cmd{
-			Input:  commands[i].Command,
-			Output: executionReplies[i],
-		}
-
-		err = r.postDocument(model.ReplyDocument{
-			Locations:     d.Locations,
-			Site:          env.Myfqdn,
-			RequestId:     operation.RequestId,
-			ResourceId:    d.ResourceId,
-			Status:        status,
-			Cmd:           cmd,
-			Type:          "REPLY",
-			ExecutionTime: time.Now(),
-		})
-		if err != nil {
-			log.Println(err)
-		}
-	}
-}
-
-func (r *Replicator) RunDirect(ctx context.Context, command string) (string, error) {
-	out, err := backends.Handle(ctx, []backends.ShellCommand{{Command: command}})
-	return out[0], err
-}
-
-func (r *Replicator) getResourceDocsFor(resourceId string) ([]model.ResourceDocument, error) {
-	docs, err := r.getDocsForView("all-by-resourceid", resourceId, "RESOURCE")
-	resourceDocuments := make([]model.ResourceDocument, 0)
-	for _, d := range docs {
-		var doc model.ResourceDocument
-		err := json.Unmarshal(d, &doc)
-		if err == nil && doc.Type == "RESOURCE" {
-			resourceDocuments = append(resourceDocuments, doc)
-		}
-	}
-
-	return resourceDocuments, err
-}
-
-func (r *Replicator) getAllDocsFor(resourceId string) ([]json.RawMessage, error) {
-	return r.getDocsForView("all-by-resourceid", resourceId)
-}
-
-func (r *Replicator) getDocsForView(viewname string, keyArgs ...string) ([]json.RawMessage, error) {
+func (r *Replicator) getDocsForView(viewname string, keyArgs ...string) ([]model.PayloadDocument, error) {
 	startkey := make([]string, 0)
 	endkey := make([]string, 0)
 	for _, arg := range keyArgs {
@@ -447,7 +164,7 @@ func (r *Replicator) getDocsForView(viewname string, keyArgs ...string) ([]json.
 
 	var cr struct {
 		Rows []struct {
-			Doc json.RawMessage `json:"doc"`
+			Doc model.PayloadDocument `json:"doc"`
 		} `json:"rows"`
 	}
 
@@ -457,7 +174,7 @@ func (r *Replicator) getDocsForView(viewname string, keyArgs ...string) ([]json.
 		return nil, err
 	}
 
-	docs := make([]json.RawMessage, 0)
+	docs := make([]model.PayloadDocument, 0)
 	for _, row := range cr.Rows {
 		docs = append(docs, row.Doc)
 	}
@@ -498,14 +215,7 @@ func (r *Replicator) replicate() {
 	}
 
 	// Install replication if it's new
-	r.w.watch(func(j json.RawMessage) {
-		var d model.ResourceDocument
-		err := json.Unmarshal(j, &d)
-		if err != nil {
-			log.Printf("Couldn't decode: %s", err)
-			return
-		}
-
+	r.w.watch(func(d model.PayloadDocument) {
 		manageReplications(d.Locations)
 	})
 }
@@ -558,13 +268,92 @@ func (e ErrorNotFound) Error() string {
 }
 
 func (r *Replicator) SitesFor(resourceId string) (sites []string, err error) {
-	docs, err := r.getResourceDocsFor(resourceId)
+	url := fmt.Sprintf("http://localhost:5984/cheops/_design/cheops/_view/sites-for?key=%s", resourceId)
+	res, err := http.Get(url)
 	if err != nil {
 		return nil, err
 	}
-	if len(docs) == 0 {
-		return nil, ErrorNotFound{ResourceId: resourceId}
+	if res.StatusCode != 200 {
+		return nil, fmt.Errorf("Get %s: %s", url, res.Status)
 	}
 
-	return docs[0].Locations, nil
+	var cr struct {
+		Rows []struct {
+			Value []string `json:"value"`
+		} `json:"rows"`
+	}
+
+	err = json.NewDecoder(res.Body).Decode(&cr)
+	res.Body.Close()
+
+	if len(cr.Rows) == 0 {
+		return nil, err
+	}
+	return cr.Rows[0].Value, err
+}
+
+// Query will find the parents for the given id and replicate the request.
+// Don't forget to install request and reply handlers before
+// running this
+func (r *Replicator) Send(ctx context.Context, sites []string, id string, payload json.RawMessage, typ string) error {
+	parents := make([]string, 0)
+	url := fmt.Sprintf(`http://localhost:5984/cheops/_design/cheops/_view/all-by-targetid?key="%s"&include_docs=true&reduce=false`, id)
+	res, err := http.Get(url)
+	if err != nil || res.StatusCode != 200 {
+		return fmt.Errorf("Error with view all-by-targetid for %s: %s", id, err)
+	}
+	defer res.Body.Close()
+
+	var cr struct {
+		Rows []struct {
+			Doc model.PayloadDocument `json:"doc"`
+		} `json:"rows"`
+	}
+
+	err = json.NewDecoder(res.Body).Decode(&cr)
+	if err != nil {
+		return fmt.Errorf("Error with view all-by-targetid for %s: %s", id, err)
+	}
+
+	docs := make([]model.PayloadDocument, 0)
+	for _, r := range cr.Rows {
+		docs = append(docs, r.Doc)
+	}
+	tree := makeTree(docs)
+
+	sv := tree.SinkVertices()
+	for _, v := range sv {
+		parents = append(parents, v.ID)
+	}
+
+	return r.postDocument(model.PayloadDocument{
+		Locations: sites,
+		Parents:   parents,
+		Payload:   payload,
+		TargetId:  id,
+		Type:      typ,
+	})
+}
+
+func makeTree(allDocs []model.PayloadDocument) (tree *dag.DAG) {
+	tree = dag.NewDAG()
+
+	for _, doc := range allDocs {
+		var op model.Operation
+		json.Unmarshal(doc.Payload, &op)
+		// First pass: build all vertices only
+		tree.AddVertex(dag.NewVertex(op.RequestId, doc.Parents))
+	}
+
+	// Second pass: build all edges
+	// Every vertex is a sink vertex because there are no edges yet
+	for _, vertex := range tree.SinkVertices() {
+		parents := vertex.Value.([]string)
+		for _, parent := range parents {
+			parentVertex, _ := tree.GetVertex(parent)
+			tree.AddEdge(parentVertex, vertex)
+		}
+	}
+
+	return tree
 }

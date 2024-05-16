@@ -230,6 +230,7 @@ func Run(port int, repl *replicator.Replicator) {
 			Type:      model.OperationType(typ),
 			RequestId: base32.StdEncoding.EncodeToString(randBytes),
 			Time:      time.Now(),
+			Site:      env.Myfqdn,
 		}
 
 		replies, err := repl.Do(r.Context(), sites, id, req)
