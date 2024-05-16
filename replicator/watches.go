@@ -9,13 +9,14 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"cheops.com/model"
 )
 
-type onNewDocFunc func(j json.RawMessage)
+type onNewDocFunc func(j model.PayloadDocument)
 
 // watch watches the _changes feed of the cheops database, resolves all conflicts for said document
 // and runs a function when a new document is seen.
-// The document is sent as a raw json string, to be decoded by the function.
 // The execution of the function blocks the loop; it is good to not have it run too long
 type watches struct {
 	watchers []onNewDocFunc
@@ -81,9 +82,15 @@ func (w *watches) startWatching(ctx context.Context) {
 				if len(change.Doc) == 0 {
 					continue
 				}
+				var d model.PayloadDocument
+				err = json.Unmarshal(change.Doc, &d)
+				if err != nil {
+					log.Printf("Invalid doc: %v\n", err)
+					continue
+				}
 
 				for _, f := range w.watchers {
-					f(change.Doc)
+					f(d)
 				}
 				since = change.Seq
 			}

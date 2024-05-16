@@ -1,13 +1,14 @@
 package model
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
 	"cheops.com/backends"
 )
 
-type ResourceDocument struct {
+type PayloadDocument struct {
 	// Couchdb internal structs
 	Id        string   `json:"_id,omitempty"`
 	Rev       string   `json:"_rev,omitempty"`
@@ -17,39 +18,15 @@ type ResourceDocument struct {
 	// Desired locations
 	Locations []string
 
-	ResourceId string
-	Site       string
-	Operations []Operation
+	// List of requestIds, empty string if none
+	Parents []string
+	Payload json.RawMessage
 
-	// Always RESOURCE
-	Type string
-}
+	// Can be a resourceid for a request,
+	// or a requestid for a reply
+	TargetId string
 
-type ReplyDocument struct {
-	Locations  []string
-	Site       string
-	RequestId  string
-	ResourceId string
-
-	// "OK" or "KO"
-	Status string
-	Cmd
-	ExecutionTime time.Time
-
-	// Always REPLY
-	Type string
-}
-
-type DeleteDocument struct {
-	ResourceId  string
-	ResourceRev string
-
-	// Will always be a single string with the site,
-	// but we reuse the existing infrastructure that manages replication
-	// for a list of locations
-	Locations []string
-
-	// Always DELETE
+	// OPERATION or REPLY
 	Type string
 }
 
@@ -87,11 +64,25 @@ func OperationTypeFrom(input string) (OperationType, error) {
 }
 
 type Operation struct {
-	Type      OperationType
 	RequestId string
+	Type      OperationType
 	Command   backends.ShellCommand
 	Time      time.Time
 
 	// Site -> height
 	KnownState map[string]int
+
+	ResourceId string
+	Site       string
+}
+
+type Reply struct {
+	Site       string
+	RequestId  string
+	ResourceId string
+
+	// "OK" or "KO"
+	Status string
+	Cmd
+	ExecutionTime time.Time
 }

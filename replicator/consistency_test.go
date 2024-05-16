@@ -1,355 +1,242 @@
 package replicator
 
 import (
+	"encoding/json"
 	"testing"
 
 	"cheops.com/model"
 )
 
 type testVector struct {
-	name    string
-	docs    []model.ResourceDocument
-	replies []model.ReplyDocument
+	name       string
+	sites      []string
+	operations []model.Operation
+	parentage  [][]string
+	replies    []model.Reply
 
 	// For each site, the list of operations to run
-	operations [][]string
+	torun map[string][]string
 }
 
 func TestFindUnitsToRun(t *testing.T) {
 	tvs := []testVector{
 		{
-			name: "simple",
-			docs: []model.ResourceDocument{
+			name:  "simple",
+			sites: []string{"S1", "S2"},
+			operations: []model.Operation{
 				{
-					Locations: []string{"S1", "S2"},
 					Site:      "S1",
-					Operations: []model.Operation{
-						{
-							Type:      model.OperationTypeCommutativeIdempotent,
-							RequestId: "d1-1",
-							KnownState: map[string]int{
-								"S1": 1,
-								"S2": 0,
-							},
-						},
-					},
+					Type:      model.OperationTypeCommutativeIdempotent,
+					RequestId: "d1-1",
 				},
 			},
-			replies: []model.ReplyDocument{
+			parentage: [][]string{
+				nil,
+			},
+			replies: []model.Reply{
 				{Site: "S1", RequestId: "d1-1"},
 			},
-			operations: [][]string{
-				{},
-				{"d1-1"},
+			torun: map[string][]string{
+				"S1": []string{},
+				"S2": []string{"d1-1"},
 			},
 		},
 		{
-			name: "noTypeC",
-			docs: []model.ResourceDocument{
+			name:  "noTypeC",
+			sites: []string{"S1", "S2"},
+			operations: []model.Operation{
 				{
-					Locations: []string{"S1", "S2"},
 					Site:      "S1",
-					Operations: []model.Operation{
-						{
-							Type:      model.OperationTypeCommutativeIdempotent,
-							RequestId: "d1-1",
-							KnownState: map[string]int{
-								"S1": 0,
-								"S2": 0,
-							},
-						}, {
-							Type:      model.OperationTypeCommutative,
-							RequestId: "d1-2",
-							KnownState: map[string]int{
-								"S1": 1,
-								"S2": 1,
-							},
-						},
-					},
+					Type:      model.OperationTypeCommutativeIdempotent,
+					RequestId: "d1-1",
+				}, {
+					Site:      "S1",
+					Type:      model.OperationTypeCommutative,
+					RequestId: "d1-2",
 				},
 				{
-					Locations: []string{"S1", "S2"},
 					Site:      "S2",
-					Operations: []model.Operation{
-						{
-							Type:      model.OperationTypeCommutative,
-							RequestId: "d2-1",
-							KnownState: map[string]int{
-								"S1": 1,
-								"S2": 1,
-							},
-						}, {
-							Type:      model.OperationTypeCommutativeIdempotent,
-							RequestId: "d2-2",
-							KnownState: map[string]int{
-								"S1": 1,
-								"S2": 2,
-							},
-						}, {
-							Type:      model.OperationTypeCommutativeIdempotent,
-							RequestId: "d2-3",
-							KnownState: map[string]int{
-								"S1": 1,
-								"S2": 3,
-							},
-						},
-					},
+					Type:      model.OperationTypeCommutative,
+					RequestId: "d2-1",
+				}, {
+					Site:      "S2",
+					Type:      model.OperationTypeCommutativeIdempotent,
+					RequestId: "d2-2",
+				}, {
+					Site:      "S2",
+					Type:      model.OperationTypeCommutativeIdempotent,
+					RequestId: "d2-3",
 				},
 			},
-			replies: []model.ReplyDocument{
+			parentage: [][]string{
+				nil,
+				{"d1-1"},
+				{"d1-1"},
+				{"d2-1"},
+				{"d2-2"},
+			},
+			replies: []model.Reply{
 				{Site: "S1", RequestId: "d1-1"},
 				{Site: "S2", RequestId: "d1-1"},
 				{Site: "S2", RequestId: "d2-1"},
 				{Site: "S2", RequestId: "d2-2"},
 			},
-			operations: [][]string{
-				{"d1-2", "d2-3", "d2-2"},
-				{"d2-3", "d1-2"},
+			torun: map[string][]string{
+				"S1": []string{"d1-2", "d2-3", "d2-2", "d2-1"},
+				"S2": []string{"d1-2", "d2-3"},
 			},
 		}, {
-			name: "withTypeC",
-			docs: []model.ResourceDocument{
+			name:  "withTypeC",
+			sites: []string{"S1", "S2"},
+			operations: []model.Operation{
 				{
-					Locations: []string{"S1", "S2"},
+					Type:      model.OperationTypeCommutativeIdempotent,
 					Site:      "S1",
-					Operations: []model.Operation{
-						{
-							Type:      model.OperationTypeCommutativeIdempotent,
-							RequestId: "d1-1",
-							KnownState: map[string]int{
-								"S1": 1,
-								"S2": 0,
-							},
-						}, {
-							Type:      model.OperationTypeIdempotent,
-							RequestId: "d1-2",
-							KnownState: map[string]int{
-								"S1": 2,
-								"S2": 1,
-							},
-						}, {
-							Type:      model.OperationTypeCommutative,
-							RequestId: "d1-3",
-							KnownState: map[string]int{
-								"S1": 3,
-								"S2": 1,
-							},
-						},
-					},
-				},
-				{
-					Locations: []string{"S1", "S2"},
+					RequestId: "d1-1",
+				}, {
+					Type:      model.OperationTypeIdempotent,
+					Site:      "S1",
+					RequestId: "d1-2",
+				}, {
+					Type:      model.OperationTypeCommutative,
+					Site:      "S1",
+					RequestId: "d1-3",
+				}, {
+					// Type C but dead, should be skipped
+					Type:      model.OperationTypeIdempotent,
 					Site:      "S2",
-					Operations: []model.Operation{
-						{
-							// Type C but dead, should be skipped
-							Type:      model.OperationTypeIdempotent,
-							RequestId: "d2-1",
-							KnownState: map[string]int{
-								"S1": 0,
-								"S2": 1,
-							},
-						}, {
-							Type:      model.OperationTypeIdempotent,
-							RequestId: "d2-2",
-							KnownState: map[string]int{
-								"S1": 0,
-								"S2": 2,
-							},
-						}, {
-							Type:      model.OperationTypeCommutativeIdempotent,
-							RequestId: "d2-3",
-							KnownState: map[string]int{
-								"S1": 0,
-								"S2": 3,
-							},
-						},
-					},
+					RequestId: "d2-1",
+				}, {
+					Type:      model.OperationTypeIdempotent,
+					Site:      "S2",
+					RequestId: "d2-2",
+				}, {
+					Type:      model.OperationTypeCommutativeIdempotent,
+					Site:      "S2",
+					RequestId: "d2-3",
 				},
 			},
-			replies: []model.ReplyDocument{
+			parentage: [][]string{
+				nil,
+				{"d1-1", "d2-1"},
+				{"d1-2"},
+				nil,
+				{"d2-1"},
+				{"d2-2"},
+			},
+			replies: []model.Reply{
 				{Site: "S1", RequestId: "d1-1"},
 				{Site: "S1", RequestId: "d1-2"},
 				{Site: "S1", RequestId: "d2-1"},
 				{Site: "S2", RequestId: "d2-1"},
 				{Site: "S2", RequestId: "d2-2"},
 			},
-			operations: [][]string{
-				{"d2-2", "d2-3"},
-				{"d2-3"},
+			torun: map[string][]string{
+				"S1": []string{"d2-2", "d2-3"},
+				"S2": []string{"d2-3"},
 			},
 		}, {
 			name: "withTypeC2",
-			docs: []model.ResourceDocument{
+			operations: []model.Operation{
 				{
-					Locations: []string{"S1", "S2"},
+					Type:      model.OperationTypeIdempotent,
 					Site:      "S1",
-					Operations: []model.Operation{
-						{
-							Type:      model.OperationTypeIdempotent,
-							RequestId: "d1-1",
-							KnownState: map[string]int{
-								"S1": 1,
-								"S2": 0,
-							},
-						}, {
-							Type:      model.OperationTypeCommutative,
-							RequestId: "d1-2",
-							KnownState: map[string]int{
-								"S1": 2,
-								"S2": 1,
-							},
-						},
-					},
-				},
-				{
-					Locations: []string{"S1", "S2"},
+					RequestId: "d1-1",
+				}, {
+					Type:      model.OperationTypeCommutative,
+					Site:      "S1",
+					RequestId: "d1-2",
+				}, {
+					Type:      model.OperationTypeCommutative,
 					Site:      "S2",
-					Operations: []model.Operation{
-						{
-							Type:      model.OperationTypeCommutative,
-							RequestId: "d2-1",
-							KnownState: map[string]int{
-								"S1": 0,
-								"S2": 1,
-							},
-						}, {
-							Type:      model.OperationTypeCommutativeIdempotent,
-							RequestId: "d2-2",
-							KnownState: map[string]int{
-								"S1": 1,
-								"S2": 2,
-							},
-						}, {
-							Type:      model.OperationTypeCommutative,
-							RequestId: "d2-3",
-							KnownState: map[string]int{
-								"S1": 1,
-								"S2": 3,
-							},
-						},
-					},
+					RequestId: "d2-1",
+				}, {
+					Type:      model.OperationTypeCommutativeIdempotent,
+					Site:      "S2",
+					RequestId: "d2-2",
+				}, {
+					Type:      model.OperationTypeCommutative,
+					Site:      "S2",
+					RequestId: "d2-3",
 				},
 			},
-			replies: []model.ReplyDocument{
+			parentage: [][]string{
+				nil,
+				{"d1-1", "d2-1"},
+				nil,
+				{"d1-1", "d2-1"},
+				{"d2-2"},
+			},
+			replies: []model.Reply{
 				{Site: "S1", RequestId: "d1-1"},
 				{Site: "S1", RequestId: "d2-1"},
 				{Site: "S2", RequestId: "d1-1"},
 				{Site: "S2", RequestId: "d2-1"},
 				{Site: "S2", RequestId: "d2-2"},
 			},
-			operations: [][]string{
-				{"d1-2", "d2-3", "d2-2"},
-				{"d1-2", "d2-3"},
+			torun: map[string][]string{
+				"S1": []string{"d1-2", "d2-3", "d2-2"},
+				"s2": []string{"d1-2", "d2-3"},
 			},
 		}, {
-			name: "withTypeC3",
-			docs: []model.ResourceDocument{
+			name:  "withTypeC3",
+			sites: []string{"S1", "S2", "S3"},
+			operations: []model.Operation{
 				{
-					Locations: []string{"S1", "S2", "S3"},
+					Type:      model.OperationTypeIdempotent,
 					Site:      "S1",
-					Operations: []model.Operation{
-						{
-							Type:      model.OperationTypeIdempotent,
-							RequestId: "d1-1",
-							KnownState: map[string]int{
-								"S1": 1,
-								"S2": 0,
-								"S3": 0,
-							},
-						}, {
-							Type:      model.OperationTypeCommutative,
-							RequestId: "d1-2",
-							KnownState: map[string]int{
-								"S1": 1,
-								"S2": 0,
-								"S3": 2,
-							},
-						},
-
-						{
-							Type:      model.OperationTypeIdempotent,
-							RequestId: "d1-3",
-							KnownState: map[string]int{
-								"S1": 1,
-								"S2": 0,
-								"S3": 2,
-							},
-						}, {
-							Type:      model.OperationTypeCommutative,
-							RequestId: "d1-4",
-							KnownState: map[string]int{
-								"S1": 1,
-								"S2": 0,
-								"S3": 2,
-							},
-						},
-					},
-				},
-				{
-					Locations: []string{"S1", "S2", "S3"},
+					RequestId: "d1-1",
+				}, {
+					Type:      model.OperationTypeCommutative,
+					Site:      "S1",
+					RequestId: "d1-2",
+				}, {
+					Type:      model.OperationTypeIdempotent,
+					Site:      "S1",
+					RequestId: "d1-3",
+				}, {
+					Type:      model.OperationTypeCommutative,
+					Site:      "S1",
+					RequestId: "d1-4",
+				}, {
+					Type:      model.OperationTypeCommutative,
 					Site:      "S2",
-					Operations: []model.Operation{
-						{
-							Type:      model.OperationTypeCommutative,
-							RequestId: "d2-1",
-							KnownState: map[string]int{
-								"S1": 0,
-								"S2": 1,
-								"S3": 0,
-							},
-						}, {
-							Type:      model.OperationTypeIdempotent,
-							RequestId: "d2-2",
-							KnownState: map[string]int{
-								"S1": 0,
-								"S2": 2,
-								"S3": 0,
-							},
-						}, {
-							Type:      model.OperationTypeCommutative,
-							RequestId: "d2-3",
-							KnownState: map[string]int{
-								"S1": 0,
-								"S2": 3,
-								"S3": 0,
-							},
-						},
-					},
-				},
-				{
-					Locations: []string{"S1", "S2", "S3"},
+					RequestId: "d2-1",
+				}, {
+					Type:      model.OperationTypeIdempotent,
+					Site:      "S2",
+					RequestId: "d2-2",
+				}, {
+					Type:      model.OperationTypeCommutative,
+					Site:      "S2",
+					RequestId: "d2-3",
+				}, {
+					Type:      model.OperationTypeCommutative,
 					Site:      "S3",
-					Operations: []model.Operation{
-						{
-							Type:      model.OperationTypeCommutative,
-							RequestId: "d3-1",
-							KnownState: map[string]int{
-								"S1": 0,
-								"S2": 0,
-								"S3": 1,
-							},
-						}, {
-							Type:      model.OperationTypeCommutativeIdempotent,
-							RequestId: "d3-2",
-							KnownState: map[string]int{
-								"S1": 0,
-								"S2": 0,
-								"S3": 2,
-							},
-						}, {
-							Type:      model.OperationTypeCommutative,
-							RequestId: "d3-3",
-							KnownState: map[string]int{
-								"S1": 0,
-								"S2": 0,
-								"S3": 3,
-							},
-						},
-					},
+					RequestId: "d3-1",
+				}, {
+					Type:      model.OperationTypeCommutativeIdempotent,
+					Site:      "S3",
+					RequestId: "d3-2",
+				}, {
+					Type:      model.OperationTypeCommutative,
+					Site:      "S3",
+					RequestId: "d3-3",
 				},
 			},
-			replies: []model.ReplyDocument{
+			parentage: [][]string{
+				nil,
+				{"d1-1"},
+				{"d1-2"},
+				{"d1-3"},
+				nil,
+				{"d2-1"},
+				{"d2-2"},
+				nil,
+				{"d3-1"},
+				{"d3-2"},
+			},
+			replies: []model.Reply{
 				{Site: "S1", RequestId: "d1-1"},
 				{Site: "S1", RequestId: "d3-1"},
 				{Site: "S1", RequestId: "d3-2"},
@@ -363,103 +250,94 @@ func TestFindUnitsToRun(t *testing.T) {
 				{Site: "S3", RequestId: "d3-1"},
 				{Site: "S3", RequestId: "d3-2"},
 			},
-			operations: [][]string{
-				{"d2-2", "d2-3"},
-				{"d2-2", "d2-3"},
-				{"d2-3"},
+			torun: map[string][]string{
+				"S1": []string{"d2-2", "d2-3"},
+				"S2": []string{"d2-2", "d2-3"},
+				"S3": []string{"d2-3"},
 			},
 		}, {
-			name: "withTypeC4",
-			docs: []model.ResourceDocument{
+			name:  "withTypeC4",
+			sites: []string{"S1", "S2", "S3"},
+			operations: []model.Operation{
 				{
-					Locations: []string{"S1", "S2", "S3"},
+					Type:      model.OperationTypeIdempotent,
 					Site:      "S1",
-					Operations: []model.Operation{
-						{
-							Type:      model.OperationTypeIdempotent,
-							RequestId: "d1-1",
-							KnownState: map[string]int{
-								"S1": 1,
-								"S2": 0,
-								"S3": 2,
-							},
-						}, {
-							Type:      model.OperationTypeCommutative,
-							RequestId: "d1-2",
-							KnownState: map[string]int{
-								"S1": 2,
-								"S2": 0,
-								"S3": 2,
-							},
-						},
-
-						{
-							Type:      model.OperationTypeIdempotent,
-							RequestId: "d1-3",
-							KnownState: map[string]int{
-								"S1": 3,
-								"S2": 0,
-								"S3": 2,
-							},
-						}, {
-							Type:      model.OperationTypeCommutative,
-							RequestId: "d1-4",
-							KnownState: map[string]int{
-								"S1": 4,
-								"S2": 0,
-								"S3": 2,
-							},
-						},
-					},
+					RequestId: "d1-1",
+				}, {
+					Type:      model.OperationTypeCommutative,
+					Site:      "S1",
+					RequestId: "d1-2",
 				},
 				{
-					Locations: []string{"S1", "S2", "S3"},
+					Type:      model.OperationTypeIdempotent,
+					Site:      "S1",
+					RequestId: "d1-3",
+				}, {
+					Type:      model.OperationTypeCommutative,
+					Site:      "S1",
+					RequestId: "d1-4",
+				},
+				{
+					Type:      model.OperationTypeCommutative,
 					Site:      "S3",
-					Operations: []model.Operation{
-						{
-							Type:      model.OperationTypeCommutative,
-							RequestId: "d3-1",
-							KnownState: map[string]int{
-								"S1": 3,
-								"S2": 0,
-								"S3": 1,
-							},
-						}, {
-							// dead operation
-							Type:      model.OperationTypeCommutativeIdempotent,
-							RequestId: "d3-2",
-							KnownState: map[string]int{
-								"S1": 4,
-								"S2": 0,
-								"S3": 2,
-							},
-						}, {
-							Type:      model.OperationTypeCommutative,
-							RequestId: "d3-3",
-							KnownState: map[string]int{
-								"S1": 4,
-								"S2": 0,
-								"S3": 3,
-							},
-						},
-					},
+					RequestId: "d3-1",
+				}, {
+					// dead operation
+					Type:      model.OperationTypeCommutativeIdempotent,
+					Site:      "S3",
+					RequestId: "d3-2",
+				}, {
+					Type:      model.OperationTypeCommutative,
+					Site:      "S3",
+					RequestId: "d3-3",
 				},
 			},
-			replies: []model.ReplyDocument{},
-			operations: [][]string{
-				{"d1-3", "d1-4", "d3-3", "d3-2"},
-				{"d1-3", "d1-4", "d3-3", "d3-2"},
-				{"d1-3", "d1-4", "d3-3", "d3-2"},
+			parentage: [][]string{
+				nil,
+				{"d1-1", "d3-1"},
+				{"d1-2"},
+				{"d1-3", "d3-2"},
+				nil,
+				{"d1-3", "d3-1"},
+				{"d3-2"},
+			},
+			replies: []model.Reply{
+				{Site: "S1", RequestId: "d1-3"},
+			},
+			torun: map[string][]string{
+				"S1": []string{"d1-4", "d3-2", "d3-3"},
+				"S2": []string{"d1-3", "d1-4", "d3-2", "d3-3"},
+				"S3": []string{"d1-3", "d1-4", "d3-2", "d3-3"},
 			},
 		},
 	}
 
 	for _, tv := range tvs {
-		allSites := tv.docs[0].Locations
-		for idx, site := range allSites {
-			expectedOperations := tv.operations[idx]
+		for _, site := range tv.sites {
+			docs := make([]model.PayloadDocument, 0)
+			for idx := range tv.operations {
+				raw, _ := json.Marshal(tv.operations[idx])
+				doc := model.PayloadDocument{
+					Parents: tv.parentage[idx],
+					Type:    "OPERATION",
+					Payload: json.RawMessage(raw),
+				}
+				docs = append(docs, doc)
+			}
+			for _, reply := range tv.replies {
+				raw, _ := json.Marshal(reply)
+				doc := model.PayloadDocument{
+					Type:    "REPLY",
+					Payload: json.RawMessage(raw),
+				}
+				docs = append(docs, doc)
+			}
 
-			actualOps := findOperationsToRun(site, tv.docs, tv.replies)
+			tree, existingReplies := makeTreeWithReplies(site, docs)
+
+			expectedOperations := tv.torun[site]
+
+			actualOps := findOperationsToRun(tv.sites, tree, existingReplies)
 			if len(actualOps) != len(expectedOperations) {
 				t.Fatalf("Wrong operations at %s site %s: got %s want %s\n", tv.name, site, mapOpsToRequestId(actualOps), expectedOperations)
 			}
