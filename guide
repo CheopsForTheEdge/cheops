@@ -1,4 +1,5 @@
 Watch -r goimports -w . '&&' gofmt -w . '&&' go test ./... '&&' go build
+Watch $home/.local/bin/gobuild.rc # With the same content as above
 
 # cli
 ./cli exec --command='mkdir foo && cat {/etc/hostname} > foo/hostname' --sites='localhost&other' --id=resource
