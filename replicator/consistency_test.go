@@ -337,7 +337,7 @@ func TestFindUnitsToRun(t *testing.T) {
 
 			expectedOperations := tv.torun[site]
 
-			actualOps := findOperationsToRun(tv.sites, tree, existingReplies)
+			actualOps := findOperationsToRun(tree, existingReplies)
 			if len(actualOps) != len(expectedOperations) {
 				t.Fatalf("Wrong operations at %s site %s: got %s want %s\n", tv.name, site, mapOpsToRequestId(actualOps), expectedOperations)
 			}

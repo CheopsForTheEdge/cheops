@@ -123,7 +123,7 @@ func (r *Replicator) watchRequests() {
 			log.Printf("Error unmarshalling: %v\n", err)
 			return
 		}
-		replies := r.run(context.Background(), d.Locations, op)
+		replies := r.run(context.Background(), op)
 		for _, reply := range replies {
 			b, err := json.Marshal(reply)
 			if err != nil {
@@ -135,7 +135,7 @@ func (r *Replicator) watchRequests() {
 	})
 }
 
-func (r *Replicator) run(ctx context.Context, sites []string, operation model.Operation) []model.Reply {
+func (r *Replicator) run(ctx context.Context, operation model.Operation) []model.Reply {
 	allDocs, err := r.getDocsForView("all-by-resourceid", operation.ResourceId)
 	if err != nil {
 		log.Printf("Couldn't run %v: %v\n", operation.RequestId, err)
@@ -144,7 +144,7 @@ func (r *Replicator) run(ctx context.Context, sites []string, operation model.Op
 
 	tree, existingReplies := makeTreeWithReplies(env.Myfqdn, allDocs)
 
-	operationsToRun := findOperationsToRun(sites, tree, existingReplies)
+	operationsToRun := findOperationsToRun(tree, existingReplies)
 	if len(operationsToRun) == 0 {
 		return nil
 	}
@@ -249,7 +249,7 @@ func (r *Replicator) RunDirect(ctx context.Context, command string) (string, err
 // findOperationsToRun outputs the operations to run for a resource
 // based on the consistency model and the known states.
 // See CONSISTENCY.md at the top of the project to understand what is happening here
-func findOperationsToRun(sites []string, tree *dag.DAG, existingReplies map[string]struct{}) []model.Operation {
+func findOperationsToRun(tree *dag.DAG, existingReplies map[string]struct{}) []model.Operation {
 
 	// Step 1: on each site, find the last operation of type 3
 	// Step 1bis: if there are no type 3 anywhere, the result is all operations since
@@ -266,10 +266,6 @@ func findOperationsToRun(sites []string, tree *dag.DAG, existingReplies map[stri
 			if !ok || isDescendant(tree, existing, v) {
 				lastIdempotentPerSite[op.Site] = v
 			}
-		}
-
-		if len(lastIdempotentPerSite) == len(sites) {
-			return false
 		}
 
 		return true
