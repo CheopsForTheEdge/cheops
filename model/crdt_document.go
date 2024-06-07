@@ -1,7 +1,6 @@
 package model
 
 import (
-	"fmt"
 	"time"
 
 	"cheops.com/backends"
@@ -20,6 +19,7 @@ type ResourceDocument struct {
 	ResourceId string
 	Site       string
 	Operations []Operation
+	Config     Config
 
 	// Always RESOURCE
 	Type string
@@ -40,58 +40,36 @@ type ReplyDocument struct {
 	Type string
 }
 
-type DeleteDocument struct {
-	ResourceId  string
-	ResourceRev string
-
-	// Will always be a single string with the site,
-	// but we reuse the existing infrastructure that manages replication
-	// for a list of locations
-	Locations []string
-
-	// Always DELETE
-	Type string
-}
-
 type Cmd struct {
 	Input  string
 	Output string
 }
 
-type OperationType string
+type RelationType string
 
 const (
-	// Idempotent and Commutative (Type A)
-	OperationTypeCommutativeIdempotent OperationType = "1"
+	RelationTypeIterative RelationType = "1"
 
-	// Commutative only (Type B)
-	OperationTypeCommutative OperationType = "2"
+	RelationTypeCommutative RelationType = "2"
 
-	// Idempotent only (Type C)
-	OperationTypeIdempotent OperationType = "3"
-
-	// Not commutative, not idempotent (Type D)
-	OperationTypeNothing OperationType = "4"
+	RelationTypeExclusive RelationType = "3"
 )
 
-func OperationTypeFrom(input string) (OperationType, error) {
-	op := OperationType(input)
-	if op != OperationTypeCommutativeIdempotent &&
-		op != OperationTypeCommutative &&
-		op != OperationTypeIdempotent &&
-		op != OperationTypeNothing {
-		return "", fmt.Errorf("Unknown operation type")
-	}
-
-	return OperationType(input), nil
-}
+type OperationType string
 
 type Operation struct {
 	Type      OperationType
 	RequestId string
 	Command   backends.ShellCommand
 	Time      time.Time
+}
 
-	// Site -> height
-	KnownState map[string]int
+type Config struct {
+	RelationshipMatrix []Relationship
+}
+
+type Relationship struct {
+	Before OperationType
+	After  OperationType
+	Result []int
 }

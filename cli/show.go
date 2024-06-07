@@ -116,26 +116,16 @@ func getContentAndOtherHosts(host, id string) (content string, allHosts []string
 	var bytes []byte
 
 	for _, doc := range r.Docs {
-		var delete model.DeleteDocument
-		err := json.Unmarshal(doc, &delete)
+		var resource model.ResourceDocument
+		err = json.Unmarshal(doc, &resource)
 		if err == nil {
-			bytes, err = json.MarshalIndent(delete, "", "\t")
+			bytes, err = json.MarshalIndent(resource, "", "\t")
 			if err != nil {
 				return "", nil, err
 			}
-			allHosts = delete.Locations
+			allHosts = resource.Locations
 		} else {
-			var resource model.ResourceDocument
-			err = json.Unmarshal(doc, &resource)
-			if err == nil {
-				bytes, err = json.MarshalIndent(resource, "", "\t")
-				if err != nil {
-					return "", nil, err
-				}
-				allHosts = resource.Locations
-			} else {
-				return "", nil, err
-			}
+			return "", nil, err
 		}
 	}
 

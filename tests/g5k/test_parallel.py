@@ -151,13 +151,11 @@ synchronization.wait(hosts)
 # Once content is synchronized, make sure it is actually the same
 replies = [requests.post(f"http://{host}:5984/cheops/_find", json={"selector": {"Type": "RESOURCE", "ResourceId": id}}) for host in hosts[:3]]
 for reply in replies:
+    assert len(reply.json()['docs']) == 1
     assert reply.status_code == 200
 contents = [reply.json()['docs'][0] for reply in replies]
 for content in contents:
-    if content['Site'] == hosts[0]:
-        assert len(content['Operations']) == 2
-    elif content['Site'] == hosts[1]:
-        assert len(content['Operations']) == 1
+    assert len(content['Operations']) == 2
 
 
 # Make sure the replies are all ok

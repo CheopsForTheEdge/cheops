@@ -87,7 +87,7 @@ func Run(port int, repl *replicator.Replicator) {
 		}
 		req := model.Operation{
 			Command:   cmd,
-			Type:      model.OperationType(typ),
+			Type:      typ,
 			RequestId: base32.StdEncoding.EncodeToString(randBytes),
 			Time:      time.Now(),
 		}
@@ -177,7 +177,7 @@ func parseRequest(w http.ResponseWriter, r *http.Request) (id, command string, t
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	typ, err = model.OperationTypeFrom(strings.TrimSpace(types[0]))
+	typ = model.OperationType(strings.TrimSpace(types[0]))
 	if err != nil {
 		log.Println("Invalid type")
 		http.Error(w, "bad request", http.StatusBadRequest)

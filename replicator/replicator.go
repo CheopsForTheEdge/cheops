@@ -8,12 +8,16 @@ package replicator
 import (
 	"bytes"
 	"context"
+	"crypto"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
+
+	_ "golang.org/x/crypto/blake2b"
 
 	"cheops.com/backends"
 	"cheops.com/env"
@@ -133,6 +137,8 @@ func (r *Replicator) ensureIndex() {
 // The output is a chan of each individual reply as they arrive. After a timeout or all replies are sent, the chan is closed
 func (r *Replicator) Do(ctx context.Context, sites []string, id string, request model.Operation) (replies chan model.ReplyDocument, err error) {
 
+	// TODO: wait for merge to have been done
+
 	repliesChan := make(chan model.ReplyDocument)
 	done := func() {
 		close(repliesChan)
@@ -177,20 +183,6 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 		}
 	}
 
-	// Add our operation if needed
-	request.KnownState = make(map[string]int)
-	for _, location := range sites {
-		height := 0
-		for _, document := range docs {
-			if document.Site == location {
-				height = len(document.Operations)
-			}
-		}
-		if location == env.Myfqdn {
-			height = height + 1
-		}
-		request.KnownState[location] = height
-	}
 	localDoc.Operations = append(localDoc.Operations, request)
 	log.Printf("New request: resourceId=%v requestId=%v\n", localDoc.ResourceId, request.RequestId)
 
@@ -285,7 +277,9 @@ func (r *Replicator) watchRequests() {
 			return
 		}
 
-		r.run(context.Background(), d)
+		if !r.merge(context.Background(), d.ResourceId) {
+			r.run(context.Background(), d)
+		}
 	})
 }
 
@@ -316,7 +310,177 @@ func (r *Replicator) watchReplies(ctx context.Context, requestId string, replies
 
 }
 
+// merge will merge conflicts for resource "id"
+// It retuns true if something was merged
+func (r *Replicator) merge(ctx context.Context, id string) bool {
+
+	hasmerged := false
+
+loop:
+	for {
+		url := fmt.Sprintf("http://localhost:5984/cheops/%s?conflicts=true", id)
+		res, err := http.Get(url)
+		if err != nil {
+			log.Printf("Couldn't get doc with conflicts for %s: %v\n", id, err)
+			<-time.After(10 * time.Second)
+			continue
+		}
+		var d model.ResourceDocument
+		err = json.NewDecoder(res.Body).Decode(&d)
+		res.Body.Close()
+
+		if err != nil {
+			log.Printf("Couldn't get doc with conflicts for %s: %v\n", id, err)
+			<-time.After(10 * time.Second)
+			continue
+		}
+
+		if len(d.Conflicts) == 0 {
+			return false
+		}
+
+		conflicts := make([]model.ResourceDocument, 0)
+		for _, rev := range d.Conflicts {
+			url := fmt.Sprintf("http://localhost:5984/cheops/%s?rev=%s", id, rev)
+			res, err := http.Get(url)
+			if err != nil {
+				log.Printf("Couldn't get doc=%s rev=%s: %v\n", id, rev, err)
+				<-time.After(10 * time.Second)
+				continue loop
+			}
+			var d model.ResourceDocument
+			err = json.NewDecoder(res.Body).Decode(&d)
+			if err != nil {
+				log.Printf("Bad json document: doc=%s rev=%s %s\n", id, rev, err)
+				<-time.After(10 * time.Second)
+				continue loop
+			}
+			res.Body.Close()
+			conflicts = append(conflicts, d)
+		}
+
+		resolved, err := resolveMerge(d, conflicts)
+		if err != nil {
+			log.Printf("Couldn't merge conflicts for %s: %v\n", id, err)
+			<-time.After(10 * time.Second)
+			continue
+		}
+
+		err = r.putDocument(resolved, resolved.ResourceId)
+		if err != nil {
+			log.Printf("Couldn't put resolution document for %s: %v\n", id, err)
+			<-time.After(10 * time.Second)
+			continue
+		}
+
+		hasmerged = true
+		break
+	}
+
+	return hasmerged
+}
+
+func resolveMerge(main model.ResourceDocument, conflicts []model.ResourceDocument) (resolved model.ResourceDocument, err error) {
+
+	// Find winning config, we take the higher one
+	hash := func(c model.Config) []byte {
+		h := crypto.BLAKE2b_256.New()
+		json.NewEncoder(h).Encode(c)
+		return h.Sum(nil)
+	}
+
+	c := main.Config
+	h := hash(c)
+	for _, conflict := range conflicts {
+		cc := conflict.Config
+		if len(c.RelationshipMatrix) == 0 {
+			c = cc
+			continue
+		}
+		if len(cc.RelationshipMatrix) == 0 {
+			continue
+		}
+		hh := hash(cc)
+		if bytes.Compare(hh, h) > 0 {
+			c = cc
+			h = hh
+		}
+	}
+
+	main.Config = c
+
+	ops := main.Operations
+	for _, conflict := range conflicts {
+		// TODO: how to determine the main Config ?
+		// For now it's the one that couchdb gives us
+
+		// Find first op
+		// We take the associated config as well
+		hasRelationship := false
+		for _, relationship := range main.Config.RelationshipMatrix {
+			if relationship.Before == ops[0].Type && relationship.After == conflict.Operations[0].Type {
+				hasRelationship = true
+				if slicesEqual(relationship.Result, []int{1}) {
+					ops[0] = ops[0] // duh
+				} else if slicesEqual(relationship.Result, []int{2}) {
+					if ops[0].Type == conflict.Operations[0].Type {
+						// We actually have a conflict of the same operation. We don't just take the
+						// second one but the highest to be deterministic
+						if strings.Compare(ops[0].RequestId, conflict.Operations[0].RequestId) < 0 {
+							ops[0] = conflict.Operations[0]
+						}
+					} else {
+						ops[0] = conflict.Operations[0]
+					}
+				} else {
+					ops = append(ops, model.Operation{})
+					copy(ops[2:], ops[1:])
+					ops[1] = conflict.Operations[0]
+					break
+				}
+			}
+		}
+		if !hasRelationship {
+			// no relationship: it's all commutative
+			// Take them all and sort them (to make it deterministic)
+			ops = append(ops, conflict.Operations[0])
+			sort.Slice(ops[:2], func(i, j int) bool {
+				return strings.Compare(ops[:2][i].RequestId, ops[:2][j].RequestId) <= 0
+			})
+		}
+
+		// Add rest of ops
+		for _, op := range conflict.Operations[1:] {
+			hasop := false
+			for _, existingop := range ops {
+				if op.RequestId == existingop.RequestId {
+					hasop = true
+					break
+				}
+			}
+			if !hasop {
+				ops = append(ops, op)
+			}
+		}
+	}
+	main.Operations = ops
+	return main, nil
+}
+
+func slicesEqual(a []int, b []int) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func (r *Replicator) run(ctx context.Context, d model.ResourceDocument) {
+
 	if len(d.Operations) == 0 {
 		log.Printf("WARN: Resource %v has been inserted with no operations\n", d.ResourceId)
 		return
@@ -328,7 +492,7 @@ func (r *Replicator) run(ctx context.Context, d model.ResourceDocument) {
 		return
 	}
 
-	resourceDocuments := make([]model.ResourceDocument, 0)
+	var resourceDocument model.ResourceDocument
 	replies := make([]model.ReplyDocument, 0)
 	for _, doc := range allDocs {
 		var reply model.ReplyDocument
@@ -336,24 +500,16 @@ func (r *Replicator) run(ctx context.Context, d model.ResourceDocument) {
 		if err == nil && reply.Type == "REPLY" {
 			replies = append(replies, reply)
 		} else {
-			var resource model.ResourceDocument
-			err = json.Unmarshal(doc, &resource)
-			if err == nil && reply.Type == "RESOURCE" {
-				resourceDocuments = append(resourceDocuments, resource)
-			} else {
+			err = json.Unmarshal(doc, &resourceDocument)
+			if err != nil {
 				log.Printf("Invalid doc: %s\n", doc)
 				return
 			}
 		}
 	}
 
-	operationsToRun := findOperationsToRun(env.Myfqdn, resourceDocuments, replies)
-	if len(operationsToRun) == 0 {
-		return
-	}
-
 	commands := make([]backends.ShellCommand, 0)
-	for _, operation := range operationsToRun {
+	for _, operation := range resourceDocument.Operations {
 		commands = append(commands, operation.Command)
 		log.Printf("will run %s\n", operation.RequestId)
 	}
@@ -366,7 +522,7 @@ func (r *Replicator) run(ctx context.Context, d model.ResourceDocument) {
 	}
 
 	// Post reply for replication
-	for i, operation := range operationsToRun {
+	for i, operation := range resourceDocument.Operations {
 		log.Printf("Ran %s\n", operation.RequestId)
 
 		cmd := model.Cmd{

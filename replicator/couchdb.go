@@ -47,6 +47,29 @@ func (r *Replicator) postDocument(v interface{}) error {
 	return nil
 }
 
+func (r *Replicator) putDocument(v interface{}, id string) error {
+	buf, err := json.Marshal(v)
+	if err != nil {
+		return fmt.Errorf("Couldn't marshal document: %v\n", err)
+	}
+	url := fmt.Sprintf("http://localhost:5984/cheops/%s", id)
+	req, err := http.NewRequest("PUT", url, bytes.NewReader(buf))
+	if err != nil {
+		return fmt.Errorf("Couldn't create document request: %v\n", err)
+	}
+	newresp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("Couldn't send document: %v\n", err)
+	}
+	defer newresp.Body.Close()
+
+	if newresp.StatusCode != http.StatusCreated && newresp.StatusCode != http.StatusAccepted {
+		return fmt.Errorf("Couldn't send document: %v\n", newresp.Status)
+	}
+
+	return nil
+}
+
 // Count returns the number of resources known by this node
 func (r *Replicator) CountResources() (int, error) {
 	byResourceResp, err := http.Get("http://admin:password@localhost:5984/cheops/_design/cheops/_view/all-by-resourceid?group_level=1")
