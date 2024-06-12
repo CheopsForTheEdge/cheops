@@ -362,6 +362,10 @@ loop:
 			continue
 		}
 
+		for _, rev := range d.Conflicts {
+			r.deleteDocument(resolved.ResourceId, rev)
+		}
+
 		hasmerged = true
 		break
 	}

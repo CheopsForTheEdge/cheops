@@ -70,6 +70,20 @@ func (r *Replicator) putDocument(v interface{}, id string) error {
 	return nil
 }
 
+func (r *Replicator) deleteDocument(id, rev string) error {
+	url := fmt.Sprintf("http://localhost:5984/cheops/%s?rev=%s", id, rev)
+	req, err := http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		return fmt.Errorf("Couldn't create delete request for %v:%v : %v\n", id, rev, err)
+	}
+	rr, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("Couldn't delete document %v:%v : %v\n", id, rev, err)
+	}
+	rr.Body.Close()
+	return nil
+}
+
 // Count returns the number of resources known by this node
 func (r *Replicator) CountResources() (int, error) {
 	byResourceResp, err := http.Get("http://admin:password@localhost:5984/cheops/_design/cheops/_view/all-by-resourceid?group_level=1")
