@@ -502,8 +502,19 @@ func (r *Replicator) run(ctx context.Context, d model.ResourceDocument) {
 	}
 
 	commands := make([]backends.ShellCommand, 0)
-	for _, operation := range resourceDocument.Operations {
+	commandsToResource := make(map[int]int)
+	commandsInt := 0
+
+operations:
+	for i, operation := range resourceDocument.Operations {
+		for _, reply := range replies {
+			if operation.RequestId == reply.RequestId && reply.Site == env.Myfqdn {
+				continue operations
+			}
+		}
 		commands = append(commands, operation.Command)
+		commandsToResource[commandsInt] = i
+		commandsInt = commandsInt + 1
 		log.Printf("will run %s\n", operation.RequestId)
 	}
 
@@ -515,18 +526,17 @@ func (r *Replicator) run(ctx context.Context, d model.ResourceDocument) {
 	}
 
 	// Post reply for replication
-	for i, operation := range resourceDocument.Operations {
-		log.Printf("Ran %s\n", operation.RequestId)
+	for i, command := range commands {
 
 		cmd := model.Cmd{
-			Input:  commands[i].Command,
+			Input:  command.Command,
 			Output: executionReplies[i],
 		}
 
 		err = r.postDocument(model.ReplyDocument{
 			Locations:     d.Locations,
 			Site:          env.Myfqdn,
-			RequestId:     operation.RequestId,
+			RequestId:     resourceDocument.Operations[commandsToResource[i]].RequestId,
 			ResourceId:    d.ResourceId,
 			Status:        status,
 			Cmd:           cmd,
