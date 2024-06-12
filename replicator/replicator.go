@@ -136,9 +136,6 @@ func (r *Replicator) ensureIndex() {
 //
 // The output is a chan of each individual reply as they arrive. After a timeout or all replies are sent, the chan is closed
 func (r *Replicator) Do(ctx context.Context, sites []string, id string, request model.Operation) (replies chan model.ReplyDocument, err error) {
-
-	// TODO: wait for merge to have been done
-
 	repliesChan := make(chan model.ReplyDocument)
 	done := func() {
 		close(repliesChan)
@@ -157,39 +154,31 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 	}
 
 	// Get current revision
-	docs, err := r.getResourceDocsFor(id)
+	doc, err := r.getResourceDocFor(id)
 	if err != nil {
 		return replies, err
 	}
-	var localDoc model.ResourceDocument
-	for _, doc := range docs {
-		if doc.Site == env.Myfqdn {
-			localDoc = doc
-			break
-		}
-	}
 
-	if localDoc.ResourceId == "" {
+	if doc.ResourceId == "" {
 		if len(request.Command.Command) == 0 {
 			return nil, ErrInvalidRequest("will not create a document with an empty body")
 		}
 
-		localDoc = model.ResourceDocument{
+		doc = model.ResourceDocument{
 			Locations:  sites,
 			Operations: make([]model.Operation, 0),
 			Type:       "RESOURCE",
-			Site:       env.Myfqdn,
 			ResourceId: id,
 		}
 	}
 
-	localDoc.Operations = append(localDoc.Operations, request)
-	log.Printf("New request: resourceId=%v requestId=%v\n", localDoc.ResourceId, request.RequestId)
+	doc.Operations = append(doc.Operations, request)
+	log.Printf("New request: resourceId=%v requestId=%v\n", doc.ResourceId, request.RequestId)
 
 	// Send the newly formatted document
 	// We of course assume that the revision hasn't changed since the last Get, so this might fail.
 	// In this case the user has to retry
-	buf, err := json.Marshal(localDoc)
+	buf, err := json.Marshal(doc)
 	if err != nil {
 		return nil, err
 	}
@@ -210,7 +199,7 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 
 	// location -> struct{}{}
 	expected := make(map[string]struct{})
-	for _, location := range localDoc.Locations {
+	for _, location := range doc.Locations {
 		expected[location] = struct{}{}
 	}
 	ret := make(chan model.ReplyDocument)
@@ -235,10 +224,10 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 				// timeout
 				for remaining := range expected {
 					ret <- model.ReplyDocument{
-						Locations:  localDoc.Locations,
+						Locations:  doc.Locations,
 						Site:       remaining,
 						RequestId:  request.RequestId,
-						ResourceId: localDoc.ResourceId,
+						ResourceId: doc.ResourceId,
 						Status:     "TIMEOUT",
 						Cmd: model.Cmd{
 							Input: request.Command.Command,
@@ -546,18 +535,37 @@ func (r *Replicator) run(ctx context.Context, d model.ResourceDocument) {
 	}
 }
 
-func (r *Replicator) getResourceDocsFor(resourceId string) ([]model.ResourceDocument, error) {
-	docs, err := r.getDocsForView("all-by-resourceid", resourceId, "RESOURCE")
-	resourceDocuments := make([]model.ResourceDocument, 0)
-	for _, d := range docs {
-		var doc model.ResourceDocument
-		err := json.Unmarshal(d, &doc)
-		if err == nil && doc.Type == "RESOURCE" {
-			resourceDocuments = append(resourceDocuments, doc)
+// getResourceDocFor gets the document for the given resource
+// It will wait until conflicts are resolved. Conflict resolution is expected to happen
+// in another goroutine
+func (r *Replicator) getResourceDocFor(resourceId string) (model.ResourceDocument, error) {
+	tries := 10
+	for {
+		docs, err := r.getDocsForView("all-by-resourceid", resourceId, "RESOURCE")
+		if err != nil {
+			return model.ResourceDocument{}, err
 		}
-	}
+		if len(docs) == 0 {
+			return model.ResourceDocument{}, nil
+		}
+		if len(docs) > 1 {
+			return model.ResourceDocument{}, fmt.Errorf("Multiple documents for resource %s !", resourceId)
+		}
 
-	return resourceDocuments, err
+		var doc model.ResourceDocument
+		err = json.Unmarshal(docs[0], &doc)
+
+		if len(doc.Conflicts) > 0 {
+			if tries == 0 {
+				return model.ResourceDocument{}, fmt.Errorf("Waited too long for %s to resolve merge, aborting\n", resourceId)
+			}
+			log.Printf("%v has conflict, waiting 1s for resolution\n", resourceId)
+			tries = tries - 1
+			<-time.After(1 * time.Second)
+			continue
+		}
+		return doc, nil
+	}
 }
 
 func (r *Replicator) getAllDocsFor(resourceId string) ([]json.RawMessage, error) {
