@@ -75,11 +75,11 @@ func (r *Replicator) ensureCouch() {
 {
   "views": {
     "all-by-resourceid": {
-      "map": "function (doc) {\n  if(doc.Type != 'RESOURCE' && doc.Type != 'REPLY') return;\n  emit([doc.ResourceId, doc.Type], null);\n}",
+      "map": "function (doc) {\n  if(doc.Type === 'RESOURCE') {emit(null, null); return}\n  if (doc.Type === 'REPLY') {emit(null, null);return} }",
       "reduce": "_count"
     },
     "last-reply": {
-      "map": "function (doc) {\n  if (doc.Type != 'REPLY') return;\n  emit([doc.Site, doc.ResourceId], {Time: doc.ExecutionTime, RequestId: doc.RequestId, Sites: doc.Locations});\n}",
+      "map": "function (doc) {\n  if (doc.Type != 'REPLY') return;\n  emit([doc.Site, doc.Id], {Time: doc.ExecutionTime, RequestId: doc.RequestId, Sites: doc.Locations});\n}",
       "reduce": "function (keys, values, rereduce) {\n  let sorted = values.sort((a, b) => {\n    return a.Time.localeCompare(b.Time)\n  })\n  return sorted[sorted.length - 1]\n}"
     }
   },
@@ -159,7 +159,7 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 		return replies, err
 	}
 
-	if doc.ResourceId == "" {
+	if doc.Id == "" {
 		if len(request.Command.Command) == 0 {
 			return nil, ErrInvalidRequest("will not create a document with an empty body")
 		}
@@ -168,12 +168,12 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 			Locations:  sites,
 			Operations: make([]model.Operation, 0),
 			Type:       "RESOURCE",
-			ResourceId: id,
+			Id:         id,
 		}
 	}
 
 	doc.Operations = append(doc.Operations, request)
-	log.Printf("New request: resourceId=%v requestId=%v\n", doc.ResourceId, request.RequestId)
+	log.Printf("New request: resourceId=%v requestId=%v\n", doc.Id, request.RequestId)
 
 	// Send the newly formatted document
 	// We of course assume that the revision hasn't changed since the last Get, so this might fail.
@@ -227,7 +227,7 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 						Locations:  doc.Locations,
 						Site:       remaining,
 						RequestId:  request.RequestId,
-						ResourceId: doc.ResourceId,
+						ResourceId: doc.Id,
 						Status:     "TIMEOUT",
 						Cmd: model.Cmd{
 							Input: request.Command.Command,
@@ -266,7 +266,7 @@ func (r *Replicator) watchRequests() {
 			return
 		}
 
-		if !r.merge(context.Background(), d.ResourceId) {
+		if !r.merge(context.Background(), d.Id) {
 			r.run(context.Background(), d)
 		}
 	})
@@ -355,7 +355,7 @@ loop:
 			continue
 		}
 
-		err = r.putDocument(resolved, resolved.ResourceId)
+		err = r.putDocument(resolved, resolved.Id)
 		if err != nil {
 			log.Printf("Couldn't put resolution document for %s: %v\n", id, err)
 			<-time.After(10 * time.Second)
@@ -363,7 +363,7 @@ loop:
 		}
 
 		for _, rev := range d.Conflicts {
-			r.deleteDocument(resolved.ResourceId, rev)
+			r.deleteDocument(resolved.Id, rev)
 		}
 
 		hasmerged = true
@@ -475,11 +475,11 @@ func slicesEqual(a []int, b []int) bool {
 func (r *Replicator) run(ctx context.Context, d model.ResourceDocument) {
 
 	if len(d.Operations) == 0 {
-		log.Printf("WARN: Resource %v has been inserted with no operations\n", d.ResourceId)
+		log.Printf("WARN: Resource %v has been inserted with no operations\n", d.Id)
 		return
 	}
 
-	allDocs, err := r.getAllDocsFor(d.ResourceId)
+	allDocs, err := r.getAllDocsFor(d.Id)
 	if err != nil {
 		log.Printf("Couldn't get docs for id: %v\n", err)
 		return
@@ -537,7 +537,7 @@ operations:
 			Locations:     d.Locations,
 			Site:          env.Myfqdn,
 			RequestId:     resourceDocument.Operations[commandsToResource[i]].RequestId,
-			ResourceId:    d.ResourceId,
+			ResourceId:    d.Id,
 			Status:        status,
 			Cmd:           cmd,
 			Type:          "REPLY",
@@ -555,19 +555,17 @@ operations:
 func (r *Replicator) getResourceDocFor(resourceId string) (model.ResourceDocument, error) {
 	tries := 10
 	for {
-		docs, err := r.getDocsForView("all-by-resourceid", resourceId, "RESOURCE")
+		url := fmt.Sprintf("http://localhost:5984/%s?conflicts=true", resourceId)
+		res, err := http.Get(url)
 		if err != nil {
-			return model.ResourceDocument{}, err
+			tries = tries - 1
+			<-time.After(1 * time.Second)
+			continue
 		}
-		if len(docs) == 0 {
-			return model.ResourceDocument{}, nil
-		}
-		if len(docs) > 1 {
-			return model.ResourceDocument{}, fmt.Errorf("Multiple documents for resource %s !", resourceId)
-		}
+		defer res.Body.Close()
 
 		var doc model.ResourceDocument
-		err = json.Unmarshal(docs[0], &doc)
+		err = json.NewDecoder(res.Body).Decode(&doc)
 
 		if len(doc.Conflicts) > 0 {
 			if tries == 0 {
