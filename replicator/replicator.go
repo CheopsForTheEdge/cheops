@@ -357,7 +357,11 @@ loop:
 		}
 
 		for _, rev := range d.Conflicts {
-			r.deleteDocument(resolved.Id, rev)
+			err := r.deleteDocument(resolved.Id, rev)
+			if err != nil {
+				log.Printf("Couldn't delete conflict %s:%s: %s\n", resolved.Id, rev, err)
+				return false
+			}
 		}
 
 		err = r.putDocument(resolved, resolved.Id)
