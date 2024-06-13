@@ -119,14 +119,14 @@ r = requests.post(f"http://{hosts[0]}:8079/{id}", files={
     'sites': (None, sites),
     'type': (None, "1"),
 })
-assert r.status_code == 200
+assert r.status_code == 200, r.status_code
 
 r = requests.post(f"http://{hosts[1]}:8079/{id}", files={
     'command': (None, f"mkdir -p /tmp/{id} && touch /tmp/{id}/right"),
     'sites': (None, sites),
     'type': (None, "1"),
 })
-assert r.status_code == 200
+assert r.status_code == 200, r.status_code
 
 with en.actions(roles=roles_for_hosts) as p:
     p.iptables(
