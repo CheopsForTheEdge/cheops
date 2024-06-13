@@ -559,7 +559,7 @@ func (r *Replicator) getResourceDocFor(resourceId string) (model.ResourceDocumen
 		if tries == 0 {
 			return model.ResourceDocument{}, fmt.Errorf("Waited too long for %s to resolve merge, aborting\n", resourceId)
 		}
-		url := fmt.Sprintf("http://localhost:5984/%s?conflicts=true", resourceId)
+		url := fmt.Sprintf("http://localhost:5984/cheops/%s?conflicts=true", resourceId)
 		res, err := http.Get(url)
 		if err != nil {
 			tries = tries - 1
