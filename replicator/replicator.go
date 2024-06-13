@@ -355,15 +355,15 @@ loop:
 			continue
 		}
 
+		for _, rev := range d.Conflicts {
+			r.deleteDocument(resolved.Id, rev)
+		}
+
 		err = r.putDocument(resolved, resolved.Id)
 		if err != nil {
 			log.Printf("Couldn't put resolution document for %s: %v\n", id, err)
 			<-time.After(10 * time.Second)
 			continue
-		}
-
-		for _, rev := range d.Conflicts {
-			r.deleteDocument(resolved.Id, rev)
 		}
 
 		hasmerged = true
