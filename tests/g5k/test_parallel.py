@@ -90,10 +90,9 @@ r1 = requests.post(f"http://{hosts[0]}:8079/{id}", files={
 })
 assert r1.status_code == 200
 
-replies = [requests.post(f"http://{host}:5984/cheops/_find", json={"selector": {"Type": "RESOURCE", "ResourceId": id}}) for host in hosts[:3]]
+replies = [requests.get(f"http://{host}:5984/cheops/{id}") for host in hosts[:3]]
 for reply in replies:
     assert reply.status_code == 200
-    assert len(reply.json()['docs']) == 1, reply.json()
 
 # Deactivate sync (by blocking at firewall level), send 2 parallel, conflicting commands, and reactivate sync
 with en.actions(roles=roles_for_hosts) as p:
@@ -149,11 +148,10 @@ with en.actions(roles=roles_for_hosts) as p:
 synchronization.wait(hosts)
 
 # Once content is synchronized, make sure it is actually the same
-replies = [requests.post(f"http://{host}:5984/cheops/_find", json={"selector": {"Type": "RESOURCE", "ResourceId": id}}) for host in hosts[:3]]
+replies = [requests.get(f"http://{host}:5984/cheops/{id}") for host in hosts[:3]]
 for reply in replies:
-    assert len(reply.json()['docs']) == 1
     assert reply.status_code == 200
-contents = [reply.json()['docs'][0] for reply in replies]
+contents = [reply.json() for reply in replies]
 for content in contents:
     assert len(content['Operations']) == 2
 

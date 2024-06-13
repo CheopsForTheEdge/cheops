@@ -182,7 +182,8 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 	if err != nil {
 		return nil, err
 	}
-	httpReq, err := http.NewRequest("POST", "http://localhost:5984/cheops", bytes.NewReader(buf))
+	url := fmt.Sprintf("http://localhost:5984/cheops/%s", id)
+	httpReq, err := http.NewRequest("PUT", url, bytes.NewReader(buf))
 	if err != nil {
 		return nil, err
 	}
@@ -555,6 +556,9 @@ operations:
 func (r *Replicator) getResourceDocFor(resourceId string) (model.ResourceDocument, error) {
 	tries := 10
 	for {
+		if tries == 0 {
+			return model.ResourceDocument{}, fmt.Errorf("Waited too long for %s to resolve merge, aborting\n", resourceId)
+		}
 		url := fmt.Sprintf("http://localhost:5984/%s?conflicts=true", resourceId)
 		res, err := http.Get(url)
 		if err != nil {
@@ -568,9 +572,6 @@ func (r *Replicator) getResourceDocFor(resourceId string) (model.ResourceDocumen
 		err = json.NewDecoder(res.Body).Decode(&doc)
 
 		if len(doc.Conflicts) > 0 {
-			if tries == 0 {
-				return model.ResourceDocument{}, fmt.Errorf("Waited too long for %s to resolve merge, aborting\n", resourceId)
-			}
 			log.Printf("%v has conflict, waiting 1s for resolution\n", resourceId)
 			tries = tries - 1
 			<-time.After(1 * time.Second)
