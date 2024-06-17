@@ -75,7 +75,7 @@ func (r *Replicator) ensureCouch() {
 {
   "views": {
     "all-by-resourceid": {
-      "map": "function (doc) {\n  if(doc.Type === 'RESOURCE') {emit(null, null); return}\n  if (doc.Type === 'REPLY') {emit(null, null);return} }",
+      "map": "function (doc) {\n  if(doc.Type === 'RESOURCE') {emit(doc._id, null); return}\n  if (doc.Type === 'REPLY') {emit(doc.ResourceId, null); return} }",
       "reduce": "_count"
     },
     "last-reply": {
@@ -596,22 +596,26 @@ func (r *Replicator) getAllDocsFor(resourceId string) ([]json.RawMessage, error)
 }
 
 func (r *Replicator) getDocsForView(viewname string, keyArgs ...string) ([]json.RawMessage, error) {
-	startkey := make([]string, 0)
-	endkey := make([]string, 0)
-	for _, arg := range keyArgs {
-		if arg != "" {
-			startkey = append(startkey, arg)
-			endkey = append(endkey, arg)
-		}
+	var query struct {
+		Key      string   `json:"key,omitempty"`
+		StartKey []string `json:"start_key,omitempty"`
+		EndKey   []string `json:"end_key,omitempty"`
 	}
-	endkey = append(endkey, "\uffff")
+	if len(keyArgs) == 1 {
+		query.Key = keyArgs[0]
+	} else {
+		startkey := make([]string, 0)
+		endkey := make([]string, 0)
+		for _, arg := range keyArgs {
+			if arg != "" {
+				startkey = append(startkey, arg)
+				endkey = append(endkey, arg)
+			}
+		}
+		endkey = append(endkey, "\uffff")
 
-	query := struct {
-		StartKey []string `json:"start_key"`
-		EndKey   []string `json:"end_key"`
-	}{
-		StartKey: keyArgs,
-		EndKey:   endkey,
+		query.StartKey = keyArgs
+		query.EndKey = endkey
 	}
 	b, err := json.Marshal(query)
 	if err != nil {
