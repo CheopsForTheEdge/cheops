@@ -13,28 +13,24 @@ def wait(hosts):
                 return False
             for doc in sched.json()['docs']:
                 if 'info' in doc and doc['info'] and 'changes_pending' in doc['info']:
+                    if doc['info']['changes_pending'] is None:
+                        return False
                     if doc['info']['changes_pending'] and doc['info']['changes_pending'] > 0:
                         return False
 
-            # Synchronization of replies: now that all documents are everywhere, check that all operations
-            # are run the same everywhere
-            replies = requests.get(f"http://{host}:5984/cheops/_design/cheops/_view/last-reply", params={"group_level": 2}, timeout=1)
-            # For each resourceid, gather by id then by requestid, and count unique requestids
-            a = {}
-            for row in replies.json()['rows']:
-                id = row['key'][1]
-                if id not in a:
-                    a[id] = {}
-                requestid = row['value']['RequestId']
-                if requestid not in a[id]:
-                    a[id][requestid] = row['value']['Sites']
-                site = row['key'][0]
-                unsync = [s for s in a[id][requestid] if s != site]
-                a[id][requestid] = unsync
+            # Synchronization of resources
+            res = requests.post(f"http://{host}:5984/cheops/_find", json={"selector": {"Type": "RESOURCE"}})
+            for doc in res.json()["docs"]:
+                if "_conflicts" in doc and len(doc["_conflicts"]) > 0:
+                    return False
 
-            for byid in a.values():
-                for byrequestid in byid.values():
-                    if len(byrequestid) != 0:
+            # All operations are run
+            for doc in res.json()["docs"]:
+                resrep = requests.post(f"http://{host}:5984/cheops/_find", json={"selector": {"Type": "REPLY", "Site": host, "ResourceId": doc["_id"]}})
+                ops = [op["RequestId"] for op in doc["Operations"]]
+                resids = [rep["RequestId"] for rep in resrep.json()["docs"]]
+                for op in ops:
+                    if op not in resids:
                         return False
 
         return True

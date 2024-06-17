@@ -153,7 +153,8 @@ for reply in replies:
     assert reply.status_code == 200
 contents = [reply.json() for reply in replies]
 for content in contents:
-    assert len(content['Operations']) == 2
+    assert len(content['Operations']) == 3, content
+    assert contents[0]['Operations'] == content['Operations'], content
 
 
 # Make sure the replies are all ok
