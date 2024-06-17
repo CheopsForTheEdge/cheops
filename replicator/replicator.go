@@ -304,6 +304,7 @@ func (r *Replicator) watchReplies(ctx context.Context, requestId string, replies
 // It retuns true if something was merged
 func (r *Replicator) merge(ctx context.Context, id string) bool {
 
+	timeout := 1 * time.Second
 	hasmerged := false
 
 loop:
@@ -312,7 +313,7 @@ loop:
 		res, err := http.Get(url)
 		if err != nil {
 			log.Printf("Couldn't get doc with conflicts for %s: %v\n", id, err)
-			<-time.After(10 * time.Second)
+			<-time.After(timeout)
 			continue
 		}
 		var d model.ResourceDocument
@@ -321,7 +322,7 @@ loop:
 
 		if err != nil {
 			log.Printf("Couldn't get doc with conflicts for %s: %v\n", id, err)
-			<-time.After(10 * time.Second)
+			<-time.After(timeout)
 			continue
 		}
 
@@ -335,14 +336,14 @@ loop:
 			res, err := http.Get(url)
 			if err != nil {
 				log.Printf("Couldn't get doc=%s rev=%s: %v\n", id, rev, err)
-				<-time.After(10 * time.Second)
+				<-time.After(timeout)
 				continue loop
 			}
 			var d model.ResourceDocument
 			err = json.NewDecoder(res.Body).Decode(&d)
 			if err != nil {
 				log.Printf("Bad json document: doc=%s rev=%s %s\n", id, rev, err)
-				<-time.After(10 * time.Second)
+				<-time.After(timeout)
 				continue loop
 			}
 			res.Body.Close()
@@ -352,7 +353,7 @@ loop:
 		resolved, err := resolveMerge(d, conflicts)
 		if err != nil {
 			log.Printf("Couldn't merge conflicts for %s: %v\n", id, err)
-			<-time.After(10 * time.Second)
+			<-time.After(timeout)
 			continue
 		}
 
@@ -367,7 +368,7 @@ loop:
 		err = r.putDocument(resolved, resolved.Id)
 		if err != nil {
 			log.Printf("Couldn't put resolution document for %s: %v\n", id, err)
-			<-time.After(10 * time.Second)
+			<-time.After(timeout)
 			continue
 		}
 
