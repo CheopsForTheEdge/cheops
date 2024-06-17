@@ -431,20 +431,25 @@ func resolveMerge(main model.ResourceDocument, conflicts []model.ResourceDocumen
 						ops[0] = conflict.Operations[0]
 					}
 				} else {
-					ops = append(ops, model.Operation{})
-					copy(ops[2:], ops[1:])
-					ops[1] = conflict.Operations[0]
-					break
+					if ops[0].RequestId != conflict.Operations[0].RequestId {
+						ops = append(ops, model.Operation{})
+						copy(ops[2:], ops[1:])
+						ops[1] = conflict.Operations[0]
+						break
+					}
 				}
 			}
 		}
 		if !hasRelationship {
 			// no relationship: it's all commutative
 			// Take them all and sort them (to make it deterministic)
-			ops = append(ops, conflict.Operations[0])
-			sort.Slice(ops[:2], func(i, j int) bool {
-				return strings.Compare(ops[:2][i].RequestId, ops[:2][j].RequestId) <= 0
-			})
+
+			if ops[0].RequestId != conflict.Operations[0].RequestId {
+				ops = append(ops, conflict.Operations[0])
+				sort.Slice(ops[:2], func(i, j int) bool {
+					return strings.Compare(ops[:2][i].RequestId, ops[:2][j].RequestId) <= 0
+				})
+			}
 		}
 
 		// Add rest of ops
@@ -462,6 +467,7 @@ func resolveMerge(main model.ResourceDocument, conflicts []model.ResourceDocumen
 		}
 	}
 	main.Operations = ops
+	main.Conflicts = []string{}
 	return main, nil
 }
 
