@@ -135,7 +135,7 @@ func (r *Replicator) ensureIndex() {
 // If the resource doesn't already exist, an ErrInvalidRequest is returned
 //
 // The output is a chan of each individual reply as they arrive. After a timeout or all replies are sent, the chan is closed
-func (r *Replicator) Do(ctx context.Context, sites []string, id string, request model.Operation) (replies chan model.ReplyDocument, err error) {
+func (r *Replicator) Do(ctx context.Context, sites []string, id string, request model.Operation, config model.ResourceConfig) (replies chan model.ReplyDocument, err error) {
 	repliesChan := make(chan model.ReplyDocument)
 	done := func() {
 		close(repliesChan)
@@ -173,6 +173,7 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 	}
 
 	doc.Operations = append(doc.Operations, request)
+	doc.Config = config
 	log.Printf("New request: resourceId=%v requestId=%v\n", doc.Id, request.RequestId)
 
 	// Send the newly formatted document
@@ -382,7 +383,7 @@ loop:
 func resolveMerge(main model.ResourceDocument, conflicts []model.ResourceDocument) (resolved model.ResourceDocument, err error) {
 
 	// Find winning config, we take the higher one
-	hash := func(c model.Config) []byte {
+	hash := func(c model.ResourceConfig) []byte {
 		h := crypto.BLAKE2b_256.New()
 		json.NewEncoder(h).Encode(c)
 		return h.Sum(nil)

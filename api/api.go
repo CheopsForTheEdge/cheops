@@ -53,7 +53,7 @@ import (
 func Run(port int, repl *replicator.Replicator) {
 	m := mux.NewRouter()
 	m.HandleFunc("/{id}", func(w http.ResponseWriter, r *http.Request) {
-		id, command, typ, _, sites, files, ok := parseRequest(w, r)
+		id, command, typ, config, sites, files, ok := parseRequest(w, r)
 		if !ok {
 			return
 		}
@@ -92,7 +92,7 @@ func Run(port int, repl *replicator.Replicator) {
 			Time:      time.Now(),
 		}
 
-		replies, err := repl.Do(r.Context(), sites, id, req)
+		replies, err := repl.Do(r.Context(), sites, id, req, config)
 		if err != nil {
 			if err == replicator.ErrDoesNotExist {
 				log.Printf("resource [%s] does not exist on this site\n", id)
@@ -182,6 +182,16 @@ func parseRequest(w http.ResponseWriter, r *http.Request) (id, command string, t
 		log.Println("Invalid type")
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
+	}
+
+	configg, okk := r.MultipartForm.Value["config"]
+	if okk {
+		err := json.Unmarshal([]byte(configg[len(configg)-1]), &config)
+		if err != nil {
+			log.Println("Invalid config")
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
 	}
 
 	files = make(map[string][]byte)

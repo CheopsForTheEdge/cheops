@@ -17,7 +17,7 @@ type ResourceDocument struct {
 	Locations []string
 
 	Operations []Operation
-	Config     Config
+	Config     ResourceConfig
 
 	// Always RESOURCE
 	Type string
@@ -60,14 +60,4 @@ type Operation struct {
 	RequestId string
 	Command   backends.ShellCommand
 	Time      time.Time
-}
-
-type Config struct {
-	RelationshipMatrix []Relationship
-}
-
-type Relationship struct {
-	Before OperationType
-	After  OperationType
-	Result []int
 }

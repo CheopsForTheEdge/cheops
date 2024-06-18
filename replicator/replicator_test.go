@@ -13,7 +13,7 @@ type mergeTestVector struct {
 	expected  model.ResourceDocument
 }
 
-var counterConfig model.Config = model.Config{
+var counterConfig model.ResourceConfig = model.ResourceConfig{
 	RelationshipMatrix: []model.Relationship{
 		{
 			Before: model.OperationType("set"),
