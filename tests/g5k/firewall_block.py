@@ -2,9 +2,47 @@
 
 import time
 import requests
+import enoslib as en
 
-def wait(hosts):
+def activate(roles):
+    with en.actions(roles=roles) as p:
+        p.iptables(
+                chain="INPUT",
+                source="127.0.0.1",
+                jump="ACCEPT",
+                state="present"
+        )
+        p.iptables(
+                chain="INPUT",
+                protocol="tcp",
+                destination_port="5984",
+                jump="DROP",
+                state="present"
+        )
+
+    # Wait for blocking to be in place
+    import time
+    time.sleep(3)
+
+def deactivate(roles):
+    with en.actions(roles=roles) as p:
+        p.iptables(
+                chain="INPUT",
+                source="127.0.0.1",
+                jump="ACCEPT",
+                state="absent"
+        )
+        p.iptables(
+                chain="INPUT",
+                protocol="tcp",
+                destination_port="5984",
+                jump="DROP",
+                state="absent"
+        )
+
+
     def is_synchronized():
+        hosts = [r.alias for r in roles]
         for host in hosts:
             # Synchronization of documents: if not all documents are everywhere, we're not done yet
             try:

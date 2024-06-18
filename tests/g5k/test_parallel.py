@@ -12,8 +12,12 @@
 import sys
 import os
 import enoslib as en
+import unittest
+import random, string
+import json
+import requests
 
-import synchronization
+import firewall_block
 
 # Hack
 if any(['g5k-jupyterlab' in path for path in sys.path]):
@@ -60,120 +64,75 @@ hosts = [r.alias for r in roles]
 roles_for_hosts = [role for role in roles if role.alias in hosts[:3]]
 
 # Ensure firewall allows sync
-with en.actions(roles=roles_for_hosts) as p:
-    p.iptables(
-            chain="INPUT",
-            source="127.0.0.1",
-            jump="ACCEPT",
-            state="absent"
-    )
-    p.iptables(
-            chain="INPUT",
-            protocol="tcp",
-            destination_port="5984",
-            jump="DROP",
-            state="absent"
-    )
+firewall_block.deactivate(roles_for_hosts)
 
+class TestParallel(unittest.TestCase):
+    def test_simple(self):
+        # Build useful variables that will be reused
+        id = ''.join(random.choice(string.ascii_lowercase) for i in range(10))
+        sites = '&'.join(hosts[:3])
 
-# Build useful variables that will be reused
-import random, string
-id = ''.join(random.choice(string.ascii_lowercase) for i in range(10))
-sites = '&'.join(hosts[:3])
+        # Apply a first command, as an "init"
+        r1 = requests.post(f"http://{hosts[0]}:8079/{id}", files={
+            'command': (None, f"mkdir -p /tmp/{id} && touch /tmp/{id}/init"),
+            'sites': (None, sites),
+            'type': (None, 1),
+        })
+        self.assertEqual(200, r1.status_code)
 
-# Apply a first command, as an "init"
-import requests
-r1 = requests.post(f"http://{hosts[0]}:8079/{id}", files={
-    'command': (None, f"mkdir -p /tmp/{id} && touch /tmp/{id}/init"),
-    'sites': (None, sites),
-    'type': (None, 1),
-})
-assert r1.status_code == 200
+        replies = [requests.get(f"http://{host}:5984/cheops/{id}") for host in hosts[:3]]
+        for reply in replies:
+            self.assertEqual(200, reply.status_code)
+            self.assertEqual(replies[0].json(), reply.json())
 
-replies = [requests.get(f"http://{host}:5984/cheops/{id}") for host in hosts[:3]]
-for reply in replies:
-    assert reply.status_code == 200
+        # Deactivate sync (by blocking at firewall level), send 2 parallel, conflicting commands, and reactivate sync
+        firewall_block.activate(roles_for_hosts)
 
-# Deactivate sync (by blocking at firewall level), send 2 parallel, conflicting commands, and reactivate sync
-with en.actions(roles=roles_for_hosts) as p:
-    p.iptables(
-            chain="INPUT",
-            source="127.0.0.1",
-            jump="ACCEPT",
-            state="present"
-    )
-    p.iptables(
-            chain="INPUT",
-            protocol="tcp",
-            destination_port="5984",
-            jump="DROP",
-            state="present"
-    )
+        r = requests.post(f"http://{hosts[0]}:8079/{id}", files={
+            'command': (None, f"mkdir -p /tmp/{id} && touch /tmp/{id}/left"),
+            'sites': (None, sites),
+            'type': (None, "1"),
+        })
+        self.assertEqual(200, r.status_code)
 
-# Wait for blocking to be in place
-import time
-time.sleep(3)
+        r = requests.post(f"http://{hosts[1]}:8079/{id}", files={
+            'command': (None, f"mkdir -p /tmp/{id} && touch /tmp/{id}/right"),
+            'sites': (None, sites),
+            'type': (None, "1"),
+        })
+        self.assertEqual(200, r.status_code)
 
-r = requests.post(f"http://{hosts[0]}:8079/{id}", files={
-    'command': (None, f"mkdir -p /tmp/{id} && touch /tmp/{id}/left"),
-    'sites': (None, sites),
-    'type': (None, "1"),
-})
-assert r.status_code == 200, r.status_code
+        firewall_block.deactivate(roles_for_hosts)
 
-r = requests.post(f"http://{hosts[1]}:8079/{id}", files={
-    'command': (None, f"mkdir -p /tmp/{id} && touch /tmp/{id}/right"),
-    'sites': (None, sites),
-    'type': (None, "1"),
-})
-assert r.status_code == 200, r.status_code
+        # Once content is synchronized, make sure it is actually the same
+        replies = [requests.get(f"http://{host}:5984/cheops/{id}") for host in hosts[:3]]
+        for reply in replies:
+            self.assertEqual(200, reply.status_code)
+            self.assertEqual(replies[0].json(), reply.json())
+        contents = [reply.json() for reply in replies]
+        for content in contents:
+            self.assertEqual(3, len(content['Operations']))
+            self.assertEqual(content['Operations'], contents[0]['Operations'])
 
-with en.actions(roles=roles_for_hosts) as p:
-    p.iptables(
-            chain="INPUT",
-            source="127.0.0.1",
-            jump="ACCEPT",
-            state="absent"
-    )
-    p.iptables(
-            chain="INPUT",
-            protocol="tcp",
-            destination_port="5984",
-            jump="DROP",
-            state="absent"
-    )
+        # Make sure the replies are all ok
+        for host in hosts[:3]:
+            query = {"selector": {
+                "Type": "REPLY",
+                "Site": host,
+                "ResourceId": id
+            }}
+            r = requests.post(f"http://{host}:5984/cheops/_find", json=query, headers={"Content-Type": "application/json"})
+            for doc in r.json()['docs']:
+                self.assertEqual("OK", doc['Status'])
 
+        # Make sure the directory has the correct content everywhere
+        with en.actions(roles=roles_for_hosts) as p:
+            p.shell(f"ls /tmp/{id}")
+            results = p.results
 
-# After sync is re-enabled, wait for changes to be synchronized
-synchronization.wait(hosts)
+        contents = [content.payload['stdout'] for content in results.filter(task="shell")]
+        for content in contents[1:]:
+            self.assertEqual(contents[0], content)
 
-# Once content is synchronized, make sure it is actually the same
-replies = [requests.get(f"http://{host}:5984/cheops/{id}") for host in hosts[:3]]
-for reply in replies:
-    assert reply.status_code == 200
-contents = [reply.json() for reply in replies]
-for content in contents:
-    assert len(content['Operations']) == 3, content
-    assert contents[0]['Operations'] == content['Operations'], content
-
-
-# Make sure the replies are all ok
-import json
-for host in hosts[:3]:
-    query = {"selector": {
-        "Type": "REPLY",
-        "Site": host,
-        "ResourceId": id
-    }}
-    r = requests.post(f"http://{host}:5984/cheops/_find", json=query, headers={"Content-Type": "application/json"})
-    for doc in r.json()['docs']:
-        assert doc['Status'] == "OK"
-
-# Make sure the file has the correct content everywhere
-with en.actions(roles=roles_for_hosts) as p:
-    p.shell(f"ls /tmp/{id}")
-    results = p.results
-
-contents = [content.payload['stdout'] for content in results.filter(task="shell")]
-for content in contents[1:]:
-    assert content == contents[0], f"content={content} contents[0]={contents[0]}"
+if __name__ == '__main__':
+    unittest.main()
