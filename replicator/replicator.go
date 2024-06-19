@@ -511,20 +511,16 @@ func (r *Replicator) run(ctx context.Context, d model.ResourceDocument) {
 	}
 
 	commands := make([]backends.ShellCommand, 0)
-	commandsToResource := make(map[int]int)
-	commandsInt := 0
+	opsIndexes := make([]int, 0)
 
-operations:
-	for i, operation := range resourceDocument.Operations {
-		for _, reply := range replies {
-			if operation.RequestId == reply.RequestId && reply.Site == env.Myfqdn {
-				continue operations
+	opsToRun := findOperationsToRun(resourceDocument.Operations, replies)
+	for _, operation := range opsToRun {
+		commands = append(commands, operation.Command)
+		for i, resourceOp := range resourceDocument.Operations {
+			if resourceOp.RequestId == operation.RequestId {
+				opsIndexes = append(opsIndexes, i)
 			}
 		}
-		commands = append(commands, operation.Command)
-		commandsToResource[commandsInt] = i
-		commandsInt = commandsInt + 1
-		log.Printf("will run %s\n", operation.RequestId)
 	}
 
 	executionReplies, err := backends.Handle(ctx, commands)
@@ -535,17 +531,19 @@ operations:
 	}
 
 	// Post reply for replication
-	for i, command := range commands {
+	for idxCommand, idxOp := range opsIndexes {
+		command := commands[idxCommand]
+		op := resourceDocument.Operations[idxOp]
 
 		cmd := model.Cmd{
 			Input:  command.Command,
-			Output: executionReplies[i],
+			Output: executionReplies[idxCommand],
 		}
 
 		err = r.postDocument(model.ReplyDocument{
 			Locations:     d.Locations,
 			Site:          env.Myfqdn,
-			RequestId:     resourceDocument.Operations[commandsToResource[i]].RequestId,
+			RequestId:     op.RequestId,
 			ResourceId:    d.Id,
 			Status:        status,
 			Cmd:           cmd,
@@ -555,7 +553,40 @@ operations:
 		if err != nil {
 			log.Println(err)
 		}
+
+		log.Printf("Ran resource=%s request=%s status=%s\n", d.Id, op.RequestId[:5], status)
 	}
+}
+
+// findOperationsToRun selects which operations from the input should be ran.
+// If there are only new operations at the end (ie with no replies), then the current state is valid and it is enough to run the ones after
+// Otherwise if there is an operation not ran in the beginning/middle and some are ran at the end, then the current state is invalid so we have to start from the beginning
+func findOperationsToRun(ops []model.Operation, replies []model.ReplyDocument) []model.Operation {
+	isRan := func(op model.Operation) bool {
+		for _, reply := range replies {
+			if reply.RequestId == op.RequestId {
+				return true
+			}
+		}
+		return false
+	}
+
+	wasRunning := true
+	startCopy := 0
+
+	for i, op := range ops {
+		if isRan(op) {
+			if !wasRunning {
+				return ops
+			}
+			startCopy = i + 1
+		} else {
+			wasRunning = false
+			startCopy = i
+		}
+	}
+	log.Println(startCopy)
+	return ops[startCopy:]
 }
 
 // getResourceDocFor gets the document for the given resource

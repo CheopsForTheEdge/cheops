@@ -239,6 +239,66 @@ func TestMerge(t *testing.T) {
 	}
 }
 
+type findTestVector struct {
+	ops      []model.Operation
+	replies  []model.ReplyDocument
+	expected []model.Operation
+}
+
+func TestFindOperations(t *testing.T) {
+	vectors := []findTestVector{
+		{
+			ops: []model.Operation{
+				{RequestId: "set"},
+			},
+			replies: []model.ReplyDocument{},
+			expected: []model.Operation{
+				{RequestId: "set"},
+			},
+		},
+		{
+			ops: []model.Operation{
+				{RequestId: "set"},
+				{RequestId: "inc1"},
+			},
+			replies: []model.ReplyDocument{
+				{RequestId: "set"},
+				{RequestId: "inc1"},
+			},
+			expected: []model.Operation{},
+		}, {
+			ops: []model.Operation{
+				{RequestId: "set"},
+				{RequestId: "inc1"},
+				{RequestId: "inc2"},
+			},
+			replies: []model.ReplyDocument{
+				{RequestId: "set"},
+				{RequestId: "inc2"},
+			},
+			expected: []model.Operation{
+				{RequestId: "set"},
+				{RequestId: "inc1"},
+				{RequestId: "inc2"},
+			},
+		},
+	}
+
+	for vi, vector := range vectors {
+		torun := findOperationsToRun(vector.ops, vector.replies)
+
+		if len(torun) != len(vector.expected) {
+			t.Fatalf("vector %d: got %d elem want %d", vi, len(torun), len(vector.expected))
+		}
+
+		for i := range torun {
+			if torun[i].RequestId != vector.expected[i].RequestId {
+				t.Fatalf("vector %d: got %#v at %d, want %#v", vi, torun[i].RequestId, i, vector.expected[i].RequestId)
+			}
+		}
+	}
+}
+
 func logops(ops []model.Operation) string {
 	str := make([]string, len(ops))
 	for i := range ops {
