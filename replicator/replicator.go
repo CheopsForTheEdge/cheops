@@ -75,7 +75,7 @@ func (r *Replicator) ensureCouch() {
 {
   "views": {
     "all-by-resourceid": {
-      "map": "function (doc) {\n  if(doc.Type === 'RESOURCE') {emit(doc._id, null); return}\n  if (doc.Type === 'REPLY') {emit(doc.ResourceId, null); return} }",
+      "map": "function (doc) {\n  if(doc.Type === 'RESOURCE') {\n    doc.Locations.forEach(function(site) {\n      emit([doc._id, site], null)\n    })\n    return\n  }\n  if (doc.Type === 'REPLY') {\n    emit([doc.ResourceId, doc.Site], null)\n    return\n  } \n}",
       "reduce": "_count"
     },
     "last-reply": {
@@ -488,7 +488,7 @@ func (r *Replicator) run(ctx context.Context, d model.ResourceDocument) {
 		return
 	}
 
-	allDocs, err := r.getAllDocsFor(d.Id)
+	allDocs, err := r.getAllDocsFor(d.Id, env.Myfqdn)
 	if err != nil {
 		log.Printf("Couldn't get docs for id: %v\n", err)
 		return
@@ -589,8 +589,8 @@ func (r *Replicator) getResourceDocFor(resourceId string) (model.ResourceDocumen
 	}
 }
 
-func (r *Replicator) getAllDocsFor(resourceId string) ([]json.RawMessage, error) {
-	return r.getDocsForView("all-by-resourceid", resourceId)
+func (r *Replicator) getAllDocsFor(resourceId, site string) ([]json.RawMessage, error) {
+	return r.getDocsForView("all-by-resourceid", resourceId, site)
 }
 
 func (r *Replicator) getDocsForView(viewname string, keyArgs ...string) ([]json.RawMessage, error) {
