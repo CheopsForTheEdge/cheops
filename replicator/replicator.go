@@ -411,11 +411,7 @@ func resolveMerge(main model.ResourceDocument, conflicts []model.ResourceDocumen
 
 	ops := main.Operations
 	for _, conflict := range conflicts {
-		// TODO: how to determine the main Config ?
-		// For now it's the one that couchdb gives us
-
 		// Find first op
-		// We take the associated config as well
 		hasRelationship := false
 		for _, relationship := range main.Config.RelationshipMatrix {
 			if relationship.Before == ops[0].Type && relationship.After == conflict.Operations[0].Type {
