@@ -39,10 +39,11 @@ def deactivate(roles):
                 jump="DROP",
                 state="absent"
         )
-
-
-    def is_synchronized():
         hosts = [r.alias for r in roles]
+        wait(hosts)
+
+def wait(hosts):
+    def is_synchronized():
         for host in hosts:
             # Synchronization of documents: if not all documents are everywhere, we're not done yet
             try:
