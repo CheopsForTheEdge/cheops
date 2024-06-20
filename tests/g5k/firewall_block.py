@@ -39,10 +39,12 @@ def deactivate(roles):
                 jump="DROP",
                 state="absent"
         )
-        hosts = [r.alias for r in roles]
-        wait(hosts)
+
+    hosts = [r.alias for r in roles]
+    wait(hosts)
 
 def wait(hosts):
+    print("syncing...")
     def is_synchronized():
         for host in hosts:
             # Synchronization of documents: if not all documents are everywhere, we're not done yet
@@ -57,6 +59,17 @@ def wait(hosts):
                     if doc['info']['changes_pending'] and doc['info']['changes_pending'] > 0:
                         return False
 
+        # Synchronization of docs: same rev everywhere
+        reps = [requests.post(f"http://{host}:5984/cheops/_find", json={"selector": {"Type": "RESOURCE"}}) for host in hosts]
+        docs = [doc for rep in reps for doc in rep.json()["docs"]]
+        for doc in docs:
+            versions = [requests.get(f"http://{host}:5984/cheops/{doc['_id']}") for host in hosts]
+            versions = [v.json()["_rev"] for v in versions if v.status_code == 200]
+            for version in versions:
+                if version != versions[0]:
+                    return False
+
+        for host in hosts:
             # Synchronization of resources
             res = requests.post(f"http://{host}:5984/cheops/_find", json={"selector": {"Type": "RESOURCE"}})
             for doc in res.json()["docs"]:
