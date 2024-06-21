@@ -172,8 +172,8 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 		}
 	}
 
-	doc.Operations = append(doc.Operations, request)
 	doc.Config = config
+	doc.Operations = decideOperationsToKeep(doc.Config, doc.Operations, request)
 	log.Printf("New request: resourceId=%v requestId=%v\n", doc.Id, request.RequestId)
 
 	// Send the newly formatted document
@@ -243,6 +243,34 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 	}()
 
 	return ret, nil
+}
+
+func decideOperationsToKeep(config model.ResourceConfig, existing []model.Operation, new model.Operation) []model.Operation {
+	if len(existing) == 0 {
+		return []model.Operation{new}
+	}
+
+	for _, relationship := range config.RelationshipMatrix {
+		if existing[len(existing)-1].Type == relationship.Before && new.Type == relationship.After {
+			switch relationship.Result {
+			case model.TakeOne:
+				return []model.Operation{new}
+			case model.TakeBothAnyOrder, model.TakeBothKeepOrder:
+				ret := make([]model.Operation, len(existing)+1)
+				copy(ret[0:], existing)
+				ret[len(ret)-1] = new
+				return ret
+			case model.TakeBothReverseOrder:
+				return []model.Operation{new}
+			}
+		}
+	}
+
+	// No relationship found: everything is commutative
+	ret := make([]model.Operation, len(existing)+1)
+	copy(ret[0:], existing)
+	ret[len(ret)-1] = new
+	return ret
 }
 
 func (r *Replicator) watchRequests() {
@@ -416,38 +444,48 @@ func resolveMerge(main model.ResourceDocument, conflicts []model.ResourceDocumen
 		for _, relationship := range main.Config.RelationshipMatrix {
 			if relationship.Before == ops[0].Type && relationship.After == conflict.Operations[0].Type {
 				hasRelationship = true
-				if slicesEqual(relationship.Result, []int{1}) {
-					ops[0] = ops[0] // duh
-				} else if slicesEqual(relationship.Result, []int{2}) {
-					if ops[0].Type == conflict.Operations[0].Type {
-						// We actually have a conflict of the same operation. We don't just take the
-						// second one but the highest to be deterministic
-						if strings.Compare(ops[0].RequestId, conflict.Operations[0].RequestId) < 0 {
-							ops[0] = conflict.Operations[0]
-						}
-					} else {
-						ops[0] = conflict.Operations[0]
-					}
-				} else {
-					if ops[0].RequestId != conflict.Operations[0].RequestId {
-						ops = append(ops, model.Operation{})
-						copy(ops[2:], ops[1:])
-						ops[1] = conflict.Operations[0]
-						break
-					}
+				if ops[0].RequestId == conflict.Operations[0].RequestId {
+					// Actually the same, continue
+					break
+				}
+
+				switch relationship.Result {
+				case model.TakeOne:
+					ops[0] = ops[0] // keep the one already given by the sync system, it's guaranteed to be the same everywhere
+					break
+				case model.TakeBothAnyOrder:
+					ops = append(ops, model.Operation{})
+					copy(ops[2:], ops[1:])
+					ops[1] = conflict.Operations[0]
+					sort.Slice(ops[:2], func(i, j int) bool {
+						return ops[:2][i].RequestId < ops[:2][j].RequestId
+					})
+					break
+				case model.TakeBothKeepOrder:
+					ops = append(ops, model.Operation{})
+					copy(ops[2:], ops[1:])
+					ops[1] = conflict.Operations[0]
+					break
+				case model.TakeBothReverseOrder:
+					ops = append(ops, model.Operation{})
+					copy(ops[2:], ops[1:])
+					ops[1] = ops[0]
+					ops[0] = conflict.Operations[0]
+					break
+				default:
+					return model.ResourceDocument{}, fmt.Errorf("Invalid relationship type: %#v\n", relationship)
 				}
 			}
 		}
 		if !hasRelationship {
 			// no relationship: it's all commutative
 			// Take them all and sort them (to make it deterministic)
-
-			if ops[0].RequestId != conflict.Operations[0].RequestId {
-				ops = append(ops, conflict.Operations[0])
-				sort.Slice(ops[:2], func(i, j int) bool {
-					return strings.Compare(ops[:2][i].RequestId, ops[:2][j].RequestId) <= 0
-				})
-			}
+			ops = append(ops, model.Operation{})
+			copy(ops[2:], ops[1:])
+			ops[1] = conflict.Operations[0]
+			sort.Slice(ops[:2], func(i, j int) bool {
+				return ops[:2][i].RequestId < ops[:2][j].RequestId
+			})
 		}
 
 		// Add rest of ops
@@ -585,7 +623,6 @@ func findOperationsToRun(ops []model.Operation, replies []model.ReplyDocument) [
 			startCopy = i
 		}
 	}
-	log.Println(startCopy)
 	return ops[startCopy:]
 }
 

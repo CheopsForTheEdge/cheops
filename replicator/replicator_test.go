@@ -18,24 +18,24 @@ var counterConfig model.ResourceConfig = model.ResourceConfig{
 		{
 			Before: model.OperationType("set"),
 			After:  model.OperationType("inc"),
-			Result: []int{1},
+			Result: model.TakeBothKeepOrder,
 		}, {
 			Before: model.OperationType("inc"),
 			After:  model.OperationType("set"),
-			Result: []int{2},
+			Result: model.TakeBothReverseOrder,
 		},
 		{
 			Before: model.OperationType("set"),
 			After:  model.OperationType("dec"),
-			Result: []int{1},
+			Result: model.TakeBothKeepOrder,
 		}, {
 			Before: model.OperationType("dec"),
 			After:  model.OperationType("set"),
-			Result: []int{2},
+			Result: model.TakeBothReverseOrder,
 		}, {
 			Before: model.OperationType("set"),
 			After:  model.OperationType("set"),
-			Result: []int{2},
+			Result: model.TakeOne,
 		},
 	},
 }
@@ -98,6 +98,10 @@ func TestMerge(t *testing.T) {
 					{
 						Type:      model.OperationType("set"),
 						RequestId: "set",
+					},
+					{
+						Type:      model.OperationType("dec"),
+						RequestId: "dec",
 					},
 				},
 			},
@@ -208,7 +212,7 @@ func TestMerge(t *testing.T) {
 				Operations: []model.Operation{
 					{
 						Type:      model.OperationType("set"),
-						RequestId: "set-1",
+						RequestId: "set-0",
 					}, {
 						Type:      model.OperationType("inc"),
 						RequestId: "inc1",
@@ -221,7 +225,7 @@ func TestMerge(t *testing.T) {
 		},
 	}
 
-	for _, v := range vectors[4:] {
+	for _, v := range vectors {
 		resolved, err := resolveMerge(v.main, v.conflicts)
 		if err != nil {
 			t.Fatalf("got err: %v", err)
@@ -294,6 +298,105 @@ func TestFindOperations(t *testing.T) {
 		for i := range torun {
 			if torun[i].RequestId != vector.expected[i].RequestId {
 				t.Fatalf("vector %d: got %#v at %d, want %#v", vi, torun[i].RequestId, i, vector.expected[i].RequestId)
+			}
+		}
+	}
+}
+
+type decideTestVector struct {
+	existing []model.Operation
+	new      model.Operation
+	expected []model.Operation
+}
+
+func TestDecideOperations(t *testing.T) {
+	vectors := []decideTestVector{
+		{
+			existing: []model.Operation{
+				{
+					Type:      "set",
+					RequestId: "set-init",
+				},
+			},
+			new: model.Operation{
+				Type:      "set",
+				RequestId: "set-new",
+			},
+			expected: []model.Operation{
+				{
+					Type:      "set",
+					RequestId: "set-new",
+				},
+			},
+		},
+		{
+			existing: []model.Operation{
+				{
+					Type:      "set",
+					RequestId: "set",
+				},
+			},
+			new: model.Operation{
+				Type:      "inc",
+				RequestId: "inc",
+			},
+			expected: []model.Operation{
+				{
+					Type:      "set",
+					RequestId: "set",
+				}, {
+					Type:      "inc",
+					RequestId: "inc",
+				},
+			},
+		}, {
+			existing: []model.Operation{
+				{
+					Type:      "dec",
+					RequestId: "dec",
+				},
+			},
+			new: model.Operation{
+				Type:      "set",
+				RequestId: "set",
+			},
+			expected: []model.Operation{
+				{
+					Type:      "set",
+					RequestId: "set",
+				},
+			},
+		}, {
+			existing: []model.Operation{
+				{
+					Type:      "dec",
+					RequestId: "dec",
+				},
+			},
+			new: model.Operation{
+				Type:      "inc",
+				RequestId: "inc",
+			},
+			expected: []model.Operation{
+				{
+					Type:      "dec",
+					RequestId: "dec",
+				}, {
+					Type:      "inc",
+					RequestId: "inc",
+				},
+			},
+		},
+	}
+
+	for _, vector := range vectors {
+		actual := decideOperationsToKeep(counterConfig, vector.existing, vector.new)
+		if len(actual) != len(vector.expected) {
+			t.Fatalf("Invalid operations to keep: got %s want %s\n", logops(actual), logops(vector.expected))
+		}
+		for i := range actual {
+			if actual[i].RequestId != vector.expected[i].RequestId {
+				t.Fatalf("Invalid operations to keep: got %s want %s\n", logops(actual), logops(vector.expected))
 			}
 		}
 	}
