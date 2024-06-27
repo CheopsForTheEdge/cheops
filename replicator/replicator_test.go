@@ -64,11 +64,11 @@ func TestMerge(t *testing.T) {
 			expected: model.ResourceDocument{
 				Operations: []model.Operation{
 					{
-						Type:      model.OperationType("dec"),
-						RequestId: "dec",
-					}, {
 						Type:      model.OperationType("inc"),
 						RequestId: "inc",
+					}, {
+						Type:      model.OperationType("dec"),
+						RequestId: "dec",
 					},
 				},
 			},
@@ -106,6 +106,39 @@ func TestMerge(t *testing.T) {
 				},
 			},
 		}, {
+			main: model.ResourceDocument{
+				Operations: []model.Operation{
+					{
+						Type:      model.OperationType("dec"),
+						RequestId: "dec",
+					},
+				},
+				Config: counterConfig,
+			},
+			conflicts: []model.ResourceDocument{
+				{
+					Operations: []model.Operation{
+						{
+							Type:      model.OperationType("set"),
+							RequestId: "set",
+						},
+					},
+				},
+			},
+			expected: model.ResourceDocument{
+				Operations: []model.Operation{
+					{
+						Type:      model.OperationType("set"),
+						RequestId: "set",
+					},
+					{
+						Type:      model.OperationType("dec"),
+						RequestId: "dec",
+					},
+				},
+			},
+		},
+		{
 			main: model.ResourceDocument{
 				Operations: []model.Operation{
 					{
@@ -219,6 +252,49 @@ func TestMerge(t *testing.T) {
 					}, {
 						Type:      model.OperationType("inc"),
 						RequestId: "inc2",
+					},
+				},
+			},
+		}, {
+			main: model.ResourceDocument{
+				Operations: []model.Operation{
+					{
+						Type:      model.OperationType("inc"),
+						RequestId: "inc-0",
+					}, {
+						Type:      model.OperationType("inc"),
+						RequestId: "inc-1",
+					},
+				},
+			},
+			conflicts: []model.ResourceDocument{
+				{
+					Operations: []model.Operation{
+						{
+							Type:      model.OperationType("set"),
+							RequestId: "set-1",
+						}, {
+							Type:      model.OperationType("inc"),
+							RequestId: "inc-2",
+						},
+					},
+					Config: counterConfig,
+				},
+			},
+			expected: model.ResourceDocument{
+				Operations: []model.Operation{
+					{
+						Type:      model.OperationType("set"),
+						RequestId: "set-1",
+					}, {
+						Type:      model.OperationType("inc"),
+						RequestId: "inc-0",
+					}, {
+						Type:      model.OperationType("inc"),
+						RequestId: "inc-1",
+					}, {
+						Type:      model.OperationType("inc"),
+						RequestId: "inc-2",
 					},
 				},
 			},

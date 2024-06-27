@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"sort"
 	"strings"
 	"time"
 
@@ -457,9 +456,6 @@ func resolveMerge(main model.ResourceDocument, conflicts []model.ResourceDocumen
 					ops = append(ops, model.Operation{})
 					copy(ops[2:], ops[1:])
 					ops[1] = conflict.Operations[0]
-					sort.Slice(ops[:2], func(i, j int) bool {
-						return ops[:2][i].RequestId < ops[:2][j].RequestId
-					})
 					break
 				case model.TakeBothKeepOrder:
 					ops = append(ops, model.Operation{})
@@ -483,9 +479,6 @@ func resolveMerge(main model.ResourceDocument, conflicts []model.ResourceDocumen
 			ops = append(ops, model.Operation{})
 			copy(ops[2:], ops[1:])
 			ops[1] = conflict.Operations[0]
-			sort.Slice(ops[:2], func(i, j int) bool {
-				return ops[:2][i].RequestId < ops[:2][j].RequestId
-			})
 		}
 
 		// Add rest of ops
