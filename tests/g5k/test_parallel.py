@@ -138,7 +138,7 @@ class TestParallel(unittest.TestCase):
             })
             self.verify(f"ls /tmp/{id}")
 
-    def test_set_and_set(self):
+    def test_set_and_add(self):
         id = ''.join(random.choice(string.ascii_lowercase) for i in range(10))
         with self.subTest(id=id):
             self.init(id, {
@@ -161,6 +161,32 @@ class TestParallel(unittest.TestCase):
                 'command': (None, f"mkdir -p /tmp/{id} && echo right >> /tmp/{id}/file"),
                 'sites': (None, sites),
                 'type': (None, "add"),
+            })
+            self.verify(f"cat /tmp/{id}/file")
+
+    def test_set_and_set(self):
+        id = ''.join(random.choice(string.ascii_lowercase) for i in range(10))
+        with self.subTest(id=id):
+            self.init(id, {
+                'command': (None, f"mkdir -p /tmp/{id} && echo init > /tmp/{id}/file"),
+                'sites': (None, sites),
+                'type': (None, "set"),
+                'config': (None, json.dumps({
+                    'RelationshipMatrix': [
+                        {'Before': 'set', 'After': 'set', 'Result': [1]},
+                        {'Before': 'set', 'After': 'add', 'Result': [1, 2]},
+                        {'Before': 'add', 'After': 'set', 'Result': [2]},
+                    ]
+                })),
+            })
+            self.do_left_and_right(id, {
+                'command': (None, f"mkdir -p /tmp/{id} && echo left > /tmp/{id}/file"),
+                'sites': (None, sites),
+                'type': (None, "set"),
+            }, {
+                'command': (None, f"mkdir -p /tmp/{id} && echo right > /tmp/{id}/file"),
+                'sites': (None, sites),
+                'type': (None, "set"),
             })
             self.verify(f"cat /tmp/{id}/file")
 
