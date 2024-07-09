@@ -23,10 +23,10 @@ id=$(head -c 20 /dev/urandom | base32)
 echo id is $id
 
 lowerid=$(echo $id | tr '[A-Z]' '[a-z'])
-v1=$(mktemp kube-v1-XXX.yml)
+v1=$(mktemp /tmp/kube-v1-XXX.yml)
 sed -e "s/kubernetes-bootcamp/deployment-$lowerid/" kube-deploy-v1.yml > $v1
 
-v2=$(mktemp kube-v2-XXX.yml)
+v2=$(mktemp /tmp/kube-v2-XXX.yml)
 sed -e "s/kubernetes-bootcamp/deployment-$lowerid/" kube-deploy-v2.yml > $v2
 
 cleanfiles() {
@@ -44,9 +44,11 @@ ssh $host3 'sudo nft add chain ip filter couchdb_out "{type filter hook output p
 ssh $host3 sudo nft add rule ip filter couchdb_out ip daddr 127.0.0.1 accept
 ssh $host3 sudo nft add rule ip filter couchdb_out tcp dport 5984 drop
 
+cli=$(realpath ../../cli/cli)
+
 echo "Run those: "
-echo "../../cli/cli exec --id $id --sites '$LOCATIONS_1' --command 'sudo kubectl apply -f {$v1}' --type 3"
-echo "../../cli/cli exec --id $id --sites '$LOCATIONS_2' --command 'sudo kubectl apply -f {$v2}' --type 3"
+echo "$cli exec --id $id --sites '$LOCATIONS_1' --command 'sudo kubectl apply -f {$v1}' --type apply --config config.json"
+echo "$cli exec --id $id --sites '$LOCATIONS_2' --command 'sudo kubectl apply -f {$v2}' --type apply"
 
 read -p "Hit enter when done "
 

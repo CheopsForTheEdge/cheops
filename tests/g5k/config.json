@@ -1,0 +1,7 @@
+{
+				"RelationshipMatrix": [
+								{"Before": "apply", "After": "apply", "Result": "take-one"},
+								{"Before": "apply", "After": "scale", "Result": "take-both-keep-order"},
+								{"Before": "scale", "After": "apply", "Result": "take-both-reverse-order"}
+				]
+}
