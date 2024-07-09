@@ -11,6 +11,10 @@ type ResourceConfig struct {
 	RelationshipMatrix []Relationship
 }
 
+func (c ResourceConfig) IsEmpty() bool {
+	return len(c.RelationshipMatrix) == 0
+}
+
 type RelationshipType string
 
 const (

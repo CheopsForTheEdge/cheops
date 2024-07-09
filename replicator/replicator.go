@@ -171,7 +171,9 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 		}
 	}
 
-	doc.Config = config
+	if !config.IsEmpty() {
+		doc.Config = config
+	}
 	doc.Operations = decideOperationsToKeep(doc.Config, doc.Operations, request)
 	log.Printf("New request: resourceId=%v requestId=%v\n", doc.Id, request.RequestId)
 
