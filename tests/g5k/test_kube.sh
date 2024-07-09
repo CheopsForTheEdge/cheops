@@ -24,10 +24,10 @@ echo id is $id
 
 lowerid=$(echo $id | tr '[A-Z]' '[a-z'])
 v1=$(mktemp /tmp/kube-v1-XXX.yml)
-sed -e "s/kubernetes-bootcamp/deployment-$lowerid/" kube-deploy-v1.yml > $v1
+sed -e "s/^  name: kubernetes-bootcamp/  name: deployment-$lowerid/" kube-deploy-v1.yml > $v1
 
 v2=$(mktemp /tmp/kube-v2-XXX.yml)
-sed -e "s/kubernetes-bootcamp/deployment-$lowerid/" kube-deploy-v2.yml > $v2
+sed -e "s/^  name: kubernetes-bootcamp/  name: deployment-$lowerid/" kube-deploy-v2.yml > $v2
 
 cleanfiles() {
 				rm $v1 $v2
@@ -45,9 +45,10 @@ ssh $host3 sudo nft add rule ip filter couchdb_out ip daddr 127.0.0.1 accept
 ssh $host3 sudo nft add rule ip filter couchdb_out tcp dport 5984 drop
 
 cli=$(realpath ../../cli/cli)
+config=$(realpath config.json)
 
 echo "Run those: "
-echo "$cli exec --id $id --sites '$LOCATIONS_1' --command 'sudo kubectl apply -f {$v1}' --type apply --config config.json"
+echo "$cli exec --id $id --sites '$LOCATIONS_1' --command 'sudo kubectl apply -f {$v1}' --type apply --config $config"
 echo "$cli exec --id $id --sites '$LOCATIONS_2' --command 'sudo kubectl apply -f {$v2}' --type apply"
 
 read -p "Hit enter when done "
@@ -57,6 +58,6 @@ ssh $host3 sudo nft delete chain ip filter couchdb_out
 
 echo "Waiting for operations to synchronize and run"
 
-python synchronization.py
+python firewall_block.py
 
 ./run_everywhere.sh "sudo kubectl get deployment deployment-$lowerid"
