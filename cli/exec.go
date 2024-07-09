@@ -34,7 +34,7 @@ var cmdWithFilesRE = regexp.MustCompile("{([^}]+)}")
 
 type ExecCmd struct {
 	Command    string `help:"Command to run" required:"" short:""`
-	Type       int    `help:"The consistency class of the command (1, 2, 3 or 4)" required:""`
+	Type       string `help:"The type of the command to run"`
 	Sites      string `help:"sites to deploy to, separated by an &" required:""`
 	Id         string `help:"id of the resource" required:""`
 	LocalLogic string `help:"Local logic file"`
@@ -46,10 +46,7 @@ func (e *ExecCmd) Run(ctx *kong.Context) error {
 	var b bytes.Buffer
 	mw := multipart.NewWriter(&b)
 
-	if e.Type != 1 && e.Type != 2 && e.Type != 3 && e.Type != 4 {
-		return fmt.Errorf("Invalid operation type: it must be one of\n- 1 (operation is commutative and idempotent)\n- 2 (op is commutative and non-idempotent)\n- 3 (op is non-commutative and idempotent)\n- 4 (op is non-commutative non-idempotent)")
-	}
-	err := mw.WriteField("type", strconv.Itoa(e.Type))
+	err := mw.WriteField("type", e.Type)
 	if err != nil {
 		return fmt.Errorf("Error with sites: %v\n", err)
 	}
