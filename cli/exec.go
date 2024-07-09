@@ -57,18 +57,16 @@ func (e *ExecCmd) Run(ctx *kong.Context) error {
 		return fmt.Errorf("Error with sites: %v\n", err)
 	}
 
-	seenFiles := make(map[string]struct{})
-	// Write resource files
 	_, err = os.Stat(e.Config)
 	if err == nil {
-		writeFile(mw, "config.json", e.Config)
-		seenFiles["local-logic"] = struct{}{}
+		content, err := os.ReadFile(e.Config)
+		if err == nil {
+			err = mw.WriteField("config", string(content))
+		}
 	}
-	_, err = os.Stat(e.LocalLogic)
-	if err == nil {
-		writeFile(mw, "local-logic", e.LocalLogic)
-		seenFiles["local-logic"] = struct{}{}
-	}
+
+	seenFiles := make(map[string]struct{})
+	// Write resource files
 
 	// Command management
 	// We replace every named file that will be local (such as {/etc/hostname}) with a base file
