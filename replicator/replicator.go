@@ -214,10 +214,9 @@ func (r *Replicator) Do(ctx context.Context, sites []string, id string, request 
 		for len(expected) > 0 {
 			select {
 			case <-ctx.Done():
-				if err := ctx.Err(); err != nil {
-					log.Printf("Error with runing %s: %s\n", request.RequestId, err)
-					return
-				}
+				// Context canceled
+				log.Printf("Canceled %d remaining requests for %s\n", len(expected), request.RequestId)
+				return
 			case reply := <-repliesChan:
 				ret <- reply
 				delete(expected, reply.Site)
