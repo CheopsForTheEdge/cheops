@@ -32,6 +32,7 @@ type Replicator struct {
 	w *watches
 }
 
+
 func NewReplicator(port int) *Replicator {
 	w := newWatches(context.Background())
 
@@ -77,6 +78,10 @@ func (r *Replicator) ensureCouch() {
     "last-reply": {
       "map": "function (doc) {\n  if (doc.Type != 'REPLY') return;\n  emit([doc.Site, doc.ResourceId], {Time: doc.ExecutionTime, RequestId: doc.RequestId, Sites: doc.Locations});\n}",
       "reduce": "function (keys, values, rereduce) {\n  let sorted = values.sort((a, b) => {\n    return a.Time.localeCompare(b.Time)\n  })\n  return sorted[sorted.length - 1]\n}"
+    },
+    "rsc-status": {
+      "map": "function (doc) {\n if (doc.Type != 'REPLY') return;\n emit([doc.ResourceId, doc.Site], {Time: doc.ExecutionTime, status: doc.Status});\n}",
+      "reduce": "function (keys, values, rereduce) {\n return values.sort((a, b) => a.ExecutionTime > b.ExecutionTime)[0]\n}"
     }
   },
   "language": "javascript"
@@ -131,7 +136,7 @@ func (r *Replicator) ensureIndex() {
 // If the resource doesn't already exist, an ErrInvalidRequest is returned
 //
 // The output is a chan of each individual reply as they arrive. After a timeout or all replies are sent, the chan is closed
-func (r *Replicator) Do(ctx context.Context, sites []string, id string, request model.Operation) (replies chan model.ReplyDocument, err error) {
+func (r *Replicator) Do(ctx context.Context, sites []string, id string, request model.Operation, force bool) (replies chan model.ReplyDocument, err error) {
 
 	repliesChan := make(chan model.ReplyDocument)
 	done := func() {
@@ -417,7 +422,16 @@ func (r *Replicator) getDocsForView(viewname string, keyArgs ...string) ([]json.
 			endkey = append(endkey, arg)
 		}
 	}
+	// add the last character to ensure endkey is the last one
 	endkey = append(endkey, "\uffff")
+
+	// log.Printf("startkey (getdocsforview GetOrderedReplies) %q\n", startkey)
+
+	for i, key := range endkey{
+		log.Printf("number %d endkey %q\n", i, key)
+	}
+	// log.Printf("Keyargs: %v\n", keyArgs)
+	// log.Printf("Viewname: %v\n", viewname)
 
 	query := struct {
 		StartKey []string `json:"start_key"`
@@ -426,7 +440,9 @@ func (r *Replicator) getDocsForView(viewname string, keyArgs ...string) ([]json.
 		StartKey: keyArgs,
 		EndKey:   endkey,
 	}
+
 	b, err := json.Marshal(query)
+	// log.Printf("%s\n", string(b))
 	if err != nil {
 		return nil, err
 	}
@@ -534,6 +550,26 @@ func (r *Replicator) getExistingReplications() map[string]struct{} {
 	}
 
 	return ret
+}
+
+func (r *Replicator) CanRun(id string) (bool, error) {
+
+	replies, err := r.GetOrderedReplies(id)
+	if err != nil {
+		return false, fmt.Errorf("Error running rsc-status view: %v\n", err)
+	}
+	for _, doc := range replies {
+		var d model.ReplyDocument
+		err := json.Unmarshal(doc, &d)
+		if err != nil {
+			return false, fmt.Errorf("Invalid resource document: %v\n", err)
+		}
+		if d.Status == "ko" {
+			return false, nil
+		}
+	}
+	_, _ = r.GetOrderedReplies(id)
+	return true, nil
 }
 
 type Replications struct {

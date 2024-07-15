@@ -53,7 +53,7 @@ import (
 func Run(port int, repl *replicator.Replicator) {
 	m := mux.NewRouter()
 	m.HandleFunc("/{id}", func(w http.ResponseWriter, r *http.Request) {
-		id, command, typ, _, sites, files, ok := parseRequest(w, r)
+		id, command, typ, _, sites, files, ok, force := parseRequest(w, r)
 		if !ok {
 			return
 		}
@@ -75,6 +75,19 @@ func Run(port int, repl *replicator.Replicator) {
 			return
 		}
 
+		// log.Printf("Check if canRun replicator with id %s", id)
+		canrun, err := repl.CanRun(id)
+		if err != nil {
+			log.Printf("There was a problem while checking if request can run: %v\n", err)
+		}
+		if !canrun {
+			if !force {
+				log.Printf("Command was KO and no force")
+				return
+			}
+			log.Printf("Command was KO and there was force")
+		}
+
 		randBytes, err := io.ReadAll(&io.LimitedReader{R: rand.Reader, N: 64})
 		if err != nil {
 			http.Error(w, "internal error", http.StatusInternalServerError)
@@ -92,7 +105,7 @@ func Run(port int, repl *replicator.Replicator) {
 			Time:      time.Now(),
 		}
 
-		replies, err := repl.Do(r.Context(), sites, id, req)
+		replies, err := repl.Do(r.Context(), sites, id, req, force)
 		if err != nil {
 			if err == replicator.ErrDoesNotExist {
 				log.Printf("resource [%s] does not exist on this site\n", id)
@@ -127,7 +140,7 @@ func Run(port int, repl *replicator.Replicator) {
 	}
 }
 
-func parseRequest(w http.ResponseWriter, r *http.Request) (id, command string, typ model.OperationType, config model.ResourceConfig, sites []string, files map[string][]byte, ok bool) {
+func parseRequest(w http.ResponseWriter, r *http.Request) (id, command string, typ model.OperationType, config model.ResourceConfig, sites []string, files map[string][]byte, ok bool, force bool) {
 	vars := mux.Vars(r)
 	id = vars["id"]
 	if id == "" {
@@ -203,6 +216,15 @@ func parseRequest(w http.ResponseWriter, r *http.Request) (id, command string, t
 		}
 
 		files[name] = content
+	}
+
+
+	if vars["force"] != "" {
+		force, err = strconv.ParseBool(vars["force"])
+	}
+	if err != nil {
+		log.Printf("There was a problem with the force argument")
+		return
 	}
 
 	ok = true

@@ -71,14 +71,19 @@ func (r *Replicator) CountResources() (int, error) {
 func (r *Replicator) GetOrderedReplies(id string) (map[string][]model.ReplyDocument, error) {
 	var docs []json.RawMessage
 	docs, err := r.getDocsForView("last-reply", env.Myfqdn, id)
+	// log.Printf("Id (from the beginning of GetOrderedReplies) %s", id)
 	if err != nil {
 		return nil, fmt.Errorf("Error running last-reply view: %v\n", err)
 	}
+	// if len(docs) == 0 {
+	// 	log.Printf("docs from GetOrderedReplies is empty")
+	// }
 
 	m := make(map[string][]model.ReplyDocument)
 	for _, doc := range docs {
 		var d model.ReplyDocument
 		err := json.Unmarshal(doc, &d)
+		// log.Printf(string(doc), d)
 		if err != nil {
 			return nil, fmt.Errorf("Invalid resource document: %v\n", err)
 		}
@@ -88,5 +93,16 @@ func (r *Replicator) GetOrderedReplies(id string) (map[string][]model.ReplyDocum
 		m[d.ResourceId] = append(m[d.ResourceId], d)
 	}
 
+	// add sort for each value of m
+	// for _, reply := range m {
+
+	// }
+	// if len(m) == 0 {
+	// 	log.Printf("m's empty in GetOrderedReplies")
+	// }
+
+	// for k, v := range m {
+	// 	log.Printf(k, "value is", v)
+	// }
 	return m, nil
 }

@@ -39,6 +39,7 @@ type ExecCmd struct {
 	Id         string `help:"id of the resource" required:""`
 	LocalLogic string `help:"Local logic file"`
 	Config     string `help:"config file"`
+	Force      bool   `help:"force execution of command even if KO" short"F" default:"false"`
 }
 
 func (e *ExecCmd) Run(ctx *kong.Context) error {
@@ -72,6 +73,8 @@ func (e *ExecCmd) Run(ctx *kong.Context) error {
 		writeFile(mw, "local-logic", e.LocalLogic)
 		seenFiles["local-logic"] = struct{}{}
 	}
+
+	force := e.Force
 
 	// Command management
 	// We replace every named file that will be local (such as {/etc/hostname}) with a base file
@@ -123,11 +126,11 @@ func (e *ExecCmd) Run(ctx *kong.Context) error {
 	if err != nil {
 		return fmt.Errorf("Invalid parameters for host or id: %v\n", err)
 	}
-	return doRequest(u.String(), mw.Boundary(), b, len(hosts))
+	return doRequest(u.String(), mw.Boundary(), b, len(hosts), force)
 
 }
 
-func doRequest(url, boundary string, body bytes.Buffer, numSites int) error {
+func doRequest(url, boundary string, body bytes.Buffer, numSites int, force bool) error {
 	req, err := http.NewRequest("POST", url, &body)
 	if err != nil {
 		return fmt.Errorf("Error building request for %s: %v\n", url, err)
