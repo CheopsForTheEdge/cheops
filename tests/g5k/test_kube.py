@@ -247,6 +247,58 @@ class TestKube(unittest.TestCase):
             # Check that the spec is the same everywhere. Other fields may differ but they don't matter
             self.verify_kube(f"sudo kubectl get deployment deployment-{id} -o json | jq '.spec'")
 
+    def test_simple_with_failure(self):
+        id = ''.join(random.choice(string.ascii_lowercase) for i in range(10))
+        with self.subTest(id=id):
+            recipe['metadata']['name'] = f"deployment-{id}"
+            config = {'RelationshipMatrix': [
+                {'Before': 'create', 'After': 'apply', 'Result': 'take-both-reverse-order'},
+                {'Before': 'apply', 'After': 'create', 'Result': 'take-both-keep-order'},
+                {'Before': 'apply', 'After': 'apply', 'Result': 'take-one'},
+                {'Before': 'create', 'After': 'patch', 'Result': 'take-both-keep-order'},
+                {'Before': 'patch', 'After': 'create', 'Result': 'take-both-reverse-order'},
+                {'Before': 'apply', 'After': 'patch', 'Result': 'take-both-keep-order'},
+                {'Before': 'patch', 'After': 'apply', 'Result': 'take-both-reverse-order'},
+            ]}
+
+            self.do(id, 0, {
+                'command': (None, f"sudo kubectl create -f create_recipe.yml"),
+                'sites': (None, sites),
+                'type': (None, 'create'),
+                'config': (None, json.dumps(config)),
+                'create_recipe.yml': ('create_recipe.yml', yaml.dump(recipe)),
+            })
+            self.wait_and_verify(id)
+
+            firewall_block.activate([roles_for_hosts[2]])
+
+            recipe['spec']['replicas'] = 2
+            self.do(id, 0, {
+                'command': (None, f"sudo kubectl replace -f apply_recipe.yml"),
+                'sites': (None, sites),
+                'type': (None, 'apply'),
+                'apply_recipe.yml': ('apply_recipe.yml', yaml.dump(recipe)),
+            })
+            patch = "spec:\n  replicas: 3"
+            self.do(id, 1, {
+                'command': (None, f"sudo kubectl patch deployment deployment-{id} -p '${patch}'"),
+                'sites': (None, sites),
+                'type': (None, 'patch'),
+            })
+            recipe['spec']['replicas'] = 4
+            self.do(id, 2, {
+                'command': (None, f"sudo kubectl replace -f replace_recipe.yml"),
+                'sites': (None, sites),
+                'type': (None, 'apply'),
+                'replace_recipe.yml': ('replace_recipe.yml', yaml.dump(recipe)),
+            })
+
+            firewall_block.deactivate([roles_for_hosts[2]])
+            self.wait_and_verify(id)
+
+            # Check that the spec is the same everywhere. Other fields may differ but they don't matter
+            self.verify_kube(f"sudo kubectl get deployment deployment-{id} -o json | jq '.spec'")
+
 
 if __name__ == '__main__':
     unittest.main()
