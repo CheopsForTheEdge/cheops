@@ -6,7 +6,7 @@
 import sys
 import os
 import enoslib as en
-import synchronization
+import firewall_block
 
 # Hack
 if any(['g5k-jupyterlab' in path for path in sys.path]):
@@ -88,7 +88,7 @@ r2 = requests.post(f"http://{hosts[1]}:8079/exec/{id2}", files={
 })
 assert r2.status_code == 200
 
-synchronization.wait(hosts)
+firewall_block.wait(hosts)
 
 # Check everything is there
 # For first resource
