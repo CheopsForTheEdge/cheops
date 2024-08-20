@@ -13,13 +13,13 @@ class CheopsTest(unittest.TestCase):
         unittests.main()
 
     def do(self, id, index, request):
-        r1 = requests.post(f"http://{hosts[index]}:8079/exec/{id}", files=request)
-        self.assertEqual(200, r1.status_code, id)
+        r = requests.post(f"http://{hosts[index]}:8079/exec/{id}", files=request)
+        self.assertEqual(200, r.status_code, f"{id}: {r.text}")
 
-    def wait_and_verify(self, id):
+    def wait_and_verify(self, id, hosts=hosts[:3]):
         firewall_block.wait(hosts)
 
-        replies = [requests.get(f"http://{host}:5984/cheops/{id}") for host in hosts[:3]]
+        replies = [requests.get(f"http://{host}:5984/cheops/{id}") for host in hosts]
         for reply in replies:
             self.assertEqual(200, reply.status_code)
             self.assertEqual(replies[0].json(), reply.json())
@@ -28,7 +28,7 @@ class CheopsTest(unittest.TestCase):
             self.assertEqual(content['Operations'], contents[0]['Operations'])
 
         # Make sure the replies are all ok
-        for host in hosts[:3]:
+        for host in hosts:
             query = {"selector": {
                 "Type": "REPLY",
                 "Site": host,
