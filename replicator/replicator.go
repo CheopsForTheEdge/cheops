@@ -543,16 +543,10 @@ func (r *Replicator) run(ctx context.Context, d model.ResourceDocument) {
 	}
 
 	commands := make([]backends.ShellCommand, 0)
-	opsIndexes := make([]int, 0)
 
 	opsToRun := findOperationsToRun(resourceDocument.Operations, replies)
 	for _, operation := range opsToRun {
 		commands = append(commands, operation.Command)
-		for i, resourceOp := range resourceDocument.Operations {
-			if resourceOp.RequestId == operation.RequestId {
-				opsIndexes = append(opsIndexes, i)
-			}
-		}
 	}
 
 	executionReplies, err := backends.Handle(ctx, commands)
@@ -563,13 +557,12 @@ func (r *Replicator) run(ctx context.Context, d model.ResourceDocument) {
 	}
 
 	// Post reply for replication
-	for idxCommand, idxOp := range opsIndexes {
-		command := commands[idxCommand]
-		op := resourceDocument.Operations[idxOp]
+	for i := range commands {
+		op := opsToRun[i]
 
 		cmd := model.Cmd{
-			Input:  command.Command,
-			Output: executionReplies[idxCommand],
+			Input:  commands[i].Command,
+			Output: executionReplies[i],
 		}
 
 		err = r.postDocument(model.ReplyDocument{
