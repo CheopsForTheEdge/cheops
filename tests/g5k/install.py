@@ -137,17 +137,18 @@ with en.actions(roles=roles, gather_facts=True) as p:
     )
 
 # Redis cluster
-results = en.run_command("redis-cli cluster info", roles=roles[:1])
-stdout = results[0].stdout
-if 'cluster_state:ok' not in stdout:
-    all_facts = en.gather_facts(roles=roles)
-    facts = all_facts['ok']
-    addresses = {}
-    for host in facts:
-        addresses[host] = facts[host]['ansible_default_ipv4']['address']
+if False:
+    results = en.run_command("redis-cli cluster info", roles=roles[:1])
+    stdout = results[0].stdout
+    if 'cluster_state:ok' not in stdout:
+        all_facts = en.gather_facts(roles=roles)
+        facts = all_facts['ok']
+        addresses = {}
+        for host in facts:
+            addresses[host] = facts[host]['ansible_default_ipv4']['address']
 
-    redis_hosts = [f"{addresses[role.alias]}:6379" for role in roles]
-    en.run_command(f"redis-cli --cluster create {' '.join(redis_hosts)} --cluster-replicas 1 --cluster-yes", roles = roles[:1])
+        redis_hosts = [f"{addresses[role.alias]}:6379" for role in roles]
+        en.run_command(f"redis-cli --cluster create {' '.join(redis_hosts)} --cluster-replicas 1 --cluster-yes", roles = roles[:1])
 
 # YCSB
 with en.actions(roles=roles, gather_facts=True) as p:
