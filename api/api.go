@@ -188,7 +188,6 @@ func Run(port int, repl *replicator.Replicator) {
 		if !ok {
 			http.Error(w, "bad request", http.StatusBadRequest)
 			return
-			return
 		}
 
 		if len(sites) == 0 {
