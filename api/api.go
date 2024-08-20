@@ -315,16 +315,8 @@ func parseRequest(w http.ResponseWriter, r *http.Request) (id, command string, t
 	command = strings.TrimSpace(commands[0])
 
 	types, okk := r.MultipartForm.Value["type"]
-	if !okk || len(types) != 1 {
-		log.Println("Missing type")
-		http.Error(w, "bad request", http.StatusBadRequest)
-		return
-	}
-	typ = model.OperationType(strings.TrimSpace(types[0]))
-	if err != nil {
-		log.Println("Invalid type")
-		http.Error(w, "bad request", http.StatusBadRequest)
-		return
+	if okk && len(types) == 1 {
+		typ = model.OperationType(strings.TrimSpace(types[0]))
 	}
 
 	configg, okk := r.MultipartForm.Value["config"]
