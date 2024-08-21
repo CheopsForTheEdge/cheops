@@ -1,10 +1,13 @@
 #!/usr/bin/env python
 
-import prelude
-from prelude import roles
+import g5k
 import enoslib as en
 
-with en.actions(roles=roles, gather_facts=True) as p:
+g5k.init()
+
+print(g5k.roles)
+
+with en.actions(roles=g5k.roles, gather_facts=True) as p:
     p.apt(update_cache=True)
 
     #Couch
@@ -138,20 +141,20 @@ with en.actions(roles=roles, gather_facts=True) as p:
 
 # Redis cluster
 if False:
-    results = en.run_command("redis-cli cluster info", roles=roles[:1])
+    results = en.run_command("redis-cli cluster info", roles=g5k.roles[:1])
     stdout = results[0].stdout
     if 'cluster_state:ok' not in stdout:
-        all_facts = en.gather_facts(roles=roles)
+        all_facts = en.gather_facts(roles=g5k.roles)
         facts = all_facts['ok']
         addresses = {}
         for host in facts:
             addresses[host] = facts[host]['ansible_default_ipv4']['address']
 
-        redis_hosts = [f"{addresses[role.alias]}:6379" for role in roles]
+        redis_hosts = [f"{addresses[role.alias]}:6379" for role in g5k.roles]
         en.run_command(f"redis-cli --cluster create {' '.join(redis_hosts)} --cluster-replicas 1 --cluster-yes", roles = roles[:1])
 
 # YCSB
-with en.actions(roles=roles, gather_facts=True) as p:
+with en.actions(roles=g5k.roles, gather_facts=True) as p:
     p.file(
         path="/opt/ycsb",
         state="directory"
@@ -172,6 +175,6 @@ with en.actions(roles=roles, gather_facts=True) as p:
     
 
 # k3s
-for role in roles:
+for role in g5k.roles:
     k3s = en.K3s(master=[role], agent=[])
     k3s.deploy()

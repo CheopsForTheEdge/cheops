@@ -1,17 +1,11 @@
-import prelude
-from prelude import *
+import g5k
+from g5k import *
 import unittest
 import requests
 
 import firewall_block
 
-# Ensure firewall allows sync
-firewall_block.deactivate(roles_for_hosts)
-
 class CheopsTest(unittest.TestCase):
-    def main(self):
-        unittests.main()
-
     def do(self, id, index, request):
         r = requests.post(f"http://{hosts[index]}:8079/exec/{id}", files=request)
         self.assertEqual(200, r.status_code, f"{id}: {r.text}")

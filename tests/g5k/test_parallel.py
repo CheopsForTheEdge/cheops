@@ -16,26 +16,26 @@ import enoslib as en
 
 import tests
 import requests
-from prelude import *
 import firewall_block
+import g5k
 
 class TestParallel(tests.CheopsTest):
     def init(self, id, request):
         self.do(id, 0, request)
 
-        replies = [requests.get(f"http://{host}:5984/cheops/{id}") for host in hosts[:3]]
+        replies = [requests.get(f"http://{host}:5984/cheops/{id}") for host in g5k.hosts[:3]]
         for reply in replies:
             self.assertEqual(200, reply.status_code)
             self.assertEqual(replies[0].json(), reply.json())
 
         # Deactivate sync (by blocking at firewall level), send 2 parallel, conflicting commands, and reactivate sync
-        firewall_block.activate(roles_for_hosts)
+        firewall_block.activate(g5k.roles_for_hosts)
 
     def do_left_and_right(self, id, request_left, request_right):
         self.do(id, 0, request_left)
         self.do(id, 1, request_right)
 
-        firewall_block.deactivate(roles_for_hosts)
+        firewall_block.deactivate(g5k.roles_for_hosts)
         self.wait_and_verify(id)
 
     def test_simple(self):
@@ -43,16 +43,16 @@ class TestParallel(tests.CheopsTest):
         with self.subTest(id=id):
             self.init(id, {
                 'command': (None, f"mkdir -p /tmp/{id} && touch /tmp/{id}/init"),
-                'sites': (None, sites),
+                'sites': (None, g5k.sites),
                 'type': (None, "touch"),
             })
             self.do_left_and_right(id, {
                 'command': (None, f"mkdir -p /tmp/{id} && touch /tmp/{id}/left"),
-                'sites': (None, sites),
+                'sites': (None, g5k.sites),
                 'type': (None, "touch"),
             }, {
                 'command': (None, f"mkdir -p /tmp/{id} && touch /tmp/{id}/right"),
-                'sites': (None, sites),
+                'sites': (None, g5k.sites),
                 'type': (None, "touch"),
             })
             self.verify_shell(f"ls /tmp/{id}")
@@ -62,7 +62,7 @@ class TestParallel(tests.CheopsTest):
         with self.subTest(id=id):
             self.init(id, {
                 'command': (None, f"mkdir -p /tmp/{id} && echo init > /tmp/{id}/file"),
-                'sites': (None, sites),
+                'sites': (None, g5k.sites),
                 'type': (None, "set"),
                 'config': (None, json.dumps({
                     'RelationshipMatrix': [
@@ -74,11 +74,11 @@ class TestParallel(tests.CheopsTest):
             })
             self.do_left_and_right(id, {
                 'command': (None, f"mkdir -p /tmp/{id} && echo left >> /tmp/{id}/file"),
-                'sites': (None, sites),
+                'sites': (None, g5k.sites),
                 'type': (None, "add"),
             }, {
                 'command': (None, f"mkdir -p /tmp/{id} && echo right >> /tmp/{id}/file"),
-                'sites': (None, sites),
+                'sites': (None, g5k.sites),
                 'type': (None, "add"),
             })
             self.verify_shell(f"cat /tmp/{id}/file")
@@ -88,7 +88,7 @@ class TestParallel(tests.CheopsTest):
         with self.subTest(id=id):
             self.init(id, {
                 'command': (None, f"mkdir -p /tmp/{id} && echo init > /tmp/{id}/file"),
-                'sites': (None, sites),
+                'sites': (None, g5k.sites),
                 'type': (None, "set"),
                 'config': (None, json.dumps({
                     'RelationshipMatrix': [
@@ -100,15 +100,18 @@ class TestParallel(tests.CheopsTest):
             })
             self.do_left_and_right(id, {
                 'command': (None, f"mkdir -p /tmp/{id} && echo left > /tmp/{id}/file"),
-                'sites': (None, sites),
+                'sites': (None, g5k.sites),
                 'type': (None, "set"),
             }, {
                 'command': (None, f"mkdir -p /tmp/{id} && echo right > /tmp/{id}/file"),
-                'sites': (None, sites),
+                'sites': (None, g5k.sites),
                 'type': (None, "set"),
             })
             self.verify_shell(f"cat /tmp/{id}/file")
 
 if __name__ == '__main__':
+    g5k.init()
+    firewall_block.deactivate(g5k.roles_for_hosts)
+
     import unittest
     unittest.main()

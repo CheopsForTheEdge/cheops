@@ -9,8 +9,8 @@ import json
 import enoslib as en
 
 import tests
-from prelude import *
 import firewall_block
+import g5k
 
 class TestDifferentSites(tests.CheopsTest):
     def test_simple(self):
@@ -19,18 +19,21 @@ class TestDifferentSites(tests.CheopsTest):
         with self.subTest(ids=[id1,id2]):
             self.do(id1, 0, {
                 'command': (None, "mkdir -p /tmp/foo; echo left > /tmp/foo/left"),
-                'sites': (None, '&'.join(hosts[:3])),
+                'sites': (None, '&'.join(g5k.hosts[:3])),
                 'type': (None, 'mkdir'),
             })
 
             self.do(id2, 1, {
                 'command': (None, "mkdir -p /tmp/foo; echo right > /tmp/foo/right"),
-                'sites': (None, '&'.join(hosts[1:])),
+                'sites': (None, '&'.join(g5k.hosts[1:])),
                 'type': (None, 'mkdir'),
             })
             self.wait_and_verify(id1)
-            self.wait_and_verify(id2, hosts[1:])
+            self.wait_and_verify(id2, g5k.hosts[1:])
 
 if __name__ == '__main__':
+    g5k.init()
+    firewall_block.deactivate(g5k.roles_for_hosts)
+
     import unittest
     unittest.main()

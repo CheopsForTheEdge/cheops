@@ -15,8 +15,8 @@ import json
 import enoslib as en
 
 import tests
-from prelude import *
 import firewall_block
+import g5k
 
 class TestRedis(tests.CheopsTest):
     def test_simple(self):
@@ -30,7 +30,7 @@ class TestRedis(tests.CheopsTest):
 
             self.do(id, 0, {
                 'command': (None, f"redis-cli set {id} 23"),
-                'sites': (None, sites),
+                'sites': (None, g5k.g5k.sites),
                 'type': (None, 'set'),
                 'config': (None, json.dumps(config)),
             })
@@ -38,17 +38,17 @@ class TestRedis(tests.CheopsTest):
 
             self.do(id, 0, {
                 'command': (None, f"redis-cli set {id} 29"),
-                'sites': (None, sites),
+                'sites': (None, g5k.g5k.sites),
                 'type': (None, 'set'),
             })
             self.do(id, 1, {
                 'command': (None, f"redis-cli incrby {id} 12"),
-                'sites': (None, sites),
+                'sites': (None, g5k.g5k.sites),
                 'type': (None, 'inc'),
             })
             self.do(id, 2, {
                 'command': (None, f"redis-cli incrby {id}"),
-                'sites': (None, sites),
+                'sites': (None, g5k.g5k.sites),
                 'type': (None, 'inc'),
             })
 
@@ -67,31 +67,31 @@ class TestRedis(tests.CheopsTest):
 
             self.do(id, 0, {
                 'command': (None, f"redis-cli set {id} 23"),
-                'sites': (None, sites),
+                'sites': (None, g5k.sites),
                 'type': (None, 'set'),
                 'config': (None, json.dumps(config)),
             })
             self.wait_and_verify(id)
 
-            firewall_block.activate([roles_for_hosts[2]])
+            firewall_block.activate([g5k.roles_for_hosts[2]])
 
             self.do(id, 0, {
                 'command': (None, f"redis-cli set {id} 29"),
-                'sites': (None, sites),
+                'sites': (None, g5k.sites),
                 'type': (None, 'set'),
             })
             self.do(id, 1, {
                 'command': (None, f"redis-cli incrby {id} 12"),
-                'sites': (None, sites),
+                'sites': (None, g5k.sites),
                 'type': (None, 'inc'),
             })
             self.do(id, 2, {
                 'command': (None, f"redis-cli incrby {id}"),
-                'sites': (None, sites),
+                'sites': (None, g5k.sites),
                 'type': (None, 'inc'),
             })
 
-            firewall_block.deactivate([roles_for_hosts[2]])
+            firewall_block.deactivate([g5k.roles_for_hosts[2]])
             self.wait_and_verify(id)
 
             self.verify_shell(f"redis-cli -c get {id}")
@@ -107,35 +107,38 @@ class TestRedis(tests.CheopsTest):
 
             self.do(id, 0, {
                 'command': (None, f"redis-cli set {id} 23"),
-                'sites': (None, sites),
+                'sites': (None, g5k.sites),
                 'type': (None, 'set'),
                 'config': (None, json.dumps(config)),
             })
             self.wait_and_verify(id)
 
-            firewall_block.activate([roles_for_hosts[2]])
+            firewall_block.activate([g5k.roles_for_hosts[2]])
 
             self.do(id, 0, {
                 'command': (None, f"redis-cli set {id} 29"),
-                'sites': (None, sites),
+                'sites': (None, g5k.sites),
                 'type': (None, 'set'),
             })
             self.do(id, 1, {
                 'command': (None, f"redis-cli incrby {id} 12"),
-                'sites': (None, sites),
+                'sites': (None, g5k.sites),
                 'type': (None, 'inc'),
             })
             self.do(id, 2, {
                 'command': (None, f"redis-cli sadd {id} error"),
-                'sites': (None, sites),
+                'sites': (None, g5k.sites),
                 'type': (None, 'set'),
             })
 
-            firewall_block.deactivate([roles_for_hosts[2]])
+            firewall_block.deactivate([g5k.roles_for_hosts[2]])
             self.wait_and_verify(id)
 
             self.verify_shell(f"redis-cli -c get {id}")
 
 if __name__ == '__main__':
+    g5k.init()
+    firewall_block.deactivate(g5k.roles_for_hosts)
+
     import unittest
     unittest.main()
