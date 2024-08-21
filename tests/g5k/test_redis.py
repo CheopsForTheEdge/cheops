@@ -30,7 +30,7 @@ class TestRedis(tests.CheopsTest):
 
             self.do(id, 0, {
                 'command': (None, f"redis-cli set {id} 23"),
-                'sites': (None, g5k.g5k.sites),
+                'sites': (None, g5k.sites),
                 'type': (None, 'set'),
                 'config': (None, json.dumps(config)),
             })
