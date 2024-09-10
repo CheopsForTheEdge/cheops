@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"mime/multipart"
 	"net/http"
@@ -339,7 +338,7 @@ func parseRequest(w http.ResponseWriter, r *http.Request) (id, command string, t
 			continue
 		}
 
-		content, err := ioutil.ReadAll(f)
+		content, err := io.ReadAll(f)
 		f.Close()
 		if err != nil {
 			log.Printf("Couldn't open %s: %v\n", name, err)
