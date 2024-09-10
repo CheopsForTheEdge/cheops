@@ -1,4 +1,8 @@
-# A routine to wait for hosts to be synchronized
+# This file can be included to "activate" and "deactivate" the network for given g5k roles.
+# It uses firewall rules to simulate packets not going through.
+#
+# It can also be used to wait for synchronization to happen. Note that it doesn't check
+# whether network is activated or not; make sure to re-enable it to not wait forever
 
 import time
 import requests

@@ -14,12 +14,14 @@ After that any test can be run, through make, or individually. See the header of
 ├── dump_garbage.sh			# displays deleted resources
 ├── dump_replications.sh	# displays replication jobs (couchdb)
 ├── dump_resources.sh		# displays known resources grouped by node if similar
-├── example_use.sh		# shows how to use the cli
+├── example_use.sh			# shows how to use the cli
 ├── env.sh					# creates ~/.oarnodes and ~/.oarnodes.json (for chephren) with list of nodes
 ├── install.py				# g5k script to create nodes
 ├── Makefile				# to easily run everything
 ├── multitail.sh			# tails logs of all cheops processes on all machines
 ├── rerun.sh				# reload script to start afresh
 ├── restart.sh				# individual reload script for a node
-├── synchronization.py		# helper for tests
-└── test_*.py/sh			# tests with different scenarios
+├── g5k.py					# helper for setting g5k-related variables
+├── tests.py				# base class for tests
+├── firewall_block.py		# helper for tests managing the fake disconnection
+└── test_*.py/sh			# tests with different scenarios and apps
