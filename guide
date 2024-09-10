@@ -6,3 +6,15 @@ Watch $home/.local/bin/gobuild.rc # With the same content as above
 
 # server
 MYFQDN=localhost ./cheops.com
+
+# with acme-lsp at https://github.com/9fans/acme-lsp
+acme-lsp -server '([/\\]go\.mod)|([/\\]go\.sum)|(\.go)$:gopls serve' -workspaces $HOME/dev/cheops
+
+# Run this inside a dir that is in your path
+for(cmd in comp def fmt hov impls refs rn sig syms type assist ws ws+ ws-){
+	> L^$cmd {
+		echo '#!/bin/rc'
+		echo exec L $cmd '$*'
+	}
+	chmod +x L^$cmd
+}
