@@ -44,7 +44,73 @@ by waiting up to 30 seconds for all replies to appear, giving the appearance of
 a synchronous process.
 
 Each resource has its own set of nodes: the replication will only distribute
-operations to the node that are responsible for the resource.
+operations to the node that are responsible for the resource. The diagram above
+shows that all node can talk to all other nodes, but only the information
+related to a specific node are sent to it.
+
+The data model is defined in model/ : it might make sense to explore it to
+understand the following sections
+
+## Cheops
+
+Here's a schema showing more details about how Cheops is organized:
+
+![Cheops](./cheops-2.svg)
+
+There are 3 main parts: the API, the Replicator and the Backends
+
+### API
+
+This is where the http api is defined. Users can call it directly, or through a CLI.
+
+To send a request, users send a POST to /exec/{id} where id is the resource
+identifier. The body is a multipart form with the following parts:
+- sites: a list of all the desired locations of the resources, separated with a
+"&"
+- command: the command to run
+- type: the type of the command, to configure consistency classes. See the
+related paragraph in CONSISTENCY.md
+TODO
+- config: the resource configuration
+- files: all the files necessary for the command to properly execute
+
+This bundle is transformed into an operation struct and sent to the Replicator layer
+
+### Replicator
+TODO
+explain resource config
+
+### Backend
+
+This is the simplest of the layers. It is called with a list of commands to run and runs them. At the moment the handling is hardcoded to execute shell commands (hence why there is a "command" field in the input). This is how the genericity is provided: to run commands for other applications, the command itself manages the backend to use.
+
+## Replication
+
+The replication is provided by [CouchDB](https://couchdb.apache.org/), a
+reliable, efficient synchronization database. It is a kv store associating
+strings to JSON documents. In order to implement reliable synchronization
+without losing data it also associates each modification of a document with a
+revision string, and to make a change the user must also give the existing
+revision they want to change. This means the representation of the lifecycle of
+a given key is not a list of versions, but a graph. More details are given in
+the documentation at https://docs.couchdb.org/en/stable/intro/overview.html.
+
+Each JSON document contains the name of the resource, the list of operations
+that are to be applied and the locations where the resource is expected to live.
+When a new document arrives in CouchDB, a process in Cheops will see the new
+document and create, if they don't already exist, a replication from the local
+node to each of the locations in the new document (except of course to itself).
+It is possible that such a replication (for example, from node23 to node47) was
+already created for another resource; we effectively decorrelate those
+replication jobs from the resources themselves and only look at the locations.
+See replicator/replicator.go:/func.*replicate for the implementation.
+
+As a reminder, replication will make sure that all versions of all nodes are
+known from every node; there can be a conflict, typically when the same
+resource is updated from 2 different places before replication converged. This
+situation is described, and the solution explained, in CONSISTENCY.md. To see how it is done in the code, see [replicator/replicator.go](replicator/replicator.go:/func resolveMerge)
+
+
 
 ## Files
 
