@@ -76,9 +76,10 @@ TODO
 
 This bundle is transformed into an operation struct and sent to the Replicator layer
 
+TODO: /show /show_local
+
 ### Replicator
-TODO
-explain resource config
+TODO: explain resource config
 
 ### Backend
 
@@ -108,8 +109,15 @@ See replicator/replicator.go:/func.*replicate for the implementation.
 As a reminder, replication will make sure that all versions of all nodes are
 known from every node; there can be a conflict, typically when the same
 resource is updated from 2 different places before replication converged. This
-situation is described, and the solution explained, in CONSISTENCY.md. To see how it is done in the code, see [replicator/replicator.go](replicator/replicator.go:/func resolveMerge)
+situation is described, and the solution explained, in CONSISTENCY.md. To see
+how it is done in the code, see
+[replicator/replicator.go](replicator/replicator.go:/func resolveMerge)
 
+## Configuration and usage
+
+At the moment Cheops has deployment scripts to be used in Grid5000 only: see
+the tests/g5k folder to understand how it is deployed and reuse it in other
+settings.
 
 
 ## Files
@@ -202,8 +210,10 @@ Chephren is a project to build a nice web ui on top of Cheops. It is available h
 
     https://gitlab.imt-atlantique.fr/chephren/
 
-To use it, clone the chephren repo, run the build (`npm run build`) and copy the dist folder into the chephren-ui folder.
+To use it, clone the chephren repo, run the build (`npm run build`) and copy
+the dist folder into the chephren-ui folder.
 
-A version is already there and will be updated as development advances
+Unfortunately the latest version is not up-to-date with the current version of
+cheops: it needs to be updated with the latest data model.
 
--
+TODO: more details on how it works and how to update it
