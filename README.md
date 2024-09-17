@@ -7,6 +7,12 @@ associated to a specific resource. Cheops gives the possibility to specify the
 exact distribution of each resource manually so that operators can define how
 they want them to be spread.
 
+The repo is being maintained with Acme, and as such some Acme-specific
+artifacts will exist:
+- a guide file is used with common helpers
+- files are not linked to just by name, they also contain a string to search
+for that points to the exact information, regardless of changes
+
 # License
 
 [GNU Affero General Public License](https://www.gnu.org/licenses/agpl-3.0.html#license-text)
@@ -61,29 +67,90 @@ There are 3 main parts: the API, the Replicator and the Backends
 
 ### API
 
-This is where the http api is defined. Users can call it directly, or through a CLI.
+This is where the http api is defined. Users can call it directly, or through a
+CLI.
 
-To send a request, users send a POST to /exec/{id} where id is the resource
+To send a request, users send a POST to `/exec/{id}` where id is the resource
 identifier. The body is a multipart form with the following parts:
-- sites: a list of all the desired locations of the resources, separated with a
-"&"
+- sites: a list of all the desired locations of the resource, separated with a
+		"&"
 - command: the command to run
 - type: the type of the command, to configure consistency classes. See the
-related paragraph in CONSISTENCY.md
-TODO
+		related paragraph in CONSISTENCY.md
 - config: the resource configuration
 - files: all the files necessary for the command to properly execute
 
-This bundle is transformed into an operation struct and sent to the Replicator layer
+This bundle is transformed into an operation struct and sent to the Replicator
+layer
 
-TODO: /show /show_local
+The `/show/{id}` endpoint is used to represent a resource in a user-defined
+way, and
+gather that representation from all available nodes. The operation is
+broadcasted to all reachable nodes, meaning that the view is the most recent
+available. It is not part of the registered operations and doesn't go through
+the usual syncing and merging flow. The body must be a multipart form with the
+following fields:
+- sites: the list of all the locations of the resource, separated with a
+"&"
+- command: the command to run to represent the resource (eg `cat XXX` for a
+file)
+
+This call will actually call `/show_local/{id}` endpoint on all the sites
+(including locally). That second call executes the command and returns the
+standard output.
 
 ### Replicator
-TODO: explain resource config
+This is the main part of the cheops application. It is responsible for merging
+and asking the backend to run operations, to present a pseudo-synchronous
+interface to callers, and to configure CouchDB for replication.
+
+All the details about the exact consistency details are explained in
+CONSISTENCY.md. We will only discuss the implementation details here. As
+explained in that document, it is necessary for Cheops to know how multiple
+requests will interoperate. This means that the operator must define
+relationships between operations: this is defined in a Relationship Matrix
+inside the ResourceConfig file.
+
+The ResourceConfig can be sent on each push of a new operation, but right now
+it is expected to be sent at the beginning of the life of a resource (ie when
+it is first created). When ResourceConfig files are pushed later, concurrently
+or not, CouchDB will give us a consistent winner thanks to its LWW algorithm.
+Because we do not know which one will be taken, it is impossible to know for
+sure what will be the result; to be sure, the only way is by sending a new
+ResourceConfig at the end. Modifying ResourceConfig is therefore not
+recommended at the time.
+
+Inside the ResourceConfig the major structure is the RelationshipMatrix. It has
+more details in the paper (see the [Thesis Manuscript,
+2023](https://theses.hal.science/tel-04081084/) but the gist is the following:
+the matrix is a list of tuples with the following fields:
+- Before: a type of operation
+- After: a type of operation
+- Result: the interaction between the two types.
+
+The `type` here is actually a simple string that is used to identify
+operations: it is similar to a "tag". Each operation, when it is pushed, is
+given such a tag, and the matrix will say how operations collaborate. For
+example a SET operation in redis might be given a "set" type to be easily
+identifiable.
+
+`Before` and `After` are thus two types. The operator is expected to describe
+how the two will be handled when they are met in that order. This information
+is needed in 2 cases:
+- when a new operation is given, to see whether it can be added on top of the
+existing ones or a new block must be created
+- when two conflicting list of operations exist, the first operation on each
+side is compared
+
+The details are explained in CONSISTENCY.md
 
 ### Backend
 
-This is the simplest of the layers. It is called with a list of commands to run and runs them. At the moment the handling is hardcoded to execute shell commands (hence why there is a "command" field in the input). This is how the genericity is provided: to run commands for other applications, the command itself manages the backend to use.
+This is the simplest of the layers. It is called with a list of commands to run
+and runs them. At the moment the handling is hardcoded to execute shell
+commands (hence why there is a "command" field in the input). This is how the
+genericity is provided: to run commands for other applications, the command
+itself manages the backend to use.
 
 ## Replication
 
@@ -119,11 +186,15 @@ At the moment Cheops has deployment scripts to be used in Grid5000 only: see
 the tests/g5k folder to understand how it is deployed and reuse it in other
 settings.
 
+Note that it is crucial to define your resource configuration, especially the
+relationship matrix, for cheops to work properly. See how to do that in the
+multiple tests.
 
 ## Files
 
 ```
 .
+├── guide               # Acme-specific utilities
 ├── api                	# Defines the routes for handling requests
 ├── replicator        	# Replicator package responsible for syncing
 ├── backends        	# Backends package responsible for executing requests
