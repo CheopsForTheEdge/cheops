@@ -55,7 +55,18 @@ shows that all node can talk to all other nodes, but only the information
 related to a specific node are sent to it.
 
 The data model is defined in model/ : it might make sense to explore it to
-understand the following sections
+understand the following sections.
+
+Requests are always shell commands right now. The application is expected to be
+used through such commands. The shell commands can be anything that will run on
+the nodes and will be executed by the Cheops process: as such, no security is
+in place and the user has the same rights as the Cheops process. It is possible
+to send files along with the command if those files are needed for the command
+to execute: they will be stored along the command, be replicated together,
+etc...
+
+Cheops is written in Go because it is a solid production-ready language with
+good primitives for concurrent jobs and synchronization work.
 
 ## Cheops
 
@@ -81,7 +92,7 @@ identifier. The body is a multipart form with the following parts:
 - files: all the files necessary for the command to properly execute
 
 This bundle is transformed into an operation struct and sent to the Replicator
-layer
+layer.
 
 The `/show/{id}` endpoint is used to represent a resource in a user-defined
 way, and
@@ -99,10 +110,31 @@ This call will actually call `/show_local/{id}` endpoint on all the sites
 (including locally). That second call executes the command and returns the
 standard output.
 
+The API is an HTTP API and there are cli helpers in the folder of the same
+name. The cli can be used to make it simpler to use cheops. Here's an example
+usage:
+
+```sh
+%  cheops \
+    --id deployment-id \
+    --sites ’site1&site2&site3’ \
+    --command "sudo kubectl create deployment -f {recipe.yml}" \
+    --config config.json \
+    --type create
+```
+
+The arguments `id`, `sites`, `config` and `type` are the same as explained
+above. `command` is the same except it can contain files between `{` and `}`:
+those files are taken from the computer where the cli is run (ie the computer
+of the user) and sent as files as described above.
+
 ### Replicator
 This is the main part of the cheops application. It is responsible for merging
 and asking the backend to run operations, to present a pseudo-synchronous
-interface to callers, and to configure CouchDB for replication.
+interface to callers, and to configure CouchDB for replication. It takes input
+from the api layer that it transforms into json documents: the model is in
+model/crdt_document.go:/type ResourceDocument. The files are base64-encoded and
+recorded along with the command so it can be re-run anytime.
 
 All the details about the exact consistency details are explained in
 CONSISTENCY.md. We will only discuss the implementation details here. As
@@ -162,6 +194,10 @@ revision string, and to make a change the user must also give the existing
 revision they want to change. This means the representation of the lifecycle of
 a given key is not a list of versions, but a graph. More details are given in
 the documentation at https://docs.couchdb.org/en/stable/intro/overview.html.
+CouchDB has a concept of "databases", which are simply collections of json
+documents; each "database" can be useful if different access rights are needed,
+but for Cheops we only use a single "database" called "cheops" where the
+credentials are admin/password.
 
 Each JSON document contains the name of the resource, the list of operations
 that are to be applied and the locations where the resource is expected to live.
