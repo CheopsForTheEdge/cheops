@@ -47,7 +47,11 @@ algorithm is responsible for propagating all results to all the nodes such that
 the user can see it from everywhere, especially in the common case from the
 node where the request was initially made. The CLI actually hides this process
 by waiting up to 30 seconds for all replies to appear, giving the appearance of
-a synchronous process.
+a synchronous process, and returns the result of the executions to the HTTP
+caller. If all nodes haven't synced back their execution status within this
+timeout, the initial HTTP caller will get the reply from those who have replied
+only, but the process still happens in the background. Cheops, through CouchDB,
+will continuously try to synchronize and run operations everywhere it is needed.
 
 Each resource has its own set of nodes: the replication will only distribute
 operations to the node that are responsible for the resource. The diagram above
@@ -174,7 +178,16 @@ existing ones or a new block must be created
 - when two conflicting list of operations exist, the first operation on each
 side is compared
 
-The details are explained in CONSISTENCY.md
+As alluded above, and described in CONSISTENCY.md in further details, the list
+of operations might be periodically "pruned" when operations with the proper
+types are added to the existing list.
+
+An important consequence of the design is that until any pruning happens, the
+entirety of the payload is stored along operations, in CouchDB. Typically this
+payload might also exist in the application and as such be stored twice: this
+is highly inefficient and is an avenue for potential optimization in the
+future. See Areas of Improvement for more information about what can be done
+about that.
 
 ### Backend
 
@@ -244,6 +257,97 @@ multiple tests.
 
 
 ```
+
+## Areas of improvement
+
+Here are some of the pain points related to how Cheops works, either because of
+its architecture or because of its first-implementation status, and where
+future development may propose a boost in performances and usability.
+
+### Storing data only once
+
+Imagine an operation saying "insert this image in the filesystem". This
+operation must maintain the whole image in CouchDB for the future, but the
+image will also be stored in the filesystem as this is the meaning of the
+operation.
+
+To reduce this duplication, multiple strategies can be used:
+- if the application stores its data in a deduplicating filesystem, CouchDB can
+be configured to use the same filesystem (for example a shared ZFS filesystem
+on a cluster).
+- the other way around: if the application can choose its storage space,
+CouchDB can serve the file thanks to its HTTP endpoints. The caveat is that
+CouchDB becomes a strong requirement of Cheops, whereas today it is only an
+intermediary for sync.
+
+
+### pruning operations when all nodes agree
+
+The composition of a cluster for a given resource is known and cannot change.
+Moreover, every node knows the execution status of all operations from other
+nodes. Thanks to this every node can know when operations have been properly
+executed on all other nodes: it is thus acceptable, if they have been properly
+run, to remove them from the list of all operations.
+
+Note that while it is correct from the point of view of operations, the
+resource might still diverge in the application. Imagine an operation that
+compresses some common file: if the exact compression details are not the same,
+the result will differ. It is important for operators to keep a history of
+operations to understand why they end up with different objects. From a first
+approximation though it is ok to prune operations if they are deterministic.
+
+### Hooks
+
+Cheops has an optimistic 30-second window during which it hopes to have
+synchronized and executed the operations on all nodes, but by the very nature
+of our work some operation might not have been synchronized to other nodes
+(because they or the network is down, typically). This doesn't prevent Cheops
+from working in the background continuously: if the network is back up 24 hours
+after the operation has been inserted, it will be synchronized, run, and the
+result will be synchronized back everywhere.
+
+There is no way for the operator to know about this: outside of the 30-second
+window all operations happen in the background. An operator might still be
+interested in knowing when something happens: either when a specific operation
+was run, or more generally when a resource has been modified. It is possible to
+extend Cheops to offer a system of hooks for this.
+
+The simplest way is to plug into CouchDB. It has the `_changes` endpoint
+facilitating realtime following of changes (this is what Cheops itself uses) as
+described in its documentation:
+https://docs.couchdb.org/en/stable/api/database/changes.html. However this
+again puts CouchDB as a fundamental brick of the solution and prevents any
+change in that direction. It might be more interesting to offer a simplified
+changes feed at the Cheops level (maybe `/changes/{id}` to follow changes of a
+specific resource), and tell cheops to follow changes inside CouchDB for that
+hypothetical new endpoint. It wouldn't take more than 2 days for an experienced
+engineer to build this.
+
+This solution is simplest but requires the operator's computer to always be
+turned on: since it is a pull-based mechanism, something needs to continuously
+(try to) pull. A more involved mechanism would be push-based, controlled by
+Cheops itself:
+- sending an email by connecting to a preconfigured smtp server with a specific
+account
+- sending a message on an irc server
+- ping a webhook
+- run any kind of command for any scenario (push a log in a supervision system,
+...)
+
+Webhooks are often available in current messanging tools and can be a good way
+to inform a team of operators, where they usually discuss, that something
+happened on a resource.
+
+The potential issue with this approach is that all Cheops node are independent,
+and those mechanisms will run independently on each node. If the operator
+wishes to know whenever something happens on any node, that is fine, but if
+they only want a summary information when all nodes have run the operation some
+coordination will be required. An experienced engineer wouldn't take more than
+3 days to build the first version, but it could take a week to devise and
+implement a "summary" version where only one action is taken when all the nodes
+have run the same operation on the same resource.
+
+###
 
 ## How to contribute
 
