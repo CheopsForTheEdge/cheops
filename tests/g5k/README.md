@@ -10,6 +10,7 @@ After that any test can be run, through make, or individually. See the header of
 
 # Explanation of files
 
+```
 .
 ├── dump_garbage.sh			# displays deleted resources
 ├── dump_replications.sh	# displays replication jobs (couchdb)
@@ -25,6 +26,7 @@ After that any test can be run, through make, or individually. See the header of
 ├── tests.py				# base class for tests
 ├── firewall_block.py		# helper for tests managing the fake disconnection
 └── test_*.py/sh			# tests with different scenarios and apps
+```
 
 ## g5k.py
 
