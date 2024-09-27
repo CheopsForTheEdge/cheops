@@ -241,15 +241,14 @@ node to each of the locations in the new document (except of course to itself).
 It is possible that such a replication (for example, from node23 to node47) was
 already created for another resource; we effectively decorrelate those
 replication jobs from the resources themselves and only look at the locations.
-See [replicator/replicator.go](replicator/replicator.go:/func.*replicate) for
-the implementation.
+See [replicator/replicator.go](replicator/replicator.go) (replicator/replicator.go:/func.*replicate) for the implementation.
 
 As a reminder, replication will make sure that all versions of all nodes are
 known from every node; there can be a conflict, typically when the same
 resource is updated from 2 different places before replication converged. This
 situation is described, and the solution explained, in
 [CONSISTENCY.md](CONSISTENCY.md). To see how it is done in the code, see
-[replicator/replicator.go](replicator/replicator.go:/func resolveMerge)
+[replicator/replicator.go](replicator/replicator.go) (replicator/replicator.go:/func resolveMerge)
 
 ## Configuration and usage
 
