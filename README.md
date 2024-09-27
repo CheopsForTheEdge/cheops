@@ -137,8 +137,7 @@ This is the main part of the cheops application. It is responsible for merging
 and asking the backend to run operations, to present a pseudo-synchronous
 interface to callers, and to configure CouchDB for replication. It takes input
 from the api layer that it transforms into json documents: the model is in
-[model/crdt_document.go](model/crdt_document.go:/type ResourceDocument). The
-files are base64-encoded and recorded along with the command so it can be
+[model/crdt_document.go](model/crdt_document.go) (model/crdt_document.go:/type ResourceDocument). The files are base64-encoded and recorded along with the command so it can be
 re-run anytime.
 
 The Replicator layer creates an implementation of an RCB by creating a directed
