@@ -1,6 +1,6 @@
 # Cheops
 
-Cheops turns a monolithich application into a geo-distributed service
+Cheops turns a monolitic application into a geo-distributed service
 automatically synchronized and redundant by replicating all user operations to
 eventually converge to the same state. It is assumed that operations are always
 associated to a specific resource. Cheops gives the possibility to specify the
@@ -58,16 +58,16 @@ operations to the node that are responsible for the resource. The diagram above
 shows that all node can talk to all other nodes, but only the information
 related to a specific node are sent to it.
 
-The data model is defined in model/ : it might make sense to explore it to
-understand the following sections.
+The data model is defined in [model/](model/) : it might make sense to explore
+it to understand the following sections.
 
-Requests are always shell commands right now. The application is expected to be
-used through such commands. The shell commands can be anything that will run on
-the nodes and will be executed by the Cheops process: as such, no security is
-in place and the user has the same rights as the Cheops process. It is possible
-to send files along with the command if those files are needed for the command
-to execute: they will be stored along the command, be replicated together,
-etc...
+Requests are always shell commands to be executed in a standard Debian
+environment right now. The application is expected to be usable through such
+commands. The shell commands can be anything that will run on the nodes and
+will be executed by the Cheops process: as such, no security is in place and
+the user has the same rights as the Cheops process. It is possible to send
+files along with the command if those files are needed for the command to
+execute: they will be stored along the command, be replicated together, etc...
 
 Cheops is written in Go because it is a solid production-ready language with
 good primitives for concurrent jobs and synchronization work.
@@ -91,7 +91,7 @@ identifier. The body is a multipart form with the following parts:
 		"&"
 - command: the command to run
 - type: the type of the command, to configure consistency classes. See the
-		related paragraph in CONSISTENCY.md
+		related paragraph in [CONSISTENCY.md](CONSISTENCY.md)
 - config: the resource configuration
 - files: all the files necessary for the command to properly execute
 
@@ -137,15 +137,36 @@ This is the main part of the cheops application. It is responsible for merging
 and asking the backend to run operations, to present a pseudo-synchronous
 interface to callers, and to configure CouchDB for replication. It takes input
 from the api layer that it transforms into json documents: the model is in
-model/crdt_document.go:/type ResourceDocument. The files are base64-encoded and
-recorded along with the command so it can be re-run anytime.
+[model/crdt_document.go](model/crdt_document.go:/type ResourceDocument). The
+files are base64-encoded and recorded along with the command so it can be
+re-run anytime.
+
+The Replicator layer creates an implementation of an RCB by creating a directed
+ acyclic graph with operations as nodes and causality as edges. An edge between
+two operations is always directed from the operation happening before to the
+operation happening after. As such, 2 operations may not have a direct edge,
+but still be indirectly related through parentage: if `operationA` is followed
+causally by `operationB` which is itself followed causally by `operationC` then
+we know there is a causal link between `operationA` and `operationC`. A
+conflict is identified when two operations have a common ancestor but there is
+no path between the two. When that happens, it is resolved using the operations
+relationship matrix for a resource. As an optimization, we realized that some
+operations are replacing the entire state of the resource: causally, it is not
+necessary to remember what happened before because it will be overwritten.
+Since the graph is cut every time a replace operation happens, it is enough to
+remember all operations in a single CouchDB document and let CouchDB alert us
+in case of conflict. In that case a conflict is solved by looking only at the
+first operation (since the following ones are iterative, they should all be
+played in the same order). Based on this simplification, upon receiving an
+operation from the API layer the Replication layer generates the new list of
+operations (either by appending or by replacing as seen above).
 
 All the details about the exact consistency details are explained in
-CONSISTENCY.md. We will only discuss the implementation details here. As
-explained in that document, it is necessary for Cheops to know how multiple
-requests will interoperate. This means that the operator must define
-relationships between operations: this is defined in a Relationship Matrix
-inside the ResourceConfig file.
+[CONSISTENCY.md](CONSISTENCY.md). We will only discuss the implementation
+details here. As explained in that document, it is necessary for Cheops to know
+how multiple requests will interoperate. This means that the operator must
+define relationships between operations: this is defined in a Relationship
+Matrix inside the ResourceConfig file.
 
 The ResourceConfig can be sent on each push of a new operation, but right now
 it is expected to be sent at the beginning of the life of a resource (ie when
@@ -158,7 +179,7 @@ recommended at the time.
 
 Inside the ResourceConfig the major structure is the RelationshipMatrix. It has
 more details in the paper (see the [Thesis Manuscript,
-2023](https://theses.hal.science/tel-04081084/) but the gist is the following:
+2023](https://theses.hal.science/tel-04081084/)) but the gist is the following:
 the matrix is a list of tuples with the following fields:
 - Before: a type of operation
 - After: a type of operation
@@ -178,9 +199,9 @@ existing ones or a new block must be created
 - when two conflicting list of operations exist, the first operation on each
 side is compared
 
-As alluded above, and described in CONSISTENCY.md in further details, the list
-of operations might be periodically "pruned" when operations with the proper
-types are added to the existing list.
+As alluded above, and described in [CONSISTENCY.md](CONSISTENCY.md) in further
+details, the list of operations might be periodically "pruned" when operations
+with the proper types are added to the existing list.
 
 An important consequence of the design is that until any pruning happens, the
 entirety of the payload is stored along operations, in CouchDB. Typically this
@@ -206,7 +227,7 @@ without losing data it also associates each modification of a document with a
 revision string, and to make a change the user must also give the existing
 revision they want to change. This means the representation of the lifecycle of
 a given key is not a list of versions, but a graph. More details are given in
-the documentation at https://docs.couchdb.org/en/stable/intro/overview.html.
+[the CouchDB documentation](https://docs.couchdb.org/en/stable/intro/overview.html).
 CouchDB has a concept of "databases", which are simply collections of json
 documents; each "database" can be useful if different access rights are needed,
 but for Cheops we only use a single "database" called "cheops" where the
@@ -220,20 +241,21 @@ node to each of the locations in the new document (except of course to itself).
 It is possible that such a replication (for example, from node23 to node47) was
 already created for another resource; we effectively decorrelate those
 replication jobs from the resources themselves and only look at the locations.
-See replicator/replicator.go:/func.*replicate for the implementation.
+See [replicator/replicator.go](replicator/replicator.go:/func.*replicate) for
+the implementation.
 
 As a reminder, replication will make sure that all versions of all nodes are
 known from every node; there can be a conflict, typically when the same
 resource is updated from 2 different places before replication converged. This
-situation is described, and the solution explained, in CONSISTENCY.md. To see
-how it is done in the code, see
+situation is described, and the solution explained, in
+[CONSISTENCY.md](CONSISTENCY.md). To see how it is done in the code, see
 [replicator/replicator.go](replicator/replicator.go:/func resolveMerge)
 
 ## Configuration and usage
 
 At the moment Cheops has deployment scripts to be used in Grid5000 only: see
-the tests/g5k folder to understand how it is deployed and reuse it in other
-settings.
+the [tests/g5k](tests/g5k) folder to understand how it is deployed and reuse
+it in other settings.
 
 Note that it is crucial to define your resource configuration, especially the
 relationship matrix, for cheops to work properly. See how to do that in the
@@ -281,7 +303,7 @@ CouchDB becomes a strong requirement of Cheops, whereas today it is only an
 intermediary for sync.
 
 
-### pruning operations when all nodes agree
+### Pruning operations when all nodes agree
 
 The composition of a cluster for a given resource is known and cannot change.
 Moreover, every node knows the execution status of all operations from other
@@ -314,14 +336,14 @@ extend Cheops to offer a system of hooks for this.
 
 The simplest way is to plug into CouchDB. It has the `_changes` endpoint
 facilitating realtime following of changes (this is what Cheops itself uses) as
-described in its documentation:
-https://docs.couchdb.org/en/stable/api/database/changes.html. However this
-again puts CouchDB as a fundamental brick of the solution and prevents any
-change in that direction. It might be more interesting to offer a simplified
-changes feed at the Cheops level (maybe `/changes/{id}` to follow changes of a
-specific resource), and tell cheops to follow changes inside CouchDB for that
-hypothetical new endpoint. It wouldn't take more than 2 days for an experienced
-engineer to build this.
+described in its
+[documentation](https://docs.couchdb.org/en/stable/api/database/changes.html).
+However this again puts CouchDB as a fundamental brick of the solution and
+prevents any change in that direction. It might be more interesting to offer a
+simplified changes feed at the Cheops level (maybe `/changes/{id}` to follow
+changes of a specific resource), and tell cheops to follow changes inside
+CouchDB for that hypothetical new endpoint. It wouldn't take more than 2 days
+for an experienced engineer to build this.
 
 This solution is simplest but requires the operator's computer to always be
 turned on: since it is a pull-based mechanism, something needs to continuously
@@ -334,7 +356,7 @@ account
 - run any kind of command for any scenario (push a log in a supervision system,
 ...)
 
-Webhooks are often available in current messanging tools and can be a good way
+Webhooks are often available in current messaging tools and can be a good way
 to inform a team of operators, where they usually discuss, that something
 happened on a resource.
 
@@ -347,7 +369,50 @@ coordination will be required. An experienced engineer wouldn't take more than
 implement a "summary" version where only one action is taken when all the nodes
 have run the same operation on the same resource.
 
-###
+### More than shell commands
+
+At the time of writing, Cheops operations are always shell commands. This was
+chosen for the purpose of experimenting: applications were chose such that they
+were usable through shell commands. Thanks to that we elude the particulars of
+each application's potential protocol (be it HTTP, custom like Redis, or the
+filesystem), because they're not the most relevant aspect of our research.
+
+This might not be a desirable end goal though. Shell commands carry with them
+the issue of being security holes: if the user can send anything, they have to
+be completely trusted. It also assumes an application and its resources can be
+manipulated with shell commands. The shell command also needs to be installed
+on the Cheops node.
+
+Because of this it might be interesting to give other options to operators. If
+the application is primarily used through HTTP, the shell command we'd use
+would be `curl`, but it would be easier and more robust to store the exact HTTP
+request as operations. The go language has all the facilities to do that: the
+most difficult job will be for future developers to evaluate how to best input
+that request to Cheops. Perhaps inspiration can be taken from the
+[httpie](https://httpie.io/cli) cli tool, and an equivalent can be built for
+Cheops. An extension to `httpie` to include the cheops-specific information,
+for example through environment variable, would take a week and allow users to
+specify commands like so:
+
+```sh
+% ID=my-resource SITES=site1&site2&site3 cheops-web POST /app/api/modify resource=my-resource foo=bar
+```
+
+The same idea can be re-appropriated for non-HTTP protocols:
+```sh
+% ID=my-list SITES=site1&site2&site3 cheops-redis LSET my-list 23 new-val
+```
+
+In order to do this, a plugin architecture can be used where all backends are implementation of the same interface:
+
+```go
+type Backend interface {
+	Run(cmd Command) Result
+}
+```
+and all backends would register themselves at the beginning of the lifecycle of Cheops, that would then pick the proper `Backend` to run the operation with based on a command type.
+
+Such a change would probably take a week to implement for the first protocol, and then a few days for each new protocol
 
 ## How to contribute
 

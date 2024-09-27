@@ -89,6 +89,15 @@ nothing more can happen until a new operation comes in.
 Note that tests are not proper integration tests. They not only tests through
 Cheops return content, but also by directly querying CouchDB.
 
+At the time of writing 3 applications are tested:
+- filesystem in `test_parallel.py`
+- kubernetes in `test_kube.py`
+- redis in `test_redis.py`
+
+Those 3 tests are the basis of our continuous testing strategy. They define the
+kind of behaviour we are interested in. Any other application should take
+inspiration from them to implement the same tests.
+
 ## multitail.sh
 
 A helper script that runs multitail, a tool to follow multiple files as the
