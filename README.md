@@ -273,6 +273,7 @@ multiple tests.
 ├── cli        			# All the command-line interface blobs
 ├── tests/g5k           # infrastructure for testing on g5k, see tests/g5k/README.md
 ├── CONSISTENCY.md 		# How Cheops ensures a consistent state on all nodes
+├── openapi.yml 		# An OpenAPI definition file
 └── README.md           # This file
 
 

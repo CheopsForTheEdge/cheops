@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   description: |-
     This is the specification for the Cheops API.
-  version: 0.0.1
+  version: 0.1.0
   title: Cheops API - OpenAPI 3.0.3
   contact:
     url: https://gitlab.com/discovery/cheops
