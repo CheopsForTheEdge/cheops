@@ -1,0 +1,218 @@
+openapi: 3.0.3
+info:
+  description: |-
+    This is the specification for the Cheops API.
+  version: 0.0.1
+  title: Cheops API - OpenAPI 3.0.3
+  contact:
+    url: https://gitlab.com/discovery/cheops
+    name: Cheops website
+  license:
+    name: GNU AGPLv3
+    url: 'https://www.gnu.org/licenses/agpl-3.0.txt'
+servers:
+    - url: 'http://localhost:{port}/api'
+      description: Server used for development by the mock server.
+      variables:
+        port:
+          default: '8079'
+          description: The port to use for the mock server.
+tags:
+  - name: exec
+    description: Executing operation
+  - name: show
+    description: Visualizing the status of a resource
+
+paths:
+  /exec/{id}:
+    post:
+      tags:
+        - exec
+      summary: Execute a command
+      description: This endpoint sends an operation to a Cheops node. Cheops will organize all operations to come up with a convergent list on all nodes, make sure all the operations that need to be run on each node are run, synchronize the replies, and return the replies to the caller. Times out after 30 seconds
+      operationId: exec
+      parameters:
+        - $ref: '#/components/parameters/paramsResourceId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - command
+                - sites
+                - type
+              properties:
+                command:
+                  type: string
+                  description: Command used to create resource
+                  example: kubectl apply {recipe.yml}
+                sites:
+                  type: string
+                  description: List of nodes where resource must exist, separated by '&'
+                  example: site12&site23
+                type:
+                  type: string
+                  description: Type of resource as defined in Relationships Matrix
+                  example: apply
+                config:
+                  type: object
+                  description: JSON document specifying all the configuration related to the resource, especially the Relationships Matrix
+                  properties:
+                    RelationshipMatrix:
+                      type: array
+                      description: a list of Relationships
+                      items:
+                        type: object
+                        description: a Relationship between two types of commands
+                        required:
+                          - Before
+                          - After
+                          - Result
+                        properties:
+                          Before:
+                            type: string
+                            description: an operation type as defined by the user
+                          After:
+                            type: string
+                            description: an operation type as defined by the user
+                          Result:
+                            type: string
+                            enum:
+                              - "take-one"
+                              - "take-both-any-order"
+                              - "take-both-keep-order"
+                              - "take-both-reverse-order"
+                            description: see CONSISTENCY.md for details on the values
+                files:
+                  type: array
+                  description: files necessary for the command to run, stored as base64-encoded strings
+                  items:
+                    type: string
+                    format: byte # base64-encoded file contents
+      responses:
+        200:
+          description: Responses of tentative synchronization and execution. Cheops will give a reply for each node, whether it is successful, failed or unknown because of a timeout. Each reply is a JSON object flattened to a single line. All replies are separated by a newline. The model shown here is one of a single reply.
+          content:
+            application/json:
+              schema:
+                type: object
+                description: A single reply from a node. Other replies will be added at the end, separated by a newline
+                properties:
+                  Locations:
+                    type: array
+                    description: The list of sites where the resource exists
+                    example: ["site1", "site2"]
+                    items:
+                      type: string
+                      description: A site address
+                  Site:
+                    type: string
+                    description: The site where the command was executed
+                    example: site2
+                  RequestId:
+                    type: string
+                    description: the id given by Cheops to this request
+                    example: NTEOHRCNKNEORUHROCHU
+                  ResourceId:
+                    type: string
+                    description: the id of the resource
+                    example: my-deployment
+                  Status:
+                    type: string
+                    description: status of the execution of the command.
+                    enum:
+                      - OK
+                      - KO
+                      - TIMEOUT
+                  Cmd:
+                    type: object
+                    required:
+                      - Input
+                    properties:
+                      Input:
+                        type: string
+                        description: the command that was run
+                        example: kubectl apply {recipe.yml}
+                  Type:
+                    type: string
+                    description: a field to designate the object type. Always REPLY
+                    enum:
+                      - REPLY
+
+        400:
+          $ref: '#/components/responses/badRequest'
+        default:
+          $ref: '#/components/responses/unexpected'
+
+  /show/{id}:
+    post:
+      tags:
+        - show
+      summary: Displays the current state of a resource
+      description: This endpoint is used to check the status of a resource on all nodes. The operator sends a command, typically a preview command. Cheops sends that command to be executed on all nodes and returns the aggregated result
+      operationId: show
+      parameters:
+        - $ref: '#/components/parameters/paramsResourceId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - command
+                - sites
+              properties:
+                command:
+                  type: string
+                  description: Command used to create resource
+                  example: kubectl get deployment DEPLOYMENT-ID
+                sites:
+                  type: string
+                  description: List of nodes where resource must exist, separated by '&'
+                  example: site12&site23
+      responses:
+        200:
+          description: Current status of the resource on each site
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  additionalProperties:
+                    type: object
+                    properties:
+                      Status:
+                        description: The result of running the command
+                        type: string
+                        enum:
+                          - OK
+                          - KO
+                          - TIMEOUT
+                      Output:
+                        type: string
+                        description: the output of the command
+                        example:
+        400:
+          $ref: '#/components/responses/badRequest'
+        default:
+          $ref: '#/components/responses/unexpected'
+
+components:
+  parameters:
+    paramsResourceId:
+      name: id
+      in: path
+      required: true
+      description: Id of the resource.
+      schema:
+        type: string
+        example: 746f746f2e747874a
+  responses:
+    badRequest:
+      description: Bad Request
+    unexpected:
+      description: Unexpected internal error.
+
