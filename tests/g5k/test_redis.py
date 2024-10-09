@@ -42,12 +42,12 @@ class TestRedis(tests.CheopsTest):
                 'type': (None, 'set'),
             })
             self.do(id, 1, {
-                'command': (None, f"redis-cli incrby {id} 12"),
+                'command': (None, f"redis-cli incrby {id} 13"),
                 'sites': (None, g5k.sites),
                 'type': (None, 'inc'),
             })
             self.do(id, 2, {
-                'command': (None, f"redis-cli incrby {id}"),
+                'command': (None, f"redis-cli incrby {id} -12"),
                 'sites': (None, g5k.sites),
                 'type': (None, 'inc'),
             })
@@ -81,12 +81,12 @@ class TestRedis(tests.CheopsTest):
                 'type': (None, 'set'),
             })
             self.do(id, 1, {
-                'command': (None, f"redis-cli incrby {id} 12"),
+                'command': (None, f"redis-cli incrby {id} 13"),
                 'sites': (None, g5k.sites),
                 'type': (None, 'inc'),
             })
             self.do(id, 2, {
-                'command': (None, f"redis-cli incrby {id}"),
+                'command': (None, f"redis-cli incrby {id} -12"),
                 'sites': (None, g5k.sites),
                 'type': (None, 'inc'),
             })
