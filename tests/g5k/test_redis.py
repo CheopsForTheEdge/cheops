@@ -38,17 +38,17 @@ class TestRedis(tests.CheopsTest):
 
             self.do(id, 0, {
                 'command': (None, f"redis-cli set {id} 29"),
-                'sites': (None, g5k.g5k.sites),
+                'sites': (None, g5k.sites),
                 'type': (None, 'set'),
             })
             self.do(id, 1, {
                 'command': (None, f"redis-cli incrby {id} 12"),
-                'sites': (None, g5k.g5k.sites),
+                'sites': (None, g5k.sites),
                 'type': (None, 'inc'),
             })
             self.do(id, 2, {
                 'command': (None, f"redis-cli incrby {id}"),
-                'sites': (None, g5k.g5k.sites),
+                'sites': (None, g5k.sites),
                 'type': (None, 'inc'),
             })
 

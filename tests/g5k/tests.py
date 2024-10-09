@@ -1,6 +1,7 @@
 import g5k
 import unittest
 import requests
+import enoslib as en
 
 import firewall_block
 

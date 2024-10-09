@@ -16,7 +16,7 @@ class TestDifferentSites(tests.CheopsTest):
     def test_simple(self):
         id1 = ''.join(random.choice(string.ascii_lowercase) for i in range(10))
         id2 = ''.join(random.choice(string.ascii_lowercase) for i in range(10))
-        with self.subTest(ids=[id1,id2]):
+        with self.subTest(ids=[id1,id2], hosts=g5k.hosts):
             self.do(id1, 0, {
                 'command': (None, "mkdir -p /tmp/foo; echo left > /tmp/foo/left"),
                 'sites': (None, '&'.join(g5k.hosts[:3])),

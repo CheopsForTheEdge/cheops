@@ -96,7 +96,7 @@ class TestKube(tests.CheopsTest):
             self.do(id, 1, {
                 'command': (None, f"sudo kubectl patch deployment deployment-{id} -p '${patch}'"),
                 'sites': (None, g5k.sites),
-                'type': (None, 'patch'),
+                'type': (None, 'apply'),
             })
             recipe['spec']['replicas'] = 4
             self.do(id, 2, {
@@ -108,7 +108,7 @@ class TestKube(tests.CheopsTest):
             self.wait_and_verify(id)
 
             # Check that the spec is the same everywhere. Other fields may differ but they don't matter
-            self.verify_shell(f"sudo kubectl get deployment deployment-{id} -o json | jq '.spec'")
+            self.verify_shell(f"sudo kubectl get deployment deployment-{id} -o json | jq '.spec.replica'")
 
     def test_simple_with_disconnect(self):
         id = ''.join(random.choice(string.ascii_lowercase) for i in range(10))
@@ -146,7 +146,7 @@ class TestKube(tests.CheopsTest):
             self.do(id, 1, {
                 'command': (None, f"sudo kubectl patch deployment deployment-{id} -p '${patch}'"),
                 'sites': (None, g5k.sites),
-                'type': (None, 'patch'),
+                'type': (None, 'apply'),
             })
             recipe['spec']['replicas'] = 4
             self.do(id, 2, {
@@ -160,7 +160,7 @@ class TestKube(tests.CheopsTest):
             self.wait_and_verify(id)
 
             # Check that the spec is the same everywhere. Other fields may differ but they don't matter
-            self.verify_shell(f"sudo kubectl get deployment deployment-{id} -o json | jq '.spec'")
+            self.verify_shell(f"sudo kubectl get deployment deployment-{id} -o json | jq '.spec.replica'")
 
     def test_simple_with_failure(self):
         id = ''.join(random.choice(string.ascii_lowercase) for i in range(10))
@@ -198,7 +198,7 @@ class TestKube(tests.CheopsTest):
             self.do(id, 1, {
                 'command': (None, f"sudo kubectl patch deployment deployment-{id} -p '${patch}'"),
                 'sites': (None, g5k.sites),
-                'type': (None, 'patch'),
+                'type': (None, 'apply'),
             })
             recipe['spec']['replicas'] = "not-a-number"
             self.do(id, 2, {
@@ -207,14 +207,14 @@ class TestKube(tests.CheopsTest):
                 'type': (None, 'apply'),
                 'replace_recipe.yml': ('replace_recipe.yml', yaml.dump(recipe)),
             })
-            print(f"Operation for {id} on {hosts[2]} should is expected to have failed")
+            print(f"Operation for {id} on {g5k.hosts[2]} is expected to have failed")
 
             firewall_block.deactivate([g5k.roles_for_hosts[2]])
             firewall_block.wait(g5k.hosts)
             # Don't verify here, the last one is supposed to fail
 
             # Check that the spec is the same everywhere. Other fields may differ but they don't matter
-            self.verify_shell(f"sudo kubectl get deployment deployment-{id} -o json | jq '.spec'")
+            self.verify_shell(f"sudo kubectl get deployment deployment-{id} -o json | jq '.spec.replica'")
 
 if __name__ == '__main__':
     g5k.init()
