@@ -73,7 +73,7 @@ class TestRedis(tests.CheopsTest):
             })
             self.wait_and_verify(id)
 
-            firewall_block.activate([g5k.roles_for_hosts[2]])
+            firewall_block.activate(g5k.roles_for_hosts)
 
             self.do(id, 0, {
                 'command': (None, f"redis-cli set {id} 29"),
@@ -91,7 +91,7 @@ class TestRedis(tests.CheopsTest):
                 'type': (None, 'inc'),
             })
 
-            firewall_block.deactivate([g5k.roles_for_hosts[2]])
+            firewall_block.deactivate(g5k.roles_for_hosts)
             self.wait_and_verify(id)
 
             self.verify_shell(f"redis-cli -c get {id}")
@@ -113,7 +113,7 @@ class TestRedis(tests.CheopsTest):
             })
             self.wait_and_verify(id)
 
-            firewall_block.activate([g5k.roles_for_hosts[2]])
+            firewall_block.activate(g5k.roles_for_hosts)
 
             self.do(id, 0, {
                 'command': (None, f"redis-cli set {id} 29"),
@@ -128,10 +128,10 @@ class TestRedis(tests.CheopsTest):
             self.do(id, 2, {
                 'command': (None, f"redis-cli sadd {id} error"),
                 'sites': (None, g5k.sites),
-                'type': (None, 'set'),
+                'type': (None, 'inc'),
             })
 
-            firewall_block.deactivate([g5k.roles_for_hosts[2]])
+            firewall_block.deactivate(g5k.roles_for_hosts)
             self.wait_and_verify(id)
 
             self.verify_shell(f"redis-cli -c get {id}")

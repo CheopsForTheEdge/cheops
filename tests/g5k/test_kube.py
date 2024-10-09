@@ -133,7 +133,7 @@ class TestKube(tests.CheopsTest):
             })
             self.wait_and_verify(id)
 
-            firewall_block.activate([g5k.roles_for_hosts[2]])
+            firewall_block.activate(g5k.roles_for_hosts)
 
             recipe['spec']['replicas'] = 2
             self.do(id, 0, {
@@ -156,7 +156,7 @@ class TestKube(tests.CheopsTest):
                 'replace_recipe.yml': ('replace_recipe.yml', yaml.dump(recipe)),
             })
 
-            firewall_block.deactivate([g5k.roles_for_hosts[2]])
+            firewall_block.deactivate(g5k.roles_for_hosts)
             self.wait_and_verify(id)
 
             # Check that the spec is the same everywhere. Other fields may differ but they don't matter
@@ -185,7 +185,7 @@ class TestKube(tests.CheopsTest):
             })
             self.wait_and_verify(id)
 
-            firewall_block.activate([g5k.roles_for_hosts[2]])
+            firewall_block.activate(g5k.roles_for_hosts)
 
             recipe['spec']['replicas'] = 2
             self.do(id, 0, {
@@ -209,7 +209,7 @@ class TestKube(tests.CheopsTest):
             })
             print(f"Operation for {id} on {g5k.hosts[2]} is expected to have failed")
 
-            firewall_block.deactivate([g5k.roles_for_hosts[2]])
+            firewall_block.deactivate(g5k.roles_for_hosts)
             firewall_block.wait(g5k.hosts)
             # Don't verify here, the last one is supposed to fail
 
