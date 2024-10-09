@@ -114,26 +114,28 @@ with en.actions(roles=g5k.roles, gather_facts=True) as p:
             search_string="bind 127.0.0.1",
             line="bind 0.0.0.0 ::"
     )
-    p.lineinfile(
-            path="/etc/redis/redis.conf",
-            search_string="# cluster-config-file",
-            line="cluster-config-file nodes.conf"
-    )
-    p.lineinfile(
-            path="/etc/redis/redis.conf",
-            search_string="# cluster-enabled",
-            line="cluster-enabled yes"
-    )
-    p.lineinfile(
-            path="/etc/redis/redis.conf",
-            search_string="appendonly no",
-            line="appendonly yes"
-    )
-    p.lineinfile(
-            path="/etc/redis/redis.conf",
-            search_string="# cluster-node-timeout",
-            line="cluster-node-timeout 5000"
-    )
+
+    if False:
+        p.lineinfile(
+                path="/etc/redis/redis.conf",
+                search_string="# cluster-config-file",
+                line="cluster-config-file nodes.conf"
+        )
+        p.lineinfile(
+                path="/etc/redis/redis.conf",
+                search_string="# cluster-enabled",
+                line="cluster-enabled yes"
+        )
+        p.lineinfile(
+                path="/etc/redis/redis.conf",
+                search_string="appendonly no",
+                line="appendonly yes"
+        )
+        p.lineinfile(
+                path="/etc/redis/redis.conf",
+                search_string="# cluster-node-timeout",
+                line="cluster-node-timeout 5000"
+        )
     p.systemd(
             name="redis",
             state="restarted"
