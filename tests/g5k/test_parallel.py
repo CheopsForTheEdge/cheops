@@ -20,48 +20,14 @@ import firewall_block
 import g5k
 
 class TestParallel(tests.CheopsTest):
-    def init(self, id, request):
-        self.do(id, 0, request)
-
-        replies = [requests.get(f"http://{host}:5984/cheops/{id}") for host in g5k.hosts[:3]]
-        for reply in replies:
-            self.assertEqual(200, reply.status_code)
-            self.assertEqual(replies[0].json(), reply.json())
-
-        # Deactivate sync (by blocking at firewall level), send 2 parallel, conflicting commands, and reactivate sync
-        firewall_block.activate(g5k.roles_for_hosts)
-
-    def do_left_and_right(self, id, request_left, request_right):
-        self.do(id, 0, request_left)
-        self.do(id, 1, request_right)
-
-        firewall_block.deactivate(g5k.roles_for_hosts)
-        self.wait_and_verify(id)
 
     def test_simple(self):
-        id = ''.join(random.choice(string.ascii_lowercase) for i in range(10))
-        with self.subTest(id=id):
-            self.init(id, {
-                'command': (None, f"mkdir -p /tmp/{id} && touch /tmp/{id}/init"),
-                'sites': (None, g5k.sites),
-                'type': (None, "touch"),
-            })
-            self.do_left_and_right(id, {
-                'command': (None, f"mkdir -p /tmp/{id} && touch /tmp/{id}/left"),
-                'sites': (None, g5k.sites),
-                'type': (None, "touch"),
-            }, {
-                'command': (None, f"mkdir -p /tmp/{id} && touch /tmp/{id}/right"),
-                'sites': (None, g5k.sites),
-                'type': (None, "touch"),
-            })
-            self.verify_shell(f"ls /tmp/{id}")
+        firewall_block.deactivate(g5k.roles_for_hosts)
 
-    def test_set_and_add(self):
         id = ''.join(random.choice(string.ascii_lowercase) for i in range(10))
         with self.subTest(id=id):
-            self.init(id, {
-                'command': (None, f"mkdir -p /tmp/{id} && echo init > /tmp/{id}/file"),
+            self.do(id, 0, {
+                'command': (None, f"echo init > /tmp/{id}"),
                 'sites': (None, g5k.sites),
                 'type': (None, "set"),
                 'config': (None, json.dumps({
@@ -72,22 +38,32 @@ class TestParallel(tests.CheopsTest):
                     ]
                 })),
             })
-            self.do_left_and_right(id, {
-                'command': (None, f"mkdir -p /tmp/{id} && echo left >> /tmp/{id}/file"),
-                'sites': (None, g5k.sites),
-                'type': (None, "add"),
-            }, {
-                'command': (None, f"mkdir -p /tmp/{id} && echo right >> /tmp/{id}/file"),
+            self.do(id, 0, {
+                'command': (None, f"echo left >> /tmp/{id}"),
                 'sites': (None, g5k.sites),
                 'type': (None, "add"),
             })
-            self.verify_shell(f"cat /tmp/{id}/file")
+            self.do(id, 1, {
+                'command': (None, f"echo middle > /tmp/{id}"),
+                'sites': (None, g5k.sites),
+                'type': (None, "set"),
+            })
+            self.do(id, 2, {
+                'command': (None, f"echo right >> /tmp/{id}"),
+                'sites': (None, g5k.sites),
+                'type': (None, "add"),
+            })
 
-    def test_set_and_set(self):
+            self.wait_and_verify(id)
+            self.verify_shell(f"cat /tmp/{id}")
+
+    def test_simple_with_disconnect(self):
+        firewall_block.deactivate(g5k.roles_for_hosts)
+
         id = ''.join(random.choice(string.ascii_lowercase) for i in range(10))
         with self.subTest(id=id):
-            self.init(id, {
-                'command': (None, f"mkdir -p /tmp/{id} && echo init > /tmp/{id}/file"),
+            self.do(id, 0, {
+                'command': (None, f"echo init > /tmp/{id}"),
                 'sites': (None, g5k.sites),
                 'type': (None, "set"),
                 'config': (None, json.dumps({
@@ -98,16 +74,70 @@ class TestParallel(tests.CheopsTest):
                     ]
                 })),
             })
-            self.do_left_and_right(id, {
-                'command': (None, f"mkdir -p /tmp/{id} && echo left > /tmp/{id}/file"),
+            self.wait_and_verify(id)
+
+            firewall_block.activate(g5k.roles_for_hosts)
+            self.do(id, 0, {
+                'command': (None, f"echo left >> /tmp/{id}"),
                 'sites': (None, g5k.sites),
-                'type': (None, "set"),
-            }, {
-                'command': (None, f"mkdir -p /tmp/{id} && echo right > /tmp/{id}/file"),
+                'type': (None, "add"),
+            })
+            self.do(id, 1, {
+                'command': (None, f"echo middle > /tmp/{id}"),
                 'sites': (None, g5k.sites),
                 'type': (None, "set"),
             })
-            self.verify_shell(f"cat /tmp/{id}/file")
+            self.do(id, 2, {
+                'command': (None, f"echo right >> /tmp/{id}"),
+                'sites': (None, g5k.sites),
+                'type': (None, "add"),
+            })
+
+            firewall_block.deactivate(g5k.roles_for_hosts)
+
+            self.wait_and_verify(id)
+            self.verify_shell(f"cat /tmp/{id}")
+
+    def test_simple_with_failure(self):
+        firewall_block.deactivate(g5k.roles_for_hosts)
+
+        id = ''.join(random.choice(string.ascii_lowercase) for i in range(10))
+        with self.subTest(id=id):
+            self.do(id, 0, {
+                'command': (None, f"echo init > /tmp/{id}"),
+                'sites': (None, g5k.sites),
+                'type': (None, "set"),
+                'config': (None, json.dumps({
+                    'RelationshipMatrix': [
+                        {'Before': 'set', 'After': 'set', 'Result': "take-one"},
+                        {'Before': 'set', 'After': 'add', 'Result': "take-both-keep-order"},
+                        {'Before': 'add', 'After': 'set', 'Result': "take-both-reverse-order"},
+                    ]
+                })),
+            })
+            self.wait_and_verify(id)
+
+            firewall_block.activate(g5k.roles_for_hosts)
+            self.do(id, 0, {
+                'command': (None, f"echo left >> /tmp/{id}"),
+                'sites': (None, g5k.sites),
+                'type': (None, "add"),
+            })
+            self.do(id, 1, {
+                'command': (None, f"echo middle > /tmp/{id}"),
+                'sites': (None, g5k.sites),
+                'type': (None, "set"),
+            })
+            self.do(id, 2, {
+                'command': (None, f"echo right >> /tmp/{id}/sub-file"),
+                'sites': (None, g5k.sites),
+                'type': (None, "add"),
+            })
+
+            firewall_block.deactivate(g5k.roles_for_hosts)
+
+            self.wait_and_verify(id)
+            self.verify_shell(f"cat /tmp/{id}")
 
 if __name__ == '__main__':
     g5k.init()
