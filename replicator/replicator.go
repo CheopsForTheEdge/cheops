@@ -596,21 +596,21 @@ func findOperationsToRun(ops []model.Operation, replies []model.ReplyDocument) [
 		return false
 	}
 
-	wasRunning := true
-	startCopy := 0
-
+	firstNotRan := len(ops)
+	lastRan := -1
 	for i, op := range ops {
 		if isRan(op) {
-			if !wasRunning {
-				return ops
-			}
-			startCopy = i + 1
-		} else {
-			wasRunning = false
-			startCopy = i
+			lastRan = i
+		} else if firstNotRan == len(ops) {
+			firstNotRan = i
 		}
 	}
-	return ops[startCopy:]
+
+	if firstNotRan > lastRan {
+		return ops[firstNotRan:]
+	} else {
+		return ops
+	}
 }
 
 func (r *Replicator) RunDirect(ctx context.Context, command string) (string, error) {

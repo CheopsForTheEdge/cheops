@@ -361,6 +361,30 @@ func TestFindOperations(t *testing.T) {
 				{RequestId: "inc1"},
 				{RequestId: "inc2"},
 			},
+		}, {
+			ops: []model.Operation{
+				{RequestId: "set"},
+				{RequestId: "inc1"},
+				{RequestId: "inc2"},
+			},
+			replies: []model.ReplyDocument{},
+			expected: []model.Operation{
+				{RequestId: "set"},
+				{RequestId: "inc1"},
+				{RequestId: "inc2"},
+			},
+		}, {
+			ops: []model.Operation{
+				{RequestId: "set"},
+				{RequestId: "inc1"},
+				{RequestId: "inc2"},
+			},
+			replies: []model.ReplyDocument{
+				{RequestId: "set"},
+				{RequestId: "inc1"}},
+			expected: []model.Operation{
+				{RequestId: "inc2"},
+			},
 		},
 	}
 
@@ -368,7 +392,7 @@ func TestFindOperations(t *testing.T) {
 		torun := findOperationsToRun(vector.ops, vector.replies)
 
 		if len(torun) != len(vector.expected) {
-			t.Fatalf("vector %d: got %d elem want %d", vi, len(torun), len(vector.expected))
+			t.Fatalf("vector %d: got %v want %v", vi, logops(torun), logops(vector.expected))
 		}
 
 		for i := range torun {
