@@ -8,24 +8,24 @@ const (
 )
 
 type ResourceConfig struct {
-	RelationshipMatrix []Relationship
+	ResolutionMatrix []Resolution
 }
 
 func (c ResourceConfig) IsEmpty() bool {
-	return len(c.RelationshipMatrix) == 0
+	return len(c.ResolutionMatrix) == 0
 }
 
-type RelationshipType string
+type ResolutionType string
 
 const (
-	TakeOne              RelationshipType = "take-one"
-	TakeBothAnyOrder     RelationshipType = "take-both-any-order"
-	TakeBothKeepOrder    RelationshipType = "take-both-keep-order"
-	TakeBothReverseOrder RelationshipType = "take-both-reverse-order"
+	TakeOne              ResolutionType = "take-one"
+	TakeBothAnyOrder     ResolutionType = "take-both-any-order"
+	TakeBothKeepOrder    ResolutionType = "take-both-keep-order"
+	TakeBothReverseOrder ResolutionType = "take-both-reverse-order"
 )
 
-type Relationship struct {
+type Resolution struct {
 	Before OperationType
 	After  OperationType
-	Result RelationshipType
+	Result ResolutionType
 }

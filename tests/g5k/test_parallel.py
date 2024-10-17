@@ -31,7 +31,7 @@ class TestParallel(tests.CheopsTest):
                 'sites': (None, g5k.sites),
                 'type': (None, "set"),
                 'config': (None, json.dumps({
-                    'RelationshipMatrix': [
+                    'ResolutionMatrix': [
                         {'Before': 'set', 'After': 'set', 'Result': "take-one"},
                         {'Before': 'set', 'After': 'add', 'Result': "take-both-keep-order"},
                         {'Before': 'add', 'After': 'set', 'Result': "take-both-reverse-order"},
@@ -67,7 +67,7 @@ class TestParallel(tests.CheopsTest):
                 'sites': (None, g5k.sites),
                 'type': (None, "set"),
                 'config': (None, json.dumps({
-                    'RelationshipMatrix': [
+                    'ResolutionMatrix': [
                         {'Before': 'set', 'After': 'set', 'Result': "take-one"},
                         {'Before': 'set', 'After': 'add', 'Result': "take-both-keep-order"},
                         {'Before': 'add', 'After': 'set', 'Result': "take-both-reverse-order"},
@@ -108,7 +108,7 @@ class TestParallel(tests.CheopsTest):
                 'sites': (None, g5k.sites),
                 'type': (None, "set"),
                 'config': (None, json.dumps({
-                    'RelationshipMatrix': [
+                    'ResolutionMatrix': [
                         {'Before': 'set', 'After': 'set', 'Result': "take-one"},
                         {'Before': 'set', 'After': 'add', 'Result': "take-both-keep-order"},
                         {'Before': 'add', 'After': 'set', 'Result': "take-both-reverse-order"},

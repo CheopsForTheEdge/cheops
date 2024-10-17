@@ -22,7 +22,7 @@ class TestRedis(tests.CheopsTest):
     def test_simple(self):
         id = ''.join(random.choice(string.ascii_lowercase) for i in range(10))
         with self.subTest(id=id):
-            config = {'RelationshipMatrix': [
+            config = {'ResolutionMatrix': [
                 {'Before': 'set', 'After': 'set', 'Result': 'take-one'},
                 {'Before': 'set', 'After': 'inc', 'Result': 'take-both-keep-order'},
                 {'Before': 'inc', 'After': 'set', 'Result': 'take-both-reverse-order'},
@@ -59,7 +59,7 @@ class TestRedis(tests.CheopsTest):
     def test_simple_with_disconnect(self):
         id = ''.join(random.choice(string.ascii_lowercase) for i in range(10))
         with self.subTest(id=id):
-            config = {'RelationshipMatrix': [
+            config = {'ResolutionMatrix': [
                 {'Before': 'set', 'After': 'set', 'Result': 'take-one'},
                 {'Before': 'set', 'After': 'inc', 'Result': 'take-both-keep-order'},
                 {'Before': 'inc', 'After': 'set', 'Result': 'take-both-reverse-order'},
@@ -99,7 +99,7 @@ class TestRedis(tests.CheopsTest):
     def test_simple_with_failure(self):
         id = ''.join(random.choice(string.ascii_lowercase) for i in range(10))
         with self.subTest(id=id):
-            config = {'RelationshipMatrix': [
+            config = {'ResolutionMatrix': [
                 {'Before': 'set', 'After': 'set', 'Result': 'take-one'},
                 {'Before': 'set', 'After': 'inc', 'Result': 'take-both-keep-order'},
                 {'Before': 'inc', 'After': 'set', 'Result': 'take-both-reverse-order'},

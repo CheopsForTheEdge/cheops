@@ -28,7 +28,7 @@ up to the operator to decide which application update is associated to what
 operation: in the case of a REST application, the same PUT might be associated
 to multiple kinds of operations, depending on the business logic. The only
 information Cheops needs is how it interacts with other operations. For each
-ordered pair of operations there are 4 relationships possible:
+ordered pair of operations there are 4 resolutions possible:
 
 - (1) Take only one operation
 - (2) Take both operations in any order
@@ -49,7 +49,7 @@ already exists:
 
 - if there is none, the new operation is added
 - if there is one, we take both in the (existing, new) order and check the
-associated relationship
+associated resolution
 	- if it is 2 or 3, they are "compatible" together: the new operation is
 added at the end
 	- if it is 1 or 4, they are "incompatible" as-is: the list of existing
@@ -74,9 +74,9 @@ version all the time. The first operation of each conflict is compared, with
 the one in the winner first, and this gives us the way to resolve the issue:
 
 - if it is the same operation, then keep it and use all operations after
-- if the relationship is a 1, then the first operation of the winner is kept,
+- if the resolution is a 1, then the first operation of the winner is kept,
 along with all following operations in the winner and in the conflict
-- if the relationship is a 2, 3 or 4, then the operations are ordered as
+- if the resolution is a 2, 3 or 4, then the operations are ordered as
 desired. The operation that comes after is always appended at the end of the
 existing operations
 

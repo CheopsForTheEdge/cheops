@@ -68,7 +68,7 @@ class TestKube(tests.CheopsTest):
         id = ''.join(random.choice(string.ascii_lowercase) for i in range(10))
         with self.subTest(id=id):
             recipe['metadata']['name'] = f"deployment-{id}"
-            config = {'RelationshipMatrix': [
+            config = {'ResolutionMatrix': [
                 {'Before': 'create', 'After': 'apply', 'Result': 'take-both-reverse-order'},
                 {'Before': 'apply', 'After': 'create', 'Result': 'take-both-keep-order'},
                 {'Before': 'apply', 'After': 'apply', 'Result': 'take-one'},
@@ -114,7 +114,7 @@ class TestKube(tests.CheopsTest):
         id = ''.join(random.choice(string.ascii_lowercase) for i in range(10))
         with self.subTest(id=id):
             recipe['metadata']['name'] = f"deployment-{id}"
-            config = {'RelationshipMatrix': [
+            config = {'ResolutionMatrix': [
                 {'Before': 'create', 'After': 'apply', 'Result': 'take-both-reverse-order'},
                 {'Before': 'apply', 'After': 'create', 'Result': 'take-both-keep-order'},
                 {'Before': 'apply', 'After': 'apply', 'Result': 'take-one'},
@@ -166,7 +166,7 @@ class TestKube(tests.CheopsTest):
         id = ''.join(random.choice(string.ascii_lowercase) for i in range(10))
         with self.subTest(id=id):
             recipe['metadata']['name'] = f"deployment-{id}"
-            config = {'RelationshipMatrix': [
+            config = {'ResolutionMatrix': [
                 {'Before': 'create', 'After': 'apply', 'Result': 'take-both-reverse-order'},
                 {'Before': 'apply', 'After': 'create', 'Result': 'take-both-keep-order'},
                 {'Before': 'apply', 'After': 'apply', 'Result': 'take-one'},

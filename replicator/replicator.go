@@ -250,9 +250,9 @@ func decideOperationsToKeep(config model.ResourceConfig, existing []model.Operat
 		return []model.Operation{new}
 	}
 
-	for _, relationship := range config.RelationshipMatrix {
-		if existing[len(existing)-1].Type == relationship.Before && new.Type == relationship.After {
-			switch relationship.Result {
+	for _, resolution := range config.ResolutionMatrix {
+		if existing[len(existing)-1].Type == resolution.Before && new.Type == resolution.After {
+			switch resolution.Result {
 			case model.TakeOne:
 				return []model.Operation{new}
 			case model.TakeBothAnyOrder, model.TakeBothKeepOrder:
@@ -266,7 +266,7 @@ func decideOperationsToKeep(config model.ResourceConfig, existing []model.Operat
 		}
 	}
 
-	// No relationship found: everything is commutative
+	// No resolution found: everything is commutative
 	ret := make([]model.Operation, len(existing)+1)
 	copy(ret[0:], existing)
 	ret[len(ret)-1] = new
@@ -421,11 +421,11 @@ func resolveMerge(main model.ResourceDocument, conflicts []model.ResourceDocumen
 	h := hash(c)
 	for _, conflict := range conflicts {
 		cc := conflict.Config
-		if len(c.RelationshipMatrix) == 0 {
+		if len(c.ResolutionMatrix) == 0 {
 			c = cc
 			continue
 		}
-		if len(cc.RelationshipMatrix) == 0 {
+		if len(cc.ResolutionMatrix) == 0 {
 			continue
 		}
 		hh := hash(cc)
@@ -440,16 +440,16 @@ func resolveMerge(main model.ResourceDocument, conflicts []model.ResourceDocumen
 	ops := main.Operations
 	for _, conflict := range conflicts {
 		// Find first op
-		hasRelationship := false
-		for _, relationship := range main.Config.RelationshipMatrix {
-			if relationship.Before == ops[0].Type && relationship.After == conflict.Operations[0].Type {
-				hasRelationship = true
+		hasResolution := false
+		for _, resolution := range main.Config.ResolutionMatrix {
+			if resolution.Before == ops[0].Type && resolution.After == conflict.Operations[0].Type {
+				hasResolution = true
 				if ops[0].RequestId == conflict.Operations[0].RequestId {
 					// Actually the same, continue
 					break
 				}
 
-				switch relationship.Result {
+				switch resolution.Result {
 				case model.TakeOne:
 					ops[0] = ops[0] // keep the one already given by the sync system, it's guaranteed to be the same everywhere
 					break
@@ -470,12 +470,12 @@ func resolveMerge(main model.ResourceDocument, conflicts []model.ResourceDocumen
 					ops[0] = conflict.Operations[0]
 					break
 				default:
-					return model.ResourceDocument{}, fmt.Errorf("Invalid relationship type: %#v\n", relationship)
+					return model.ResourceDocument{}, fmt.Errorf("Invalid resolution type: %#v\n", resolution)
 				}
 			}
 		}
-		if !hasRelationship {
-			// no relationship: it's all commutative
+		if !hasResolution {
+			// no resolution: it's all commutative
 			// Take them all and sort them (to make it deterministic)
 			ops = append(ops, model.Operation{})
 			copy(ops[2:], ops[1:])
@@ -622,9 +622,9 @@ func findOperationsToRun(ops []model.Operation, replies []model.ReplyDocument, c
 			}
 		}
 
-		for _, relationship := range config.RelationshipMatrix {
-			if relationship.Before == ops[0].Type && relationship.After == ops[1].Type {
-				if relationship.Result == model.TakeBothKeepOrder {
+		for _, resolution := range config.ResolutionMatrix {
+			if resolution.Before == ops[0].Type && resolution.After == ops[1].Type {
+				if resolution.Result == model.TakeBothKeepOrder {
 					return ops
 				} else {
 					return newOps

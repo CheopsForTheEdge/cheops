@@ -14,7 +14,7 @@ type mergeTestVector struct {
 }
 
 var counterConfig model.ResourceConfig = model.ResourceConfig{
-	RelationshipMatrix: []model.Relationship{
+	ResolutionMatrix: []model.Resolution{
 		{
 			Before: model.OperationType("set"),
 			After:  model.OperationType("inc"),
@@ -337,7 +337,7 @@ func TestFindOperations(t *testing.T) {
 				{RequestId: "set"},
 			},
 			config: model.ResourceConfig{
-				RelationshipMatrix: []model.Relationship{{
+				ResolutionMatrix: []model.Resolution{{
 					Before: "inc", After: "inc", Result: model.TakeBothAnyOrder,
 				}, {
 					Before: "set", After: "inc", Result: model.TakeBothKeepOrder,
@@ -355,7 +355,7 @@ func TestFindOperations(t *testing.T) {
 			},
 			expected: []model.Operation{},
 			config: model.ResourceConfig{
-				RelationshipMatrix: []model.Relationship{{
+				ResolutionMatrix: []model.Resolution{{
 					Before: "inc", After: "inc", Result: model.TakeBothAnyOrder,
 				}, {
 					Before: "set", After: "inc", Result: model.TakeBothKeepOrder,
@@ -377,7 +377,7 @@ func TestFindOperations(t *testing.T) {
 				{RequestId: "inc2"},
 			},
 			config: model.ResourceConfig{
-				RelationshipMatrix: []model.Relationship{{
+				ResolutionMatrix: []model.Resolution{{
 					Before: "inc", After: "inc", Result: model.TakeBothAnyOrder,
 				}, {
 					Before: "set", After: "inc", Result: model.TakeBothKeepOrder,
@@ -396,7 +396,7 @@ func TestFindOperations(t *testing.T) {
 				{RequestId: "inc2"},
 			},
 			config: model.ResourceConfig{
-				RelationshipMatrix: []model.Relationship{{
+				ResolutionMatrix: []model.Resolution{{
 					Before: "inc", After: "inc", Result: model.TakeBothAnyOrder,
 				}, {
 					Before: "set", After: "inc", Result: model.TakeBothKeepOrder,
@@ -415,7 +415,7 @@ func TestFindOperations(t *testing.T) {
 				{RequestId: "inc2"},
 			},
 			config: model.ResourceConfig{
-				RelationshipMatrix: []model.Relationship{{
+				ResolutionMatrix: []model.Resolution{{
 					Before: "inc", After: "inc", Result: model.TakeBothAnyOrder,
 				}, {
 					Before: "set", After: "inc", Result: model.TakeBothKeepOrder,
@@ -434,7 +434,7 @@ func TestFindOperations(t *testing.T) {
 				{RequestId: "inc"},
 			},
 			config: model.ResourceConfig{
-				RelationshipMatrix: []model.Relationship{{
+				ResolutionMatrix: []model.Resolution{{
 					Before: "inc", After: "inc", Result: model.TakeBothAnyOrder,
 				}},
 			},

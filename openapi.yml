@@ -54,18 +54,18 @@ paths:
                   example: site12&site23
                 type:
                   type: string
-                  description: Type of resource as defined in Relationships Matrix
+                  description: Type of resource as defined in Resolutions Matrix
                   example: apply
                 config:
                   type: object
-                  description: JSON document specifying all the configuration related to the resource, especially the Relationships Matrix
+                  description: JSON document specifying all the configuration related to the resource, especially the Resolutions Matrix
                   properties:
-                    RelationshipMatrix:
+                    ResolutionMatrix:
                       type: array
-                      description: a list of Relationships
+                      description: a list of Resolutions
                       items:
                         type: object
-                        description: a Relationship between two types of commands
+                        description: a Resolution between two types of commands
                         required:
                           - Before
                           - After

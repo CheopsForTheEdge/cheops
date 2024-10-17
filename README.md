@@ -149,7 +149,7 @@ causally by `operationB` which is itself followed causally by `operationC` then
 we know there is a causal link between `operationA` and `operationC`. A
 conflict is identified when two operations have a common ancestor but there is
 no path between the two. When that happens, it is resolved using the operations
-relationship matrix for a resource. As an optimization, we realized that some
+resolution matrix for a resource. As an optimization, we realized that some
 operations are replacing the entire state of the resource: causally, it is not
 necessary to remember what happened before because it will be overwritten.
 Since the graph is cut every time a replace operation happens, it is enough to
@@ -164,7 +164,7 @@ All the details about the exact consistency details are explained in
 [CONSISTENCY.md](CONSISTENCY.md). We will only discuss the implementation
 details here. As explained in that document, it is necessary for Cheops to know
 how multiple requests will interoperate. This means that the operator must
-define relationships between operations: this is defined in a Relationship
+define resolutions between operations: this is defined in a Resolution
 Matrix inside the ResourceConfig file.
 
 The ResourceConfig can be sent on each push of a new operation, but right now
@@ -176,7 +176,7 @@ sure what will be the result; to be sure, the only way is by sending a new
 ResourceConfig at the end. Modifying ResourceConfig is therefore not
 recommended at the time.
 
-Inside the ResourceConfig the major structure is the RelationshipMatrix. It has
+Inside the ResourceConfig the major structure is the ResolutionMatrix. It has
 more details in the paper (see the [Thesis Manuscript,
 2023](https://theses.hal.science/tel-04081084/)) but the gist is the following:
 the matrix is a list of tuples with the following fields:
@@ -256,7 +256,7 @@ the [tests/g5k](tests/g5k) folder to understand how it is deployed and reuse
 it in other settings.
 
 Note that it is crucial to define your resource configuration, especially the
-relationship matrix, for cheops to work properly. See how to do that in the
+resolution matrix, for cheops to work properly. See how to do that in the
 multiple tests.
 
 ## Files
