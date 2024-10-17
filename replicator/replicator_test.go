@@ -323,34 +323,49 @@ type findTestVector struct {
 	ops      []model.Operation
 	replies  []model.ReplyDocument
 	expected []model.Operation
+	config   model.ResourceConfig
 }
 
 func TestFindOperations(t *testing.T) {
 	vectors := []findTestVector{
 		{
 			ops: []model.Operation{
-				{RequestId: "set"},
+				{RequestId: "set", Type: "set"},
 			},
 			replies: []model.ReplyDocument{},
 			expected: []model.Operation{
 				{RequestId: "set"},
 			},
+			config: model.ResourceConfig{
+				RelationshipMatrix: []model.Relationship{{
+					Before: "inc", After: "inc", Result: model.TakeBothAnyOrder,
+				}, {
+					Before: "set", After: "inc", Result: model.TakeBothKeepOrder,
+				}},
+			},
 		},
 		{
 			ops: []model.Operation{
-				{RequestId: "set"},
-				{RequestId: "inc1"},
+				{RequestId: "set", Type: "set"},
+				{RequestId: "inc1", Type: "inc"},
 			},
 			replies: []model.ReplyDocument{
 				{RequestId: "set"},
 				{RequestId: "inc1"},
 			},
 			expected: []model.Operation{},
+			config: model.ResourceConfig{
+				RelationshipMatrix: []model.Relationship{{
+					Before: "inc", After: "inc", Result: model.TakeBothAnyOrder,
+				}, {
+					Before: "set", After: "inc", Result: model.TakeBothKeepOrder,
+				}},
+			},
 		}, {
 			ops: []model.Operation{
-				{RequestId: "set"},
-				{RequestId: "inc1"},
-				{RequestId: "inc2"},
+				{RequestId: "set", Type: "set"},
+				{RequestId: "inc1", Type: "inc"},
+				{RequestId: "inc2", Type: "inc"},
 			},
 			replies: []model.ReplyDocument{
 				{RequestId: "set"},
@@ -361,11 +376,18 @@ func TestFindOperations(t *testing.T) {
 				{RequestId: "inc1"},
 				{RequestId: "inc2"},
 			},
+			config: model.ResourceConfig{
+				RelationshipMatrix: []model.Relationship{{
+					Before: "inc", After: "inc", Result: model.TakeBothAnyOrder,
+				}, {
+					Before: "set", After: "inc", Result: model.TakeBothKeepOrder,
+				}},
+			},
 		}, {
 			ops: []model.Operation{
-				{RequestId: "set"},
-				{RequestId: "inc1"},
-				{RequestId: "inc2"},
+				{RequestId: "set", Type: "set"},
+				{RequestId: "inc1", Type: "inc"},
+				{RequestId: "inc2", Type: "inc"},
 			},
 			replies: []model.ReplyDocument{},
 			expected: []model.Operation{
@@ -373,11 +395,18 @@ func TestFindOperations(t *testing.T) {
 				{RequestId: "inc1"},
 				{RequestId: "inc2"},
 			},
+			config: model.ResourceConfig{
+				RelationshipMatrix: []model.Relationship{{
+					Before: "inc", After: "inc", Result: model.TakeBothAnyOrder,
+				}, {
+					Before: "set", After: "inc", Result: model.TakeBothKeepOrder,
+				}},
+			},
 		}, {
 			ops: []model.Operation{
-				{RequestId: "set"},
-				{RequestId: "inc1"},
-				{RequestId: "inc2"},
+				{RequestId: "set", Type: "set"},
+				{RequestId: "inc1", Type: "inc"},
+				{RequestId: "inc2", Type: "inc"},
 			},
 			replies: []model.ReplyDocument{
 				{RequestId: "set"},
@@ -385,11 +414,35 @@ func TestFindOperations(t *testing.T) {
 			expected: []model.Operation{
 				{RequestId: "inc2"},
 			},
+			config: model.ResourceConfig{
+				RelationshipMatrix: []model.Relationship{{
+					Before: "inc", After: "inc", Result: model.TakeBothAnyOrder,
+				}, {
+					Before: "set", After: "inc", Result: model.TakeBothKeepOrder,
+				}},
+			},
+		}, {
+			ops: []model.Operation{
+				{RequestId: "inc", Type: "inc"},
+				{RequestId: "inc1", Type: "inc"},
+				{RequestId: "inc2", Type: "inc"},
+			},
+			replies: []model.ReplyDocument{
+				{RequestId: "inc1"},
+				{RequestId: "inc2"}},
+			expected: []model.Operation{
+				{RequestId: "inc"},
+			},
+			config: model.ResourceConfig{
+				RelationshipMatrix: []model.Relationship{{
+					Before: "inc", After: "inc", Result: model.TakeBothAnyOrder,
+				}},
+			},
 		},
 	}
 
 	for vi, vector := range vectors {
-		torun := findOperationsToRun(vector.ops, vector.replies)
+		torun := findOperationsToRun(vector.ops, vector.replies, vector.config)
 
 		if len(torun) != len(vector.expected) {
 			t.Fatalf("vector %d: got %v want %v", vi, logops(torun), logops(vector.expected))

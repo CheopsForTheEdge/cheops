@@ -544,7 +544,7 @@ func (r *Replicator) run(ctx context.Context, d model.ResourceDocument) {
 
 	commands := make([]backends.ShellCommand, 0)
 
-	opsToRun := findOperationsToRun(resourceDocument.Operations, replies)
+	opsToRun := findOperationsToRun(resourceDocument.Operations, replies, resourceDocument.Config)
 	for _, operation := range opsToRun {
 		commands = append(commands, operation.Command)
 	}
@@ -584,9 +584,13 @@ func (r *Replicator) run(ctx context.Context, d model.ResourceDocument) {
 }
 
 // findOperationsToRun selects which operations from the input should be ran.
-// If there are only new operations at the end (ie with no replies), then the current state is valid and it is enough to run the ones after
-// Otherwise if there is an operation not ran in the beginning/middle and some are ran at the end, then the current state is invalid so we have to start from the beginning
-func findOperationsToRun(ops []model.Operation, replies []model.ReplyDocument) []model.Operation {
+// If there are only new operations at the end (ie with no replies), then the
+// current state is valid and it is enough to run the ones after.
+// Otherwise if there is an operation not ran in the beginning/middle and some
+// are ran at the end, then the current state might be invalid. If the very first
+// operation is of type replace, re-run everything from it. Otherwise it's all
+// commutative so just run the new ones
+func findOperationsToRun(ops []model.Operation, replies []model.ReplyDocument, config model.ResourceConfig) []model.Operation {
 	isRan := func(op model.Operation) bool {
 		for _, reply := range replies {
 			if reply.RequestId == op.RequestId {
@@ -608,8 +612,28 @@ func findOperationsToRun(ops []model.Operation, replies []model.ReplyDocument) [
 
 	if firstNotRan > lastRan {
 		return ops[firstNotRan:]
-	} else {
+	} else if len(ops) == 1 {
 		return ops
+	} else {
+		newOps := make([]model.Operation, 0)
+		for _, op := range ops {
+			if !isRan(op) {
+				newOps = append(newOps, op)
+			}
+		}
+
+		for _, relationship := range config.RelationshipMatrix {
+			if relationship.Before == ops[0].Type && relationship.After == ops[1].Type {
+				if relationship.Result == model.TakeBothKeepOrder {
+					return ops
+				} else {
+					return newOps
+				}
+			}
+		}
+
+		// By default it's all commutative
+		return newOps
 	}
 }
 
