@@ -1,0 +1,40 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0" version="24.7.12">
+  <diagram name="Page-1" id="FRvvaF8NKtqmv-qgtZw7">
+    <mxGraphModel dx="1110" dy="1174" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="PjNXBBbHARn_HDo8mcbn-6" style="edgeStyle=none;curved=1;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=12;startSize=8;endSize=8;" parent="1" source="PjNXBBbHARn_HDo8mcbn-1" target="PjNXBBbHARn_HDo8mcbn-3" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="PjNXBBbHARn_HDo8mcbn-10" style="edgeStyle=none;curved=1;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=12;startSize=8;endSize=8;" parent="1" source="PjNXBBbHARn_HDo8mcbn-1" target="PjNXBBbHARn_HDo8mcbn-8" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="PjNXBBbHARn_HDo8mcbn-1" value="" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="37" y="-114" width="74" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="PjNXBBbHARn_HDo8mcbn-2" value="r1-naotheu" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=16;" parent="1" vertex="1">
+          <mxGeometry x="166" y="-90" width="95" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="PjNXBBbHARn_HDo8mcbn-3" value="" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="-141" y="119" width="74" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="PjNXBBbHARn_HDo8mcbn-4" value="r2-2nmt23" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=16;" parent="1" vertex="1">
+          <mxGeometry x="-58" y="145" width="95" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="PjNXBBbHARn_HDo8mcbn-8" value="" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="166" y="119" width="74" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="PjNXBBbHARn_HDo8mcbn-9" value="r2-1co928o" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=16;" parent="1" vertex="1">
+          <mxGeometry x="257" y="145" width="95" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="puaa9dSUq1PWv7Cgg6J2-1" value="" style="sketch=0;html=1;aspect=fixed;strokeColor=none;shadow=0;align=center;fillColor=#2D9C5E;verticalAlign=top;labelPosition=center;verticalLabelPosition=bottom;shape=mxgraph.gcp2.check" vertex="1" parent="1">
+          <mxGeometry x="-48" y="179" width="43.75" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="puaa9dSUq1PWv7Cgg6J2-3" value="" style="shape=mxgraph.mockup.markup.redX;fillColor=#ff0000;html=1;shadow=0;whiteSpace=wrap;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="257" y="180" width="31" height="34" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
