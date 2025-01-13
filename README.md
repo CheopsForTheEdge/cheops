@@ -1,11 +1,23 @@
 # Cheops
 
-Cheops turns a monolitic application into a geo-distributed service
-automatically synchronized and redundant by replicating all user operations to
-eventually converge to the same state. It is assumed that operations are always
-associated to a specific resource. Cheops gives the possibility to specify the
-exact distribution of each resource manually so that operators can define how
-they want them to be spread.
+Cheops is a service that turns your monolitic cloud application into a geo-distributed service.
+
+The idea is to let Cheops handle the task of synchronizing and replicating
+your application resources (in the sense of REST).
+
+The user will interact with Cheops to perform **operations** on **resources**,
+and Cheops will then interact with replicas of your application to make sure
+that all resource copies eventually converge to the same state.
+
+It is assumed that operations are always associated to a specific resource.
+Cheops gives the possibility to specify the exact distribution of each resource
+manually so that operators can define how they want them to be spread.
+
+Cheops is a research prototype and does not claim to be production-ready.
+See [Publications](#publications) and [Cheops for the edge website](https://cheops-for-the-edge-discovery-e233bd9558e1939580edccc727171f286.gitlabpages.inria.fr/)
+for more information on the research background.
+
+# Repository
 
 The repo is being maintained with Acme, and as such some Acme-specific
 artifacts will exist:
