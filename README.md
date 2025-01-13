@@ -24,7 +24,7 @@ See the [LICENSE](./LICENSE) document for the full text
 
 Here's a top-level view of how Cheops is built
 
-![Architecture](./cheops-1.svg)
+![Architecture](./report-assets/cheops-high-level.png)
 
 Cheops organizes independent nodes with fluctuant networking and availability
 conditions, represented by the boxes above. Each node has 3 elements: a CouchDB
@@ -76,7 +76,7 @@ good primitives for concurrent jobs and synchronization work.
 
 Here's a schema showing more details about how Cheops is organized:
 
-![Cheops](./cheops-2.svg)
+![Cheops](./report-assets/inside-cheops.png)
 
 There are 3 main parts: the API, the Replicator and the Backends
 
