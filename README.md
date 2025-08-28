@@ -460,8 +460,8 @@ The goal of Cheops is to make it more generic, and with more
 functionalities.
 
 Cheops work is supported by [Inria](https://www.inria.fr/),
-[IMT Atlantique](https://www.imt-atlantique.fr/) and
-[Orange Labs](https://www.orange.com/).
+[IMT Atlantique](https://www.imt-atlantique.fr/),
+[Orange Labs](https://www.orange.com/) as well as the [OTPaaS project](https://otpaas.fr/le-projet-otpaas/).
 
 [Cheops OpenInfra 2022 Video presentation](https://www.youtube.com/watch?app=desktop&v=7EZ63DMRJhc)
 
@@ -490,6 +490,8 @@ Cheops work is supported by [Inria](https://www.inria.fr/),
 
 - [ICFEC 2024]
   - [Preprint](https://inria.hal.science/hal-04522961): Geo Johns Antony, Marie Delavergne, Adrien Lebre, Matthieu Rakotojaona Rainimangavelo. Thinking out of replication for geo-distributing applications: the sharding case. ICFEC 2024 - 8th IEEE International Conference on Fog and Edge Computing, May 2024, Philadelphia, United States. pp.1-8. ⟨hal-04522961⟩
+
+- [Research Report, 2024](https://inria.hal.science/hal-04886168): Geo Johns Antony, Marie Delavergne, Matthieu Rakotojaona Rainimangavelo, Baptiste Jonglez. An update on Cheops: new implementation report. RT-0524, Inria. 2024. ⟨hal-04886168v2⟩
 
 # Chephren
 
